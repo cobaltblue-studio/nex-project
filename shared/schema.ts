@@ -11,6 +11,8 @@ export const profiles = pgTable("profiles", {
   userId: varchar("user_id").references(() => users.id).notNull().unique(),
   username: text("username").notNull().unique(),
   bio: text("bio"),
+  country: text("country"),
+  aiToolUsed: text("ai_tool_used"),
   role: text("role").default("listener").notNull(), // "listener", "nex", "founder"
   nexNumber: integer("nex_number"),
   totalScore: doublePrecision("total_score").default(0).notNull(),
