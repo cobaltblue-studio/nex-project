@@ -1,97 +1,64 @@
-import { profiles, works, type Profile, type InsertProfile, type Work, type InsertWork } from "@shared/schema";
+import { profiles, tracks, likes, votes, type Profile, type Track } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // Profiles
   getProfileByUserId(userId: string): Promise<Profile | undefined>;
-  getProfile(id: number): Promise<Profile | undefined>;
-  getProfiles(league?: string): Promise<Profile[]>;
-  createProfile(profile: InsertProfile & { userId: string }): Promise<Profile>;
-  
-  // Works
-  getWorks(type?: string, creatorId?: number, limit?: number): Promise<(Work & { creator: Profile })[]>;
-  getWork(id: number): Promise<(Work & { creator: Profile }) | undefined>;
-  createWork(work: InsertWork): Promise<Work>;
+  getProfile(id: number): Promise<(Profile & { tracks: Track[] }) | undefined>;
+  getTracks(filter: { status?: string; featured?: boolean; limit?: number }): Promise<any[]>;
+  getTrack(id: number): Promise<any | undefined>;
+  createTrack(track: any): Promise<Track>;
+  voteTrack(userId: string, trackId: number): Promise<void>;
+  likeTrack(userId: string, trackId: number): Promise<void>;
+  updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
   async getProfileByUserId(userId: string): Promise<Profile | undefined> {
-    const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId));
-    return profile;
+    const [p] = await db.select().from(profiles).where(eq(profiles.userId, userId));
+    return p;
   }
-
-  async getProfile(id: number): Promise<Profile | undefined> {
-    const [profile] = await db.select().from(profiles).where(eq(profiles.id, id));
-    return profile;
+  async getProfile(id: number): Promise<(Profile & { tracks: Track[] }) | undefined> {
+    const [p] = await db.select().from(profiles).where(eq(profiles.id, id));
+    if (!p) return undefined;
+    const t = await db.select().from(tracks).where(eq(tracks.creatorId, id));
+    return { ...p, tracks: t };
   }
-
-  async getProfiles(league?: string): Promise<Profile[]> {
-    let query = db.select().from(profiles).$dynamic();
-    
-    if (league) {
-      query = query.where(eq(profiles.league, league));
+  async getTracks({ status, featured, limit }: { status?: string; featured?: boolean; limit?: number }): Promise<any[]> {
+    let q = db.select({ track: tracks, creator: profiles }).from(tracks).innerJoin(profiles, eq(tracks.creatorId, profiles.id)).$dynamic();
+    let filters = [];
+    if (status) filters.push(eq(tracks.status, status));
+    if (featured) filters.push(eq(tracks.isFeatured, true));
+    if (filters.length) q = q.where(and(...filters));
+    q = q.orderBy(desc(tracks.neoScore));
+    if (limit) q = q.limit(limit);
+    return (await q).map(r => ({ ...r.track, creator: r.creator }));
+  }
+  async getTrack(id: number): Promise<any | undefined> {
+    const [r] = await db.select({ track: tracks, creator: profiles }).from(tracks).innerJoin(profiles, eq(tracks.creatorId, profiles.id)).where(eq(tracks.id, id));
+    return r ? { ...r.track, creator: r.creator } : undefined;
+  }
+  async createTrack(t: any): Promise<Track> {
+    const [nt] = await db.insert(tracks).values(t).returning();
+    return nt;
+  }
+  async voteTrack(userId: string, trackId: number): Promise<void> {
+    await db.insert(votes).values({ userId, trackId });
+    await db.update(tracks).set({ 
+      listenerVotes: sql`${tracks.listenerVotes} + 1`,
+      neoScore: sql`(${tracks.aiCraftScore} * 0.7) + ((${tracks.listenerVotes} + 1) * 0.3)`
+    }).where(eq(tracks.id, trackId));
+  }
+  async likeTrack(userId: string, trackId: number): Promise<void> {
+    await db.insert(likes).values({ userId, trackId }).onConflictDoNothing();
+  }
+  async updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void> {
+    const set: any = { status };
+    if (aiCraftScore !== undefined) {
+      set.aiCraftScore = aiCraftScore;
+      set.neoScore = sql`(${aiCraftScore} * 0.7) + (${tracks.listenerVotes} * 0.3)`;
     }
-    
-    return await query.orderBy(desc(profiles.aiCraftScore));
-  }
-
-  async createProfile(profile: InsertProfile & { userId: string }): Promise<Profile> {
-    const [newProfile] = await db.insert(profiles).values(profile).returning();
-    return newProfile;
-  }
-
-  async getWorks(type?: string, creatorId?: number, limit?: number): Promise<(Work & { creator: Profile })[]> {
-    // We do a manual join or two queries. Drizzle makes it easy with relational queries if configured, 
-    // but here we can just use a join or fetch profiles separately.
-    let query = db.select({
-      work: works,
-      creator: profiles,
-    })
-    .from(works)
-    .innerJoin(profiles, eq(works.creatorId, profiles.id))
-    .orderBy(desc(works.totalAiCraftScore))
-    .$dynamic();
-
-    if (type) {
-      query = query.where(eq(works.workType, type));
-    }
-
-    if (creatorId) {
-      query = query.where(eq(works.creatorId, creatorId));
-    }
-
-    if (limit) {
-      query = query.limit(limit);
-    }
-
-    const rows = await query;
-    return rows.map(row => ({
-      ...row.work,
-      creator: row.creator
-    }));
-  }
-
-  async getWork(id: number): Promise<(Work & { creator: Profile }) | undefined> {
-    const rows = await db.select({
-      work: works,
-      creator: profiles,
-    })
-    .from(works)
-    .innerJoin(profiles, eq(works.creatorId, profiles.id))
-    .where(eq(works.id, id));
-
-    if (rows.length === 0) return undefined;
-    
-    return {
-      ...rows[0].work,
-      creator: rows[0].creator
-    };
-  }
-
-  async createWork(work: InsertWork): Promise<Work> {
-    const [newWork] = await db.insert(works).values(work).returning();
-    return newWork;
+    await db.update(tracks).set(set).where(eq(tracks.id, id));
   }
 }
 
