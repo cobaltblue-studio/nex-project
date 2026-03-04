@@ -30,9 +30,10 @@ export class DatabaseStorage implements IStorage {
     if (status) filters.push(eq(tracks.status, status));
     if (featured) filters.push(eq(tracks.isFeatured, true));
     if (filters.length) q = q.where(and(...filters));
-    q = q.orderBy(desc(tracks.neoScore));
+    q = q.orderBy(desc(tracks.listenerVotes));
     if (limit) q = q.limit(limit);
-    return (await q).map(r => ({ ...r.track, creator: r.creator }));
+    const results = await q;
+    return results.map(r => ({ ...r.track, creator: r.creator }));
   }
   async getTrack(id: number): Promise<any | undefined> {
     const [r] = await db.select({ track: tracks, creator: profiles }).from(tracks).innerJoin(profiles, eq(tracks.creatorId, profiles.id)).where(eq(tracks.id, id));

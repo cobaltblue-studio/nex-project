@@ -34,14 +34,25 @@ export function MusicRow({ track, rank }: MusicRowProps) {
 
       <div className="flex items-center gap-6">
         <div className="text-right min-w-[60px]">
-          <p className="text-[10px] font-display font-bold text-white neon-text">{track.neoScore.toFixed(1)}</p>
+          <p className="text-[10px] font-display font-bold text-white neon-text">{track.listenerVotes} VOTES</p>
         </div>
 
-        <Link href={`/track/${track.id}`}>
-          <button className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-sm hover:bg-primary hover:text-black hover:border-primary transition-all">
-            <Play className="w-3.5 h-3.5 fill-current" />
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              // Vote logic would go here
+            }}
+            className="px-3 py-1 border border-primary/30 text-primary text-[8px] font-bold uppercase tracking-widest hover:bg-primary/10 rounded-sm transition-all"
+          >
+            Vote
           </button>
-        </Link>
+          <Link href={`/track/${track.id}`}>
+            <button className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-sm hover:bg-primary hover:text-black hover:border-primary transition-all">
+              <Play className="w-3.5 h-3.5 fill-current" />
+            </button>
+          </Link>
+        </div>
       </div>
     </motion.div>
   );
