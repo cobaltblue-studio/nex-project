@@ -15,12 +15,14 @@ export const api = {
   profiles: {
     me: { method: "GET" as const, path: "/api/profiles/me" as const, responses: { 200: z.custom<typeof profiles.$inferSelect>(), 404: errorSchemas.notFound } },
     get: { method: "GET" as const, path: "/api/profiles/:id" as const, responses: { 200: z.custom<typeof profiles.$inferSelect & { tracks: any[] }>(), 404: errorSchemas.notFound } },
+    list: { method: "GET" as const, path: "/api/profiles" as const, responses: { 200: z.array(z.custom<typeof profiles.$inferSelect>()) } },
+    create: { method: "POST" as const, path: "/api/profiles" as const, input: insertProfileSchema, responses: { 201: z.custom<typeof profiles.$inferSelect>(), 400: errorSchemas.validation, 401: errorSchemas.unauthorized } },
   },
   tracks: {
     list: { 
       method: "GET" as const, 
       path: "/api/tracks" as const, 
-      input: z.object({ status: z.string().optional(), featured: z.boolean().optional(), limit: z.coerce.number().optional() }).optional(),
+      input: z.object({ status: z.string().optional(), featured: z.boolean().optional(), limit: z.coerce.number().optional(), type: z.string().optional(), creatorId: z.string().optional() }).optional(),
       responses: { 200: z.array(z.any()) } 
     },
     get: { method: "GET" as const, path: "/api/tracks/:id" as const, responses: { 200: z.any(), 404: errorSchemas.notFound } },
@@ -42,3 +44,11 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
+
+export type ProfileResponse = z.infer<typeof api.profiles.get.responses[200]>;
+export type ProfileListResponse = z.infer<typeof api.profiles.list.responses[200]>;
+export type ProfileCreateInput = z.infer<typeof api.profiles.create.input>;
+
+export type TrackResponse = z.infer<typeof api.tracks.get.responses[200]>;
+export type TrackListResponse = z.infer<typeof api.tracks.list.responses[200]>;
+export type TrackCreateInput = z.infer<typeof api.tracks.create.input>;

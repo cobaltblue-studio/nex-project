@@ -13,7 +13,7 @@ import { Home } from "@/pages/Home";
 import { Join } from "@/pages/Join";
 import { ProfileMe } from "@/pages/ProfileMe";
 import { ProfileDetail } from "@/pages/ProfileDetail";
-import { WorkDetail } from "@/pages/WorkDetail";
+import { TrackDetail } from "@/pages/WorkDetail";
 import { Submit } from "@/pages/Submit";
 
 function Router() {
@@ -26,7 +26,7 @@ function Router() {
         <Route path="/submit" component={Submit} />
         <Route path="/profile/me" component={ProfileMe} />
         <Route path="/profile/:id" component={ProfileDetail} />
-        <Route path="/work/:id" component={WorkDetail} />
+        <Route path="/track/:id" component={TrackDetail} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

@@ -21,10 +21,15 @@ export function Submit() {
     workType: "image",
   });
 
+  useEffect(() => {
+    if (!authLoading && !profileLoading && !isAuthenticated) {
+      navigate("/join");
+    }
+  }, [isAuthenticated, authLoading, profileLoading, navigate]);
+
   if (authLoading || profileLoading) return <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>;
 
   if (!isAuthenticated) {
-    navigate("/join");
     return null;
   }
 
