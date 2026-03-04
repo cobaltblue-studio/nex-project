@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { Profile, Track } from "@shared/schema";
-import { Youtube, Play } from "lucide-react";
+import { Youtube } from "lucide-react";
 import { Link } from "wouter";
 
 interface MVCardProps {
@@ -31,19 +31,17 @@ export function MVCard({ track, index }: MVCardProps) {
 
           <div className="p-4 flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+              <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-zinc-500">
                 <span className="text-primary/70">NEX #{track.creator.nexNumber || '??'}</span>
-                <span>•</span>
-                <span>{track.aiTool}</span>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-display font-bold text-white neon-text">{track.neoScore.toFixed(1)}</p>
+              <p className="text-[10px] font-display font-bold text-white neon-text">{track.neoScore.toFixed(1)}</p>
             </div>
           </div>
           
           <div className="px-4 pb-4">
-            <button className="w-full py-2 border border-red-500/30 text-red-500 text-[9px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2">
+            <button className="w-full py-2 border border-red-500 text-red-500 text-[9px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2">
               Watch MV
             </button>
           </div>

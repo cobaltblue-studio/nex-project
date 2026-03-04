@@ -52,17 +52,15 @@ export function Home() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-20 pb-20">
+      {/* COMPACT HERO SECTION */}
       {isHome && (
-        <section className="relative py-20 border-b border-white/5">
-          <div className="flex justify-between items-start">
-            <div className="space-y-4">
-              <h1 className="text-8xl md:text-9xl font-display font-bold text-white tracking-tighter uppercase">NEO</h1>
-              <div className="space-y-1">
-                <p className="text-primary font-bold uppercase tracking-[0.4em] text-sm">AI Music is NEO.</p>
-                <p className="text-zinc-500 uppercase tracking-widest text-[10px]">Welcome to the league.</p>
-              </div>
+        <section className="relative py-12 border-b border-white/5">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="text-center md:text-left">
+              <h1 className="text-6xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none">NEO</h1>
+              <p className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] mt-2">AI Music is NEO.</p>
             </div>
-            <button onClick={startRadio} className="flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-3 rounded-sm hover:bg-primary hover:text-black transition-all group">
+            <button onClick={startRadio} className="flex items-center gap-3 bg-primary text-black px-8 py-3 rounded-sm hover:brightness-110 transition-all group">
               <Radio className="w-4 h-4 group-hover:animate-pulse" />
               <span className="text-[10px] font-bold uppercase tracking-widest">Start Radio</span>
             </button>
@@ -130,10 +128,10 @@ export function Home() {
             <div className="space-y-8">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary border-b border-primary/20 pb-4">Music — Top 50</h3>
               <div className="space-y-1 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
-                {musicTracks.slice(0, 50).map((track, idx) => (
-                  <MusicRow key={track.id} track={track} rank={idx + 1} />
-                ))}
-              </div>
+              {musicTracks.slice(0, 50).map((track, idx) => (
+                <MusicRow key={track.id} track={track} rank={idx + 1} />
+              ))}
+            </div>
             </div>
             <div className="space-y-8">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary border-b border-primary/20 pb-4">Music Video — Top 50</h3>
