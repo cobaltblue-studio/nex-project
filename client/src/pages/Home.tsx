@@ -13,7 +13,7 @@ export function Home() {
 
   // Filter Logic for Top 10 and Top 50
   const musicTracks = useMemo(() => 
-    (tracks || []).filter(t => t.genre !== "Music Video").sort((a, b) => b.neoScore - a.neoScore)
+    (tracks || []).sort((a, b) => b.listenerVotes - a.listenerVotes)
   , [tracks]);
 
   const mvTracks = useMemo(() => 

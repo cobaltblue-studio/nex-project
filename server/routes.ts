@@ -22,7 +22,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get(api.tracks.list.path, async (req, res) => {
     const ts = await storage.getTracks({
-      status: req.query.status as string || "PUBLISHED",
+      status: req.query.status as string || undefined,
       featured: req.query.featured === "true",
       limit: req.query.limit ? Number(req.query.limit) : undefined
     });
