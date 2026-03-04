@@ -1,78 +1,82 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { profiles, works, users } from "@shared/schema";
+import { users } from "@shared/schema";
 
-export async function seedDatabase() {
-  const existingProfiles = await storage.getProfiles();
-  if (existingProfiles.length > 0) return;
+async function seed() {
+  console.log("Seeding NEO database...");
+  
+  try {
+    // 1. Create Mock Users first to satisfy foreign key constraints
+    const mockUsers = [
+      { id: "founder_id", username: "neo_founder", email: "founder@neo.ai" },
+      { id: "user_nex_1", username: "nex_1", email: "nex1@neo.ai" },
+      { id: "user_nex_2", username: "nex_2", email: "nex2@neo.ai" },
+      { id: "user_nex_3", username: "nex_3", email: "nex3@neo.ai" },
+      { id: "user_nex_4", username: "nex_4", email: "nex4@neo.ai" },
+      { id: "user_nex_5", username: "nex_5", email: "nex5@neo.ai" },
+    ];
 
-  console.log("Seeding database with demo data...");
+    for (const u of mockUsers) {
+      await db.insert(users).values({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+      }).onConflictDoNothing();
+    }
 
-  const demoUsers = [
-    { id: "user_1", username: "AetherVox", email: "aether@neo.ai" },
-    { id: "user_2", username: "NeuralNexus", email: "nexus@neo.ai" },
-    { id: "user_3", username: "SynthWave_AI", email: "synth@neo.ai" },
-    { id: "user_4", username: "PromptMaster", email: "master@neo.ai" },
-    { id: "user_5", username: "Visionary_01", email: "vision@neo.ai" },
-    { id: "user_6", username: "DeepFlow", email: "flow@neo.ai" },
-    { id: "user_7", username: "CyborgDream", email: "dream@neo.ai" },
-    { id: "user_8", username: "LogicGate", email: "logic@neo.ai" },
-    { id: "user_9", username: "GlitchArt", email: "glitch@neo.ai" },
-    { id: "user_10", username: "ZenithAI", email: "zenith@neo.ai" },
-  ];
-
-  for (const u of demoUsers) {
-    await db.insert(users).values({
-      id: u.id,
-      email: u.email,
-      firstName: u.username,
-    }).onConflictDoNothing();
-
-    const score = Math.floor(Math.random() * 30) + 65; // 65-95
-    let league = "Spark";
-    if (score >= 85) league = "Ascendant";
-    else if (score >= 75) league = "Core";
-
-    await storage.createProfile({
-      userId: u.id,
-      username: u.username,
-      bio: `Leading NEX creator specializing in ${league} level AI craft.`,
-      aiCraftScore: score,
-      league: league,
-      isVerified: Math.random() > 0.5,
+    // 2. Create Founder Profile
+    const founder = await storage.createProfile({
+      userId: "founder_id",
+      username: "NEO_FOUNDER",
+      bio: "Architect of the NEO Sound. Deciding the future of AI music.",
+      role: "founder",
+      isVerified: true
     });
-  }
 
-  const createdProfiles = await storage.getProfiles();
-  const tools = ["Midjourney", "Suno AI", "Runway Gen-2", "Claude 3.5", "Stable Diffusion"];
-  const categories = ["image", "music", "music_video", "vertical_video"];
-
-  for (let i = 1; i <= 30; i++) {
-    const creator = createdProfiles[Math.floor(Math.random() * createdProfiles.length)];
-    const type = categories[Math.floor(Math.random() * categories.length)];
-    const tool = tools[Math.floor(Math.random() * tools.length)];
+    // 3. Create 5 NEX Creators
+    const creators = [];
+    const genres = ["Cyberpunk Pop", "Glitch Hop", "Neo-Classical", "Synthwave", "Ambient AI"];
     
-    const eng = Math.floor(Math.random() * 40) + 60;
-    const tech = Math.floor(Math.random() * 40) + 60;
-    const depth = Math.floor(Math.random() * 40) + 60;
-    const vel = Math.floor(Math.random() * 40) + 60;
-    
-    const total = Math.floor((eng * 0.3) + (tech * 0.3) + (depth * 0.2) + (vel * 0.2));
+    for (let i = 1; i <= 5; i++) {
+      const creator = await storage.createProfile({
+        userId: `user_nex_${i}`,
+        username: `NEX_UNIT_${i}`,
+        bio: `Experimental AI entity specializing in ${genres[i-1]}.`,
+        role: "nex",
+        nexNumber: i,
+        isVerified: true
+      });
+      creators.push(creator);
+    }
 
-    await storage.createWork({
-      creatorId: creator.id,
-      title: `Project ${String.fromCharCode(64 + (i % 26))}${i}`,
-      prompt: `Experimental ${type} generation using ${tool}. High fidelity, cinematic lighting, intricate details.`,
-      aiTool: tool,
-      modelVersion: "v4.0",
-      workType: type,
-      engagementScore: eng,
-      technicalQualityScore: tech,
-      promptDepthScore: depth,
-      trendVelocityScore: vel,
-      totalAiCraftScore: total,
-    });
+    // 4. Create Tracks for each NEX
+    const tracksData = [
+      { title: "Silicon Soul", genre: "Cyberpunk Pop", aiTool: "Suno v3.5", lyrics: "Neon lights, digital dreams... searching for a soul in the machine." },
+      { title: "Ghost Circuit", genre: "Glitch Hop", aiTool: "Udio", lyrics: "[Instrumental Breakdown] Binary echoes in the void." },
+      { title: "Neural Symphony", genre: "Neo-Classical", aiTool: "Stable Audio", lyrics: "Harmonies computed in real-time." },
+      { title: "Void Walker", genre: "Synthwave", aiTool: "Suno v3.5", lyrics: "Riding the grid, faster than light." },
+      { title: "Static Grace", genre: "Ambient AI", aiTool: "Udio", lyrics: "Peaceful algorithms." }
+    ];
+
+    for (let i = 0; i < creators.length; i++) {
+      const track = await storage.createTrack({
+        creatorId: creators[i].id,
+        title: tracksData[i].title,
+        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+        mvUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        aiTool: tracksData[i].aiTool,
+        genre: tracksData[i].genre,
+        lyrics: tracksData[i].lyrics
+      });
+
+      // Auto-approve and score for seed
+      await storage.updateTrackStatus(track.id, "PUBLISHED", 85 + Math.random() * 10);
+    }
+
+    console.log("Seeding complete.");
+  } catch (err) {
+    console.error("Seeding failed:", err);
   }
-
-  console.log("Database seeded successfully.");
 }
+
+seed().catch(console.error);

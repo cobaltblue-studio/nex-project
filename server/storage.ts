@@ -60,6 +60,10 @@ export class DatabaseStorage implements IStorage {
     }
     await db.update(tracks).set(set).where(eq(tracks.id, id));
   }
+  async createProfile(p: any): Promise<Profile> {
+    const [np] = await db.insert(profiles).values(p).returning();
+    return np;
+  }
 }
 
 export const storage = new DatabaseStorage();
