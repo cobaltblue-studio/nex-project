@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useWorks } from "@/hooks/use-works";
 import { WorkCard } from "@/components/WorkCard";
-import { Filter, Loader2 } from "lucide-react";
+import { Filter, Loader2, TrendingUp, Music, Video, Image as ImageIcon } from "lucide-react";
 import { clsx } from "clsx";
 
 export function Home() {
@@ -10,38 +10,43 @@ export function Home() {
   const { data: works, isLoading } = useWorks(filter);
 
   const categories = [
-    { id: "", label: "All Works" },
-    { id: "image", label: "Image" },
-    { id: "music", label: "Music" },
-    { id: "music_video", label: "Music Video" },
-    { id: "vertical_video", label: "Vertical Video" },
+    { id: "", label: "Global", icon: TrendingUp },
+    { id: "image", label: "Image", icon: ImageIcon },
+    { id: "music", label: "Music", icon: Music },
+    { id: "vertical_video", label: "Vertical", icon: Video },
+    { id: "music_video", label: "Cinema", icon: Video },
   ];
 
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-8"
+      className="space-y-12"
     >
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/10 pb-6">
-        <div>
-          <h1 className="text-4xl md:text-6xl font-display font-bold neon-text text-white">NEO BOARD</h1>
-          <p className="text-muted-foreground font-sans mt-2 tracking-wide text-sm uppercase">Authority ranking layer for AI creators</p>
+      <header className="space-y-8">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-primary">
+            <div className="w-8 h-px bg-primary/30" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em]">NEO BOARD v1.0</span>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-display font-bold text-white tracking-tighter">
+            RANKINGS
+          </h1>
         </div>
         
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          <Filter className="w-4 h-4 text-muted-foreground mr-2" />
+        <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide border-b border-white/5">
           {categories.map(cat => (
             <button
               key={cat.id}
               onClick={() => setFilter(cat.id)}
               className={clsx(
-                "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all duration-300",
+                "flex items-center gap-2 px-6 py-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all duration-300 border",
                 filter === cat.id 
-                  ? "bg-primary text-black shadow-[0_0_15px_rgba(0,240,255,0.4)]" 
-                  : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                  ? "bg-primary border-primary text-black shadow-[0_0_20px_rgba(0,240,255,0.3)]" 
+                  : "bg-transparent border-white/10 text-zinc-500 hover:text-white hover:border-white/30"
               )}
             >
+              <cat.icon className="w-3.5 h-3.5" />
               {cat.label}
             </button>
           ))}
@@ -49,20 +54,17 @@ export function Home() {
       </header>
 
       {isLoading ? (
-        <div className="py-20 flex flex-col items-center justify-center text-primary">
-          <Loader2 className="w-12 h-12 animate-spin mb-4" />
-          <p className="font-mono text-sm tracking-widest uppercase animate-pulse">Computing Ranks...</p>
+        <div className="py-32 flex flex-col items-center justify-center">
+          <Loader2 className="w-10 h-10 animate-spin text-primary mb-6" />
+          <p className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase animate-pulse">Syncing Chain Data</p>
         </div>
       ) : !works || works.length === 0 ? (
-        <div className="glass-card rounded-2xl p-12 text-center border-dashed border-white/20">
-          <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Filter className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-xl font-bold mb-2">No works found</h3>
-          <p className="text-muted-foreground text-sm">Be the first to submit a work in this category.</p>
+        <div className="border border-white/5 bg-white/5 rounded-sm p-20 text-center border-dashed">
+          <h3 className="text-lg font-display font-bold uppercase tracking-widest text-zinc-500">No entries detected</h3>
+          <p className="text-zinc-600 text-xs mt-2 uppercase tracking-widest">Connect your NEX profile to submit</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {works.map((work, idx) => (
             <WorkCard key={work.id} work={work} index={idx} />
           ))}

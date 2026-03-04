@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useMe } from "@/hooks/use-profiles";
 import { useCreateWork } from "@/hooks/use-works";
-import { Loader2, UploadCloud, AlertCircle } from "lucide-react";
+import { Loader2, UploadCloud, AlertCircle, Info } from "lucide-react";
 import { clsx } from "clsx";
 
 export function Submit() {
@@ -30,11 +30,11 @@ export function Submit() {
 
   if (!profile) {
     return (
-      <div className="text-center py-20">
-        <AlertCircle className="w-16 h-16 text-primary mx-auto mb-6 opacity-50" />
-        <h2 className="text-2xl font-bold font-display uppercase mb-4">Profile Required</h2>
-        <p className="text-muted-foreground mb-8">You must setup your NEX profile before submitting works.</p>
-        <button onClick={() => navigate("/profile/me")} className="bg-primary text-black px-6 py-3 rounded-xl font-bold uppercase tracking-widest hover:scale-105 transition-all">
+      <div className="text-center py-32 border border-white/5 bg-white/5 rounded-sm">
+        <AlertCircle className="w-12 h-12 text-primary mx-auto mb-6 opacity-40" />
+        <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-4">NEX PROFILE REQUIRED</h2>
+        <p className="text-zinc-500 mb-10 text-xs uppercase tracking-[0.2em]">Initialize your presence before data transmission</p>
+        <button onClick={() => navigate("/profile/me")} className="bg-primary text-black px-10 py-4 rounded-sm font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(0,240,255,0.3)]">
           Setup Profile
         </button>
       </div>
@@ -49,105 +49,116 @@ export function Submit() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
-      <header className="mb-10 text-center">
-        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-primary/30 neon-border">
-          <UploadCloud className="w-8 h-8 text-primary" />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto py-8">
+      <header className="mb-14 space-y-4">
+        <div className="flex items-center gap-3 text-primary">
+          <div className="w-8 h-px bg-primary/30" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em]">NEX REPOSITORY SUBMISSION</span>
         </div>
-        <h1 className="text-4xl font-display font-bold text-white uppercase tracking-wider">Submit Work</h1>
-        <p className="text-muted-foreground mt-2">Your work will be evaluated by the AI Craft Engine.</p>
+        <h1 className="text-5xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none">Initialize<br />Evaluation</h1>
       </header>
 
-      <form onSubmit={handleSubmit} className="glass-card p-6 md:p-10 rounded-3xl space-y-6 relative overflow-hidden">
-        
-        {/* Fancy Background glow in form */}
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
-
-        <div className="space-y-2 relative z-10">
-          <label className="text-xs font-bold uppercase tracking-widest text-primary">Title</label>
-          <input
-            required
-            type="text"
-            className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-            placeholder="E.g. Cybernetic Dreams"
-            value={formData.title}
-            onChange={e => setFormData({ ...formData, title: e.target.value })}
-          />
-        </div>
-
-        <div className="space-y-2 relative z-10">
-          <label className="text-xs font-bold uppercase tracking-widest text-primary">Full Prompt</label>
-          <textarea
-            required
-            rows={4}
-            className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none font-mono text-sm"
-            placeholder="Paste the exact prompt used..."
-            value={formData.prompt}
-            onChange={e => setFormData({ ...formData, prompt: e.target.value })}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-primary">AI Tool</label>
-            <select
-              className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-all appearance-none"
-              value={formData.aiTool}
-              onChange={e => setFormData({ ...formData, aiTool: e.target.value })}
-            >
-              <option value="Midjourney">Midjourney</option>
-              <option value="Suno">Suno AI</option>
-              <option value="Runway">Runway Gen-2</option>
-              <option value="Claude">Claude</option>
-              <option value="ChatGPT">ChatGPT</option>
-            </select>
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-12">
+        <section className="bg-[#0A0A0A] border border-white/5 p-8 md:p-12 rounded-sm relative overflow-hidden space-y-8">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-[60px] pointer-events-none" />
           
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-primary">Model Version</label>
-            <input
-              required
-              type="text"
-              className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-all"
-              placeholder="E.g. v6.0 or Opus"
-              value={formData.modelVersion}
-              onChange={e => setFormData({ ...formData, modelVersion: e.target.value })}
-            />
-          </div>
-        </div>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Work Title</label>
+              <input
+                required
+                type="text"
+                className="w-full bg-black border border-white/10 rounded-sm px-4 py-4 text-white focus:outline-none focus:border-primary transition-all font-sans text-lg font-bold placeholder:text-zinc-800"
+                placeholder="E.G. CYBERNETIC DREAMS"
+                value={formData.title}
+                onChange={e => setFormData({ ...formData, title: e.target.value })}
+              />
+            </div>
 
-        <div className="space-y-2 relative z-10">
-          <label className="text-xs font-bold uppercase tracking-widest text-primary">Category</label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Neural Prompt (Metadata)</label>
+              <textarea
+                required
+                rows={6}
+                className="w-full bg-black border border-white/10 rounded-sm px-4 py-4 text-white focus:outline-none focus:border-primary transition-all resize-none font-mono text-sm placeholder:text-zinc-800"
+                placeholder="Paste the exact prompt used for evaluation..."
+                value={formData.prompt}
+                onChange={e => setFormData({ ...formData, prompt: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">AI Architecture</label>
+              <select
+                className="w-full bg-black border border-white/10 rounded-sm px-4 py-4 text-white focus:outline-none focus:border-primary transition-all appearance-none font-bold uppercase tracking-widest text-xs"
+                value={formData.aiTool}
+                onChange={e => setFormData({ ...formData, aiTool: e.target.value })}
+              >
+                <option value="Midjourney">Midjourney</option>
+                <option value="Suno">Suno AI</option>
+                <option value="Runway">Runway Gen-2</option>
+                <option value="Claude">Claude</option>
+                <option value="ChatGPT">ChatGPT</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Version Sync</label>
+              <input
+                required
+                type="text"
+                className="w-full bg-black border border-white/10 rounded-sm px-4 py-4 text-white focus:outline-none focus:border-primary transition-all font-mono text-xs uppercase"
+                placeholder="E.G. V6.0"
+                value={formData.modelVersion}
+                onChange={e => setFormData({ ...formData, modelVersion: e.target.value })}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Classification</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { id: 'image', label: 'Image' },
-              { id: 'music', label: 'Music' },
-              { id: 'vertical_video', label: 'Vertical Video' },
-              { id: 'music_video', label: 'Music Video' }
+              { id: 'music', label: 'Audio' },
+              { id: 'vertical_video', label: 'Vertical' },
+              { id: 'music_video', label: 'Cinema' }
             ].map(type => (
               <button
                 key={type.id}
                 type="button"
                 onClick={() => setFormData({ ...formData, workType: type.id })}
                 className={clsx(
-                  "py-3 px-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all duration-300",
+                  "py-4 px-4 rounded-sm text-[10px] font-bold uppercase tracking-[0.2em] border transition-all duration-300",
                   formData.workType === type.id 
-                    ? "bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(0,240,255,0.2)]" 
-                    : "bg-white/5 border-transparent text-muted-foreground hover:bg-white/10"
+                    ? "bg-primary/10 border-primary text-primary shadow-[0_0_15px_rgba(0,240,255,0.1)]" 
+                    : "bg-transparent border-white/5 text-zinc-600 hover:text-white hover:border-white/20"
                 )}
               >
                 {type.label}
               </button>
             ))}
           </div>
+        </section>
+
+        <div className="flex items-start gap-4 p-6 bg-blue-500/5 border border-blue-500/10 rounded-sm">
+          <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-blue-400/80 leading-relaxed uppercase tracking-widest">
+            AI Craft Engine will evaluate Engagement, Quality, Depth, and Velocity.
+            Initial score will be generated upon transmission.
+          </p>
         </div>
 
         <button
           type="submit"
           disabled={createWork.isPending}
-          className="w-full mt-8 bg-primary text-black font-display font-bold text-xl uppercase tracking-widest py-4 rounded-xl hover:bg-white hover:text-black transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] relative z-10"
+          className="w-full bg-primary text-black font-display font-bold text-xl uppercase tracking-widest py-6 rounded-sm hover:brightness-110 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_30px_rgba(0,240,255,0.4)] relative group"
         >
-          {createWork.isPending ? "Submitting..." : "Initialize Evaluation"}
+          {createWork.isPending ? "Transmitting..." : "Initialize Neural Link"}
+          <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-10 transition-opacity" />
         </button>
       </form>
     </motion.div>

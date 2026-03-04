@@ -1,69 +1,79 @@
-import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { clsx } from "clsx";
-import type { WorkListResponse } from "@shared/routes";
+import { Profile, Work } from "@shared/schema";
+import { Zap, TrendingUp, Layers } from "lucide-react";
+import { Link } from "wouter";
 
 interface WorkCardProps {
-  work: WorkListResponse[0];
-  index?: number;
+  work: Work & { creator: Profile };
+  index: number;
 }
 
-export function WorkCard({ work, index = 0 }: WorkCardProps) {
+export function WorkCard({ work, index }: WorkCardProps) {
   return (
-    <Link href={`/work/${work.id}`} className="block group">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.05, duration: 0.4 }}
-        className="glass-card rounded-2xl p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:neon-border flex flex-col h-full"
-      >
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex-1 pr-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-bold tracking-widest text-primary/80 uppercase px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5">
-                {work.workType.replace('_', ' ')}
-              </span>
-              <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                {work.aiTool} • {work.modelVersion}
-              </span>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className="group relative"
+    >
+      <Link href={`/work/${work.id}`}>
+        <div className="bg-[#0A0A0A] border border-white/5 rounded-sm overflow-hidden transition-all duration-500 group-hover:border-primary/40 group-hover:shadow-[0_0_30px_rgba(0,240,255,0.1)]">
+          {/* Media Placeholder with Type Icon */}
+          <div className="aspect-[4/5] bg-zinc-900 relative flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+            
+            {/* Minimal Type Indicator */}
+            <div className="absolute top-4 left-4 z-20 px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-bold uppercase tracking-widest text-zinc-300">
+              {work.workType.replace('_', ' ')}
             </div>
-            <h3 className="text-xl md:text-2xl font-bold text-foreground font-display tracking-wide line-clamp-2 group-hover:text-primary transition-colors">
-              {work.title}
-            </h3>
-            <p className="text-sm text-muted-foreground mt-2 font-sans line-clamp-2 opacity-80">
-              {work.prompt}
-            </p>
+
+            {/* AI Tool Tag */}
+            <div className="absolute top-4 right-4 z-20 px-2 py-1 bg-primary/20 backdrop-blur-md border border-primary/30 text-[9px] font-bold uppercase tracking-widest text-primary">
+              {work.aiTool}
+            </div>
+
+            <Zap className="w-12 h-12 text-zinc-800 group-hover:text-primary/20 transition-colors duration-500" />
+            
+            <div className="absolute bottom-6 left-6 right-6 z-20">
+              <h3 className="text-lg font-display font-bold text-white uppercase tracking-tight group-hover:text-primary transition-colors">
+                {work.title}
+              </h3>
+            </div>
           </div>
-          
-          <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-background/50 border border-white/5 min-w-[80px]">
-            <span className="text-xs text-muted-foreground uppercase font-bold mb-1">Score</span>
-            <span className={clsx(
-              "text-3xl font-display font-bold",
-              work.totalAiCraftScore >= 80 ? "text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]" :
-              work.totalAiCraftScore >= 60 ? "text-primary drop-shadow-[0_0_10px_rgba(0,240,255,0.5)]" :
-              "text-foreground"
-            )}>
-              {work.totalAiCraftScore}
-            </span>
+
+          <div className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                  <span className="text-[10px] font-bold text-zinc-400">{work.creator.username[0].toUpperCase()}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white">{work.creator.username}</span>
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{work.creator.league}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[9px] font-bold uppercase tracking-widest text-primary mb-0.5">Craft Score</div>
+                <div className="text-xl font-display font-bold text-white neon-text">{work.totalAiCraftScore}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1">
+              {[
+                { label: 'ENG', val: work.engagementScore },
+                { label: 'QUAL', val: work.technicalQualityScore },
+                { label: 'DEP', val: work.promptDepthScore },
+                { label: 'VEL', val: work.trendVelocityScore }
+              ].map(stat => (
+                <div key={stat.label} className="bg-white/5 p-2 rounded-xs text-center">
+                  <div className="text-[7px] font-bold text-zinc-500 mb-0.5 uppercase">{stat.label}</div>
+                  <div className="text-[10px] font-bold text-zinc-300">{stat.val}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        
-        <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-primary">{work.creator.username.charAt(0).toUpperCase()}</span>
-            </div>
-            <span className="text-sm font-medium text-foreground/80 hover:text-white transition-colors">
-              {work.creator.username}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
-            <span className="text-xs font-mono">Q: {work.technicalQualityScore}</span>
-            <span className="text-xs font-mono">P: {work.promptDepthScore}</span>
-          </div>
-        </div>
-      </motion.div>
-    </Link>
+      </Link>
+    </motion.div>
   );
 }
