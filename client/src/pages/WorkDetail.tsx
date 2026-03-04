@@ -1,7 +1,7 @@
 import { useRoute, Link } from "wouter";
 import { motion } from "framer-motion";
 import { useWork } from "@/hooks/use-works";
-import { Loader2, ArrowLeft, Play, Pause, Vote, Heart, Music, Youtube, Info } from "lucide-react";
+import { Loader2, ArrowLeft, Play, Pause, Vote, Heart, Music, Info } from "lucide-react";
 import { useState } from "react";
 
 export function TrackDetail() {
@@ -14,8 +14,8 @@ export function TrackDetail() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
-      <Link href="/board" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
-        <ArrowLeft className="w-4 h-4" /> Back to Board
+      <Link href="/music" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
+        <ArrowLeft className="w-4 h-4" /> Back to Music
       </Link>
 
       <div className="bg-[#0A0A0A] border border-white/5 p-8 md:p-16 rounded-sm relative overflow-hidden">
@@ -90,11 +90,6 @@ export function TrackDetail() {
                 <span>Model Version</span>
                 <span className="text-white">V1.0 (Stable)</span>
               </div>
-              {track.mvUrl && (
-                <a href={track.mvUrl} target="_blank" className="flex items-center gap-2 text-red-500 hover:text-red-400 transition-colors pt-2">
-                  <Youtube className="w-4 h-4" /> Official Music Video
-                </a>
-              )}
             </div>
           </div>
 

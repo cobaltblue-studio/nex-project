@@ -14,6 +14,7 @@ import { Join } from "@/pages/Join";
 import { ProfileMe } from "@/pages/ProfileMe";
 import { ProfileDetail } from "@/pages/ProfileDetail";
 import { TrackDetail } from "@/pages/WorkDetail";
+import { MVDetail } from "@/pages/MVDetail";
 import { Submit } from "@/pages/Submit";
 
 function Router() {
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/profile/me" component={ProfileMe} />
         <Route path="/profile/:id" component={ProfileDetail} />
         <Route path="/track/:id" component={TrackDetail} />
+        <Route path="/mv/:id" component={MVDetail} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

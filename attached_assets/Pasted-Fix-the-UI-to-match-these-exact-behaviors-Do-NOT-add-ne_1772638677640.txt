@@ -1,0 +1,84 @@
+Fix the UI to match these exact behaviors. Do NOT add new features. Refactor only what’s needed.
+
+PROBLEM SUMMARY:
+- Music detail and Music Video detail are currently the same page.
+- Music list should be Spotify-like LIST (rows), not cards.
+- Music page shows MV buttons incorrectly.
+- Music and Music Video must be visually and functionally different.
+
+================================
+A) ROUTES (must be distinct)
+================================
+Keep:
+- / (Home, combined view)
+- /music (Music-only page)
+- /music-video (MV-only page)
+
+Change details:
+1) Audio track detail page:
+- /track/:id
+- MUST be AUDIO ONLY (no MV embed, no Watch MV button)
+
+2) Music video detail page:
+- /mv/:id   (NEW route)
+- MUST be VIDEO ONLY (YouTube embed player)
+- If mvUrl missing, do not allow opening /mv/:id (show “MV not available” and link back)
+
+================================
+B) LIST VS GRID (different layouts)
+================================
+
+1) MUSIC lists (Spotify-like):
+On Home (Music Top10, Music Top50) and on /music:
+- display as a vertical LIST of ROWS (full width)
+- each row: Rank #, Title, Creator (NEX #), Tool badge, NEO Score, Play button
+- clicking row title opens /track/:id
+- NO “Watch MV” button anywhere in MUSIC list
+
+2) MUSIC VIDEO lists:
+On Home (MV Top10, MV Top50) and on /music-video:
+- display as a GRID (2-3 columns responsive) OR a distinct list with thumbnail
+- each item must show a VIDEO icon and “Watch MV”
+- clicking opens /mv/:id (video detail page)
+- MV list must include ONLY tracks with mvUrl
+
+================================
+C) HOME PAGE (two columns stay)
+================================
+Home remains:
+- left column = Music (Top10 + Top50 list rows)
+- right column = Music Video (Top10 + Top50 grid/items)
+- “Explore Top 50” scroll stays.
+
+================================
+D) TRACK DETAIL (AUDIO ONLY)
+================================
+/track/:id page must contain:
+- Title, Creator, Tool badge, NEO Score
+- Audio player controls only
+- Like / Vote buttons if already exist (keep)
+- REMOVE any “Watch MV” button and REMOVE any MV references on this page.
+
+================================
+E) MV DETAIL (VIDEO ONLY)
+================================
+/mv/:id page must contain:
+- Title, Creator, Tool badge, NEO Score
+- Embedded YouTube player (from mvUrl)
+- Optional: link to corresponding audio track page /track/:id (small link)
+- Do NOT show audio player here (video only)
+
+================================
+F) NAV LABELS (stay minimal)
+================================
+Top nav stays:
+HOME / MUSIC / MUSIC VIDEO
+No other categories.
+
+================================
+G) DELIVERABLE
+================================
+After changes, report only:
+1) Which components were created/changed (list view component, mv detail page)
+2) Confirm /track/:id has no MV button and /mv/:id is distinct
+Then STOP.
