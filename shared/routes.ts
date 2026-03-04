@@ -29,6 +29,7 @@ export const api = {
     create: { method: "POST" as const, path: "/api/tracks" as const, input: insertTrackSchema, responses: { 201: z.any(), 401: errorSchemas.unauthorized } },
     vote: { method: "POST" as const, path: "/api/tracks/:id/vote" as const, responses: { 200: z.any(), 401: errorSchemas.unauthorized } },
     like: { method: "POST" as const, path: "/api/tracks/:id/like" as const, responses: { 200: z.any(), 401: errorSchemas.unauthorized } },
+    seed: { method: "POST" as const, path: "/api/admin/seed" as const, input: z.object({ token: z.string() }), responses: { 200: z.any(), 401: errorSchemas.unauthorized } },
   },
   admin: {
     review: { method: "POST" as const, path: "/api/admin/tracks/:id/review" as const, input: z.object({ status: z.enum(["PUBLISHED", "REJECTED"]), aiCraftScore: z.number().optional() }), responses: { 200: z.any(), 403: errorSchemas.forbidden } },

@@ -21,12 +21,42 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get(api.tracks.list.path, async (req, res) => {
-    const ts = await storage.getTracks({
+    let ts = await storage.getTracks({
       status: req.query.status as string || undefined,
       featured: req.query.featured === "true",
       limit: req.query.limit ? Number(req.query.limit) : undefined
     });
-    res.json(ts);
+    
+    if (ts.length === 0) {
+      console.log("No tracks found in production, triggering auto-seed...");
+      await seed();
+      ts = await storage.getTracks({
+        status: req.query.status as string || undefined,
+        featured: req.query.featured === "true",
+        limit: req.query.limit ? Number(req.query.limit) : undefined
+      });
+    }
+
+    const formatted = ts.map(t => ({
+      id: t.id,
+      title: t.title,
+      creatorName: t.creator.username,
+      aiTool: t.aiTool,
+      votes: t.listenerVotes,
+      audioUrl: t.audioUrl,
+      musicVideoUrl: t.mvUrl
+    }));
+    res.json(formatted);
+  });
+
+  app.post(api.tracks.seed.path, async (req, res) => {
+    const token = req.body.token;
+    const expected = process.env.ADMIN_SEED_TOKEN;
+    if (!expected || token !== expected) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    await seed();
+    res.json({ message: "Seeding triggered" });
   });
 
   app.get(api.tracks.get.path, async (req, res) => {
