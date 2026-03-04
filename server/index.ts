@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { seed } from "./seed";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
@@ -60,6 +61,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await seed();
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
