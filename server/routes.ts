@@ -4,11 +4,15 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { seedDatabase } from "./seed";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Seed the database
+  seedDatabase().catch(console.error);
+
   // Setup authentication first
   await setupAuth(app);
   registerAuthRoutes(app);
