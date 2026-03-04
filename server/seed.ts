@@ -17,16 +17,16 @@ export async function seed() {
 
     // 1. Create/Ensure Mock Users and Profiles for the specific creators
     const sampleData = [
-      { title: "Electric City", creator: "Neural Pulse", tool: "Suno", votes: 421 },
-      { title: "Neon Sky", creator: "AI Dreamer", tool: "Suno", votes: 389 },
-      { title: "Future Love", creator: "SynthBot", tool: "Suno", votes: 355 },
-      { title: "Digital Heart", creator: "NovaBeat", tool: "Suno", votes: 330 },
-      { title: "Midnight Drive", creator: "PulseAI", tool: "Suno", votes: 302 },
-      { title: "Neon Pulse", creator: "Aether", tool: "Suno", votes: 280 },
-      { title: "Digital Rain", creator: "Nova", tool: "Udio", votes: 260 },
-      { title: "Silicon Soul", creator: "Flux", tool: "Stable Audio", votes: 240 },
-      { title: "Binary Sunset", creator: "Echo", tool: "Suno", votes: 220 },
-      { title: "The Grid", creator: "Vertex", tool: "Udio", votes: 200 },
+      { title: "Electric City", creator: "PulseAI", tool: "Suno", votes: 421 },
+      { title: "Neon Sky", creator: "BeatForge", tool: "Suno", votes: 389 },
+      { title: "Future Love", creator: "SynthLab", tool: "Suno", votes: 355 },
+      { title: "Midnight Drive", creator: "PulseAI", tool: "Suno", votes: 330 },
+      { title: "Digital Dreams", creator: "AIVoice", tool: "Suno", votes: 310 },
+      { title: "Cosmic Waves", creator: "BeatForge", tool: "Suno", votes: 290 },
+      { title: "Night Runner", creator: "SynthLab", tool: "Suno", votes: 270 },
+      { title: "AI Romance", creator: "PulseAI", tool: "Suno", votes: 250 },
+      { title: "Neon Highway", creator: "BeatForge", tool: "Suno", votes: 230 },
+      { title: "Electric Heart", creator: "SynthLab", tool: "Suno", votes: 210 },
     ];
 
     // Get unique creators
