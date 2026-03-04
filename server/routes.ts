@@ -1,10 +1,18 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { seed } from "./seed";
 import { api } from "@shared/routes";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import {
+  setupAuth,
+  registerAuthRoutes,
+  isAuthenticated,
+} from "./replit_integrations/auth";
 
-export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+export async function registerRoutes(
+  httpServer: Server,
+  app: Express,
+): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
 
@@ -22,29 +30,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get(api.tracks.list.path, async (req, res) => {
     let ts = await storage.getTracks({
-      status: req.query.status as string || undefined,
+      status: (req.query.status as string) || undefined,
       featured: req.query.featured === "true",
-      limit: req.query.limit ? Number(req.query.limit) : undefined
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
     });
-    
+
     if (ts.length === 0) {
       console.log("No tracks found in production, triggering auto-seed...");
       await seed();
       ts = await storage.getTracks({
-        status: req.query.status as string || undefined,
+        status: (req.query.status as string) || undefined,
         featured: req.query.featured === "true",
-        limit: req.query.limit ? Number(req.query.limit) : undefined
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
       });
     }
 
-    const formatted = ts.map(t => ({
+    const formatted = ts.map((t) => ({
       id: t.id,
       title: t.title,
       creatorName: t.creator.username,
       aiTool: t.aiTool,
       votes: t.listenerVotes,
       audioUrl: t.audioUrl,
-      musicVideoUrl: t.mvUrl
+      musicVideoUrl: t.mvUrl,
     }));
     res.json(formatted);
   });
@@ -67,7 +75,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post(api.tracks.create.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p || p.role !== "nex") return res.status(403).json({ message: "Only NEX creators can upload" });
+    if (!p || p.role !== "nex")
+      return res.status(403).json({ message: "Only NEX creators can upload" });
     const t = await storage.createTrack({ ...req.body, creatorId: p.id });
     res.status(201).json(t);
   });
@@ -84,8 +93,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post(api.admin.review.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p || p.role !== "founder") return res.status(403).json({ message: "Admin access required" });
-    await storage.updateTrackStatus(Number(req.params.id), req.body.status, req.body.aiCraftScore);
+    if (!p || p.role !== "founder")
+      return res.status(403).json({ message: "Admin access required" });
+    await storage.updateTrackStatus(
+      Number(req.params.id),
+      req.body.status,
+      req.body.aiCraftScore,
+    );
     res.json({ message: "Review completed" });
   });
 
