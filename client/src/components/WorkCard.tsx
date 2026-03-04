@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { Profile, Track } from "@shared/schema";
-import { Zap, Play, Youtube } from "lucide-react";
+import { Play, Youtube } from "lucide-react";
 import { Link } from "wouter";
 
 interface WorkCardProps {
@@ -11,65 +11,52 @@ interface WorkCardProps {
 export function WorkCard({ work, index }: WorkCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="group relative"
+      transition={{ delay: index * 0.03 }}
+      className="group"
     >
-      <Link href={`/track/${work.id}`}>
-        <div className="bg-[#0A0A0A] border border-white/5 rounded-sm overflow-hidden transition-all duration-500 group-hover:border-primary/40 group-hover:shadow-[0_0_30px_rgba(0,240,255,0.1)]">
-          <div className="aspect-[4/5] bg-zinc-900 relative flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-            
-            <div className="absolute top-4 left-4 z-20 px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-bold uppercase tracking-widest text-zinc-300">
-              {work.genre}
-            </div>
-
-            <div className="absolute top-4 right-4 z-20 px-2 py-1 bg-primary/20 backdrop-blur-md border border-primary/30 text-[9px] font-bold uppercase tracking-widest text-primary">
-              {work.aiTool}
-            </div>
-
-            <Play className="w-12 h-12 text-zinc-800 group-hover:text-primary/40 transition-all duration-500 group-hover:scale-110" />
-            
-            <div className="absolute bottom-6 left-6 right-6 z-20">
-              <h3 className="text-lg font-display font-bold text-white uppercase tracking-tight group-hover:text-primary transition-colors">
-                {work.title}
-              </h3>
-            </div>
+      <div className="bg-[#0A0A0A] border border-white/5 p-4 rounded-sm flex items-center justify-between hover:border-primary/40 transition-all gap-6">
+        <div className="flex items-center gap-6 flex-1 min-w-0">
+          <div className="w-12 h-12 bg-zinc-900 rounded-sm flex items-center justify-center flex-shrink-0 group-hover:bg-primary/10 transition-colors">
+            <Play className="w-5 h-5 text-zinc-700 group-hover:text-primary group-hover:scale-110 transition-all" />
           </div>
-
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden">
-                  <span className="text-[10px] font-bold text-zinc-400">{work.creator.username[0].toUpperCase()}</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white">{work.creator.username}</span>
-                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">NEX #{work.creator.nexNumber || '??'}</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[9px] font-bold uppercase tracking-widest text-primary mb-0.5">NEO Score</div>
-                <div className="text-xl font-display font-bold text-white neon-text">{work.neoScore.toFixed(1)}</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-white/5">
-              <div className="flex items-center gap-2">
-                <Zap className="w-3 h-3 text-primary" />
-                <span className="text-[9px] font-bold text-zinc-500 uppercase">Craft: {work.aiCraftScore.toFixed(1)}</span>
-              </div>
-              {work.mvUrl && (
-                <div className="flex items-center gap-1 text-red-500/60">
-                  <Youtube className="w-3 h-3" />
-                  <span className="text-[9px] font-bold uppercase tracking-widest">MV</span>
-                </div>
-              )}
+          
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider truncate mb-1">
+              {work.title}
+            </h3>
+            <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest">
+              <span className="text-primary">NEX #{work.creator.nexNumber || '??'}</span>
+              <span className="text-zinc-600">•</span>
+              <span className="text-zinc-500">{work.aiTool}</span>
             </div>
           </div>
         </div>
-      </Link>
+
+        <div className="flex items-center gap-8">
+          <div className="text-right">
+            <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mb-0.5">NEO Score</p>
+            <p className="text-lg font-display font-bold text-white neon-text">{work.neoScore.toFixed(1)}</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link href={`/track/${work.id}`}>
+              <button className="px-4 py-2 bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-widest hover:bg-primary hover:text-black hover:border-primary transition-all">
+                Play
+              </button>
+            </Link>
+            {work.mvUrl && (
+              <a href={work.mvUrl} target="_blank" rel="noopener noreferrer">
+                <button className="px-4 py-2 border border-red-500/30 text-red-500 text-[9px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-2">
+                  <Youtube className="w-3 h-3" />
+                  Watch MV
+                </button>
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }

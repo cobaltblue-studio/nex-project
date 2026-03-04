@@ -1,0 +1,148 @@
+Update the UI and navigation to match the agreed NEO MVP structure.
+
+IMPORTANT:
+NEO is AI MUSIC ONLY.
+Remove all non-music concepts and remove the word "RANKINGS".
+
+--------------------------------
+1. REMOVE UNUSED CATEGORIES
+--------------------------------
+
+Completely remove these from UI, routes, filters and labels:
+
+GLOBAL
+IMAGE
+VERTICAL
+CINEMA
+
+NEO only supports:
+Music
+Music Video
+
+--------------------------------
+2. HOME PAGE STRUCTURE
+--------------------------------
+
+Home must match this layout:
+
+HEADER (Hero)
+Title: NEO
+Slogan: AI Music is NEO.
+Subtext: Welcome to the league.
+
+Top-right corner of Hero:
+Add a RADIO icon button labeled:
+
+Start Radio
+
+Clicking it must start playback immediately in FLOW mode.
+
+--------------------------------
+3. RADIO BEHAVIOR
+--------------------------------
+
+Radio default mode: FLOW
+
+FLOW rules:
+- randomly play tracks from Top 50
+- exclude the last 5 recently played tracks
+- avoid repeating tracks too quickly
+
+Radio should begin playback immediately when "Start Radio" is clicked.
+
+--------------------------------
+4. TOP 10 PREVIEW SECTION
+--------------------------------
+
+Below the Hero show two columns:
+
+Left column:
+Music — Top 10
+
+Right column:
+Music Video — Top 10
+
+Each list shows 10 tracks.
+
+Top 10 selection rule:
+Use highest NEO Score.
+
+--------------------------------
+5. EXPLORE BUTTON
+--------------------------------
+
+Between Top 10 preview and the main lists add a large button:
+
+Explore Top 50
+
+Clicking scrolls to the Top 50 section.
+
+--------------------------------
+6. TOP 50 SECTION
+--------------------------------
+
+Below the button show two scrollable columns.
+
+Left column title:
+Music — Top 50
+
+Right column title:
+Music Video — Top 50
+
+Rules:
+
+Music list:
+show all tracks ordered by NEO Score.
+
+Music Video list:
+show only tracks that contain a YouTube mvUrl.
+
+--------------------------------
+7. TRACK CARD CONTENT
+--------------------------------
+
+Each card must display:
+
+Track Title
+Creator (NEX #)
+AI Tool (Suno / Udio / Stable Audio)
+NEO Score
+Play button
+
+If mvUrl exists show:
+Watch MV button
+
+--------------------------------
+8. NAVIGATION
+--------------------------------
+
+Top navigation should contain only:
+
+HOME
+MUSIC
+MUSIC VIDEO
+
+Remove every other navigation item.
+
+--------------------------------
+9. NAMING
+--------------------------------
+
+Do NOT use the word "Ranking".
+
+If a section title is needed use:
+
+NEO BOARD
+
+--------------------------------
+10. AFTER IMPLEMENTING
+--------------------------------
+
+Report only:
+
+1. files changed
+2. updated routes
+3. confirmation that IMAGE / CINEMA / VERTICAL were removed
+
+Then STOP.
+Do not add extra features.

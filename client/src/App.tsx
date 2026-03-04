@@ -21,8 +21,8 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
-        <Route path="/board" component={Home} />
-        <Route path="/join" component={Join} />
+        <Route path="/music" component={Home} />
+        <Route path="/music-video" component={Home} />
         <Route path="/submit" component={Submit} />
         <Route path="/profile/me" component={ProfileMe} />
         <Route path="/profile/:id" component={ProfileDetail} />
