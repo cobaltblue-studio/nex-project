@@ -12,6 +12,9 @@ export function TrackDetail() {
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
   if (!track) return <div className="p-20 text-center font-display text-2xl uppercase tracking-widest text-zinc-500 border border-white/5 border-dashed">Track Not Found</div>;
 
+  const isSuno = track.audioUrl?.includes("suno.com");
+  const sunoEmbedUrl = isSuno ? track.audioUrl.replace("/song/", "/embed/") : null;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
       <Link href="/music" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
@@ -22,14 +25,26 @@ export function TrackDetail() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
         
         <div className="flex flex-col md:flex-row gap-12 items-center md:items-start relative z-10">
-          <div className="w-64 h-64 bg-zinc-900 border border-white/10 rounded-sm flex items-center justify-center relative group">
-            <Music className="w-24 h-24 text-zinc-800" />
-            <button 
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-            >
-              {isPlaying ? <Pause className="w-12 h-12 text-white" /> : <Play className="w-12 h-12 text-white" />}
-            </button>
+          <div className="w-full md:w-80 aspect-square bg-zinc-900 border border-white/10 rounded-sm flex items-center justify-center relative group overflow-hidden">
+            {isSuno ? (
+              <iframe 
+                src={sunoEmbedUrl!} 
+                width="100%" 
+                height="100%" 
+                style={{ border: 'none' }} 
+                allow="autoplay; encrypted-media"
+              />
+            ) : (
+              <>
+                <Music className="w-24 h-24 text-zinc-800" />
+                <button 
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                >
+                  {isPlaying ? <Pause className="w-12 h-12 text-white" /> : <Play className="w-12 h-12 text-white" />}
+                </button>
+              </>
+            )}
           </div>
 
           <div className="flex-1 space-y-8 text-center md:text-left">
@@ -80,7 +95,7 @@ export function TrackDetail() {
             <div className="space-y-4 text-xs uppercase tracking-widest text-zinc-500 font-bold">
               <div className="flex justify-between border-b border-white/5 pb-3">
                 <span>Composition Quality</span>
-                <span className="text-white">{track.aiCraftScore.toFixed(1)}</span>
+                <span className="text-white">{track.aiCraftScore?.toFixed(1) || "0.0"}</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-3">
                 <span>Model Version</span>

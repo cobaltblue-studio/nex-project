@@ -49,10 +49,15 @@ export async function registerRoutes(
       id: t.id,
       title: t.title,
       creatorName: t.creator.username,
+      creatorId: t.creatorId,
       aiTool: t.aiTool,
+      genre: t.genre,
+      lyrics: t.lyrics,
       votes: t.listenerVotes,
       audioUrl: t.audioUrl,
       musicVideoUrl: t.mvUrl,
+      aiCraftScore: t.aiCraftScore,
+      neoScore: t.neoScore
     }));
     res.json(formatted);
   });

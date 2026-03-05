@@ -101,7 +101,7 @@ export function Home() {
                 <Link href="/music-video" className="text-[10px] font-bold text-zinc-500 hover:text-primary transition-colors uppercase tracking-widest">View All</Link>
               )}
             </div>
-            <div className={`grid grid-cols-1 ${isMVOnly ? "md:grid-cols-2 lg:grid-cols-3" : "md:grid-cols-1"} gap-6`}>
+            <div className={`grid grid-cols-2 ${isMVOnly ? "md:grid-cols-3 lg:grid-cols-4" : "md:grid-cols-2"} gap-4`}>
               {(isHome ? mvTracks.slice(0, 10) : mvTracks).map((track, idx) => (
                 <MVCard key={track.id} track={track} index={idx} />
               ))}
@@ -135,7 +135,7 @@ export function Home() {
             </div>
             <div className="space-y-8">
               <h3 className="text-xl font-display font-bold uppercase tracking-widest text-primary border-b border-white/10 pb-4">Music Video — Top 50</h3>
-              <div className="grid grid-cols-1 gap-6 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
+              <div className="grid grid-cols-2 gap-4 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
                 {mvTracks.slice(0, 50).map((track, idx) => (
                   <MVCard key={track.id} track={track} index={idx} />
                 ))}
