@@ -11,7 +11,6 @@ export function Home() {
   const [location] = useLocation();
   const [recentlyPlayed, setRecentlyPlayed] = useState<number[]>([]);
 
-  // Filter Logic for Top 50
   const musicTracks = useMemo(() => 
     (tracks || []).sort((a, b) => b.votes - a.votes)
   , [tracks]);
@@ -34,7 +33,6 @@ export function Home() {
       nextTrack = available[Math.floor(Math.random() * available.length)];
       setRecentlyPlayed(prev => [...prev.slice(-4), nextTrack.id]);
     }
-    console.log("Radio started: ", nextTrack.title);
   };
 
   if (isLoading) return (
@@ -44,24 +42,8 @@ export function Home() {
     </div>
   );
 
-  const topMusic = musicTracks[0];
-  const topMV = mvTracks[0];
-
-  const getYoutubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url?.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
-
-  const sunoEmbedUrl = topMusic?.audioUrl?.includes("suno.com") 
-    ? topMusic.audioUrl.replace("/song/", "/embed/") 
-    : null;
-    
-  const youtubeId = getYoutubeId(topMV?.musicVideoUrl || topMV?.mvUrl || "");
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-20 pb-20">
-      {/* COMPACT HERO SECTION */}
       <section className="relative py-12 border-b border-white/5">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="text-center md:text-left">
@@ -74,55 +56,6 @@ export function Home() {
           </button>
         </div>
       </section>
-
-      {/* TOP FEATURED PLAYERS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {topMusic && (
-          <div className="bg-[#0A0A0A] border border-primary/20 p-6 rounded-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-              <Music className="w-3 h-3" /> Featured Track
-            </h3>
-            <div className="aspect-square max-w-[300px] mx-auto bg-zinc-900 border border-white/5 rounded-sm overflow-hidden">
-              {sunoEmbedUrl ? (
-                <iframe src={sunoEmbedUrl} width="100%" height="100%" frameBorder="0" allow="autoplay; encrypted-media" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-zinc-700 font-display text-4xl">NEO</div>
-              )}
-            </div>
-            <div className="text-center">
-              <h4 className="text-lg font-bold uppercase">{topMusic.title}</h4>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest">{topMusic.creatorName}</p>
-            </div>
-          </div>
-        )}
-
-        {topMV && (
-          <div className="bg-[#0A0A0A] border border-red-500/20 p-6 rounded-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-red-500 flex items-center gap-2">
-              <Video className="w-3 h-3" /> Featured Video
-            </h3>
-            <div className="aspect-video bg-black border border-white/5 rounded-sm overflow-hidden">
-              {youtubeId ? (
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${youtubeId}?autoplay=0`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-zinc-700 font-display text-4xl">NEO</div>
-              )}
-            </div>
-            <div className="text-center">
-              <h4 className="text-lg font-bold uppercase">{topMV.title}</h4>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest">{topMV.creatorName}</p>
-            </div>
-          </div>
-        )}
-      </div>
 
       <section id="top-50-section" className="space-y-12">
         <div className="text-center space-y-2">
