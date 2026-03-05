@@ -17,7 +17,7 @@ export function Home() {
   , [tracks]);
 
   const mvTracks = useMemo(() => 
-    (tracks || []).filter(t => t.musicVideoUrl).sort((a, b) => b.votes - a.votes)
+    (tracks || []).filter(t => t.musicVideoUrl || t.mvUrl).sort((a, b) => b.votes - a.votes)
   , [tracks]);
 
   const isHome = location === "/";
@@ -128,10 +128,10 @@ export function Home() {
             <div className="space-y-8">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary border-b border-primary/20 pb-4">Music — Top 50</h3>
               <div className="space-y-1 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
-              {musicTracks.slice(0, 50).map((track, idx) => (
-                <MusicRow key={track.id} track={track} rank={idx + 1} />
-              ))}
-            </div>
+                {musicTracks.slice(0, 50).map((track, idx) => (
+                  <MusicRow key={track.id} track={track} rank={idx + 1} />
+                ))}
+              </div>
             </div>
             <div className="space-y-8">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary border-b border-primary/20 pb-4">Music Video — Top 50</h3>

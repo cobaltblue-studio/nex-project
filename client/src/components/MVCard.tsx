@@ -9,6 +9,7 @@ interface MVCardProps {
 }
 
 export function MVCard({ track, index }: MVCardProps) {
+  const mvUrl = track.musicVideoUrl || track.mvUrl;
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}

@@ -9,7 +9,9 @@ export function MVDetail() {
 
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
   
-  if (!track || !track.mvUrl) {
+  const mvUrl = track?.musicVideoUrl || track?.mvUrl;
+  
+  if (!track || !mvUrl) {
     return (
       <div className="p-20 text-center space-y-6">
         <h2 className="font-display text-2xl uppercase tracking-widest text-zinc-500">MV Not Available</h2>
@@ -27,7 +29,7 @@ export function MVDetail() {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
-  const videoId = getYoutubeId(track.mvUrl);
+  const videoId = getYoutubeId(mvUrl);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-6xl mx-auto space-y-8 pb-20">
