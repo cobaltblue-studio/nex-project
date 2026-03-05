@@ -81,7 +81,7 @@ export function Home() {
                 <Link href="/music" className="text-[10px] font-bold text-zinc-500 hover:text-primary transition-colors uppercase tracking-widest">View All</Link>
               )}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
               {(isHome ? musicTracks.slice(0, 50) : musicTracks).map((track, idx) => (
                 <MusicRow key={track.id} track={track} rank={idx + 1} />
               ))}
