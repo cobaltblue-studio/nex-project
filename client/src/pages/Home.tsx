@@ -13,11 +13,11 @@ export function Home() {
 
   // Filter Logic for Top 10 and Top 50
   const musicTracks = useMemo(() => 
-    (tracks || []).sort((a, b) => b.listenerVotes - a.listenerVotes)
+    (tracks || []).filter(t => t.audioUrl).sort((a, b) => b.votes - a.votes)
   , [tracks]);
 
   const mvTracks = useMemo(() => 
-    (tracks || []).filter(t => t.mvUrl).sort((a, b) => b.neoScore - a.neoScore)
+    (tracks || []).filter(t => t.musicVideoUrl).sort((a, b) => b.votes - a.votes)
   , [tracks]);
 
   const isHome = location === "/";

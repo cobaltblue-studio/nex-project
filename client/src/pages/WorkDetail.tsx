@@ -47,20 +47,16 @@ export function TrackDetail() {
               </h1>
               <Link href={`/profile/${track.creatorId}`} className="inline-flex items-center gap-3 text-zinc-400 hover:text-white transition-colors">
                 <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold">
-                  {track.creator.username[0].toUpperCase()}
+                  {(track.creatorName?.[0] || "N").toUpperCase()}
                 </div>
-                <span className="text-sm font-bold uppercase tracking-widest">{track.creator.username}</span>
+                <span className="text-sm font-bold uppercase tracking-widest">{track.creatorName || "NEO CREATOR"}</span>
               </Link>
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-10">
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">NEO SCORE</p>
-                <p className="text-5xl font-display font-bold text-white neon-text">{track.neoScore.toFixed(1)}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Votes</p>
-                <p className="text-5xl font-display font-bold text-zinc-400">{track.listenerVotes}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">VOTES</p>
+                <p className="text-5xl font-display font-bold text-white neon-text">{track.votes}</p>
               </div>
             </div>
 

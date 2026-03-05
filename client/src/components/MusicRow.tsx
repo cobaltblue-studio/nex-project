@@ -4,7 +4,7 @@ import { Play } from "lucide-react";
 import { Link } from "wouter";
 
 interface MusicRowProps {
-  track: Track & { creator: Profile };
+  track: any;
   rank: number;
 }
 
@@ -17,9 +17,9 @@ export function MusicRow({ track, rank }: MusicRowProps) {
       className="group flex items-center gap-4 p-3 hover:bg-white/5 rounded-sm transition-all border-b border-white/5 last:border-0"
     >
       <div className="w-8 text-[10px] font-mono text-zinc-600 font-bold">
-        {String(rank).padStart(2, '0')}
+        {String(rank).padStart(2, "0")}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <Link href={`/track/${track.id}`}>
           <h3 className="text-sm font-bold text-white uppercase tracking-wider truncate cursor-pointer hover:text-primary transition-colors">
@@ -27,18 +27,24 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           </h3>
         </Link>
         <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-          <span className="text-primary/70">NEX #{track.creator.nexNumber || '??'}</span>
-          <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">{track.aiTool}</span>
+          <span className="text-primary/70">
+            {track.creatorName || "NEO CREATOR"}
+          </span>
+          <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
+            {track.aiTool}
+          </span>
         </div>
       </div>
 
       <div className="flex items-center gap-6">
         <div className="text-right min-w-[60px]">
-          <p className="text-[10px] font-display font-bold text-white neon-text">{track.listenerVotes} VOTES</p>
+          <p className="text-[10px] font-display font-bold text-white neon-text">
+            {track.votes} VOTES
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={(e) => {
               e.preventDefault();
               // Vote logic would go here

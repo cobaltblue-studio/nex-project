@@ -71,7 +71,7 @@ export function MVDetail() {
               </h1>
               <div className="flex items-center gap-4 text-sm font-bold uppercase tracking-widest">
                 <Link href={`/profile/${track.creatorId}`} className="text-primary hover:underline">
-                  NEX #{track.creator.nexNumber || '??'} • {track.creator.username}
+                  {track.creatorName || "NEO CREATOR"}
                 </Link>
                 <span className="text-zinc-600">/</span>
                 <span className="text-zinc-500">{track.aiTool}</span>
@@ -79,8 +79,8 @@ export function MVDetail() {
             </div>
             
             <div className="text-right">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-1">NEO SCORE</p>
-              <p className="text-5xl font-display font-bold text-white neon-text">{track.neoScore.toFixed(1)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-1">VOTES</p>
+              <p className="text-5xl font-display font-bold text-white neon-text">{track.votes}</p>
             </div>
           </div>
         </div>
