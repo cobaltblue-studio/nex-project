@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useWorks } from "@/hooks/use-works";
 import { MusicRow } from "@/components/MusicRow";
 import { MVCard } from "@/components/MVCard";
-import { Loader2, Music, Video, Radio } from "lucide-react";
-import { useLocation, Link } from "wouter";
+import { Loader2, Radio } from "lucide-react";
+import { useLocation } from "wouter";
 
 export function Home() {
   const { data: tracks, isLoading } = useWorks();
@@ -22,17 +22,6 @@ export function Home() {
   const isHome = location === "/";
   const isMusic = location === "/music";
   const isMV = location === "/music-video";
-
-  // Smooth scroll to sections when location changes
-  useEffect(() => {
-    if (isMusic) {
-      document.getElementById("music-section")?.scrollIntoView({ behavior: "smooth" });
-    } else if (isMV) {
-      document.getElementById("mv-section")?.scrollIntoView({ behavior: "smooth" });
-    } else if (isHome) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [location, isMusic, isMV, isHome]);
 
   const startRadio = () => {
     if (!tracks || tracks.length === 0) return;
@@ -70,35 +59,37 @@ export function Home() {
         </div>
       </section>
 
-      <section id="music-section" className="space-y-12 pt-10">
-        <div className="text-center space-y-2">
-          <h2 className="text-4xl font-display font-bold uppercase tracking-tighter">MUSIC BOARD</h2>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-[0.4em]">Official Audio Standings</p>
-        </div>
-        <div className="max-w-4xl mx-auto">
-          <h3 className="text-xl font-display font-bold uppercase tracking-widest text-primary border-b border-white/10 pb-4 mb-8">Music — Top 50</h3>
-          <div className="space-y-1 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
-            {musicTracks.slice(0, 50).map((track, idx) => (
-              <MusicRow key={track.id} track={track} rank={idx + 1} />
-            ))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+        {/* MUSIC SECTION */}
+        {(isHome || isMusic) && (
+          <div className={`${isMusic ? "lg:col-span-2 max-w-4xl mx-auto w-full" : "space-y-12"}`}>
+            <div className="text-center space-y-2 mb-8">
+              <h2 className="text-4xl font-display font-bold uppercase tracking-tighter text-primary">MUSIC BOARD</h2>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-[0.4em]">Official Audio Standings</p>
+            </div>
+            <div className="space-y-1 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
+              {musicTracks.slice(0, 50).map((track, idx) => (
+                <MusicRow key={track.id} track={track} rank={idx + 1} />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        )}
 
-      <section id="mv-section" className="space-y-12 pt-10 border-t border-white/5">
-        <div className="text-center space-y-2">
-          <h2 className="text-4xl font-display font-bold uppercase tracking-tighter">VIDEO BOARD</h2>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-[0.4em]">Official MV Standings</p>
-        </div>
-        <div className="space-y-8">
-          <h3 className="text-xl font-display font-bold uppercase tracking-widest text-primary border-b border-white/10 pb-4">Music Video — Top 50</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 h-[800px] overflow-y-auto pr-4 scrollbar-hide">
-            {mvTracks.slice(0, 50).map((track, idx) => (
-              <MVCard key={track.id} track={track} index={idx} />
-            ))}
+        {/* MV SECTION */}
+        {(isHome || isMV) && (
+          <div className={`${isMV ? "lg:col-span-2 w-full" : "space-y-12"}`}>
+            <div className="text-center space-y-2 mb-8">
+              <h2 className="text-4xl font-display font-bold uppercase tracking-tighter text-primary">VIDEO BOARD</h2>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-[0.4em]">Official MV Standings</p>
+            </div>
+            <div className={`grid gap-4 h-[800px] overflow-y-auto pr-4 scrollbar-hide ${isMV ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-2"}`}>
+              {mvTracks.slice(0, 50).map((track, idx) => (
+                <MVCard key={track.id} track={track} index={idx} />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        )}
+      </div>
     </motion.div>
   );
 }
