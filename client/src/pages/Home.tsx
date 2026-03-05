@@ -13,7 +13,7 @@ export function Home() {
 
   // Filter Logic for Top 10 and Top 50
   const musicTracks = useMemo(() => 
-    (tracks || []).filter(t => t.audioUrl).sort((a, b) => b.votes - a.votes)
+    (tracks || []).sort((a, b) => b.votes - a.votes)
   , [tracks]);
 
   const mvTracks = useMemo(() => 
@@ -82,7 +82,7 @@ export function Home() {
               )}
             </div>
             <div className="space-y-1">
-              {(isHome ? musicTracks.slice(0, 10) : musicTracks).map((track, idx) => (
+              {(isHome ? musicTracks.slice(0, 50) : musicTracks).map((track, idx) => (
                 <MusicRow key={track.id} track={track} rank={idx + 1} />
               ))}
             </div>
