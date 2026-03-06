@@ -6,8 +6,18 @@ import { useMemo } from "react";
 
 export function MVDetail() {
   const [, params] = useRoute("/mv/:id");
-  const { data: track, isLoading: isTrackLoading } = useWork(params?.id || "");
+  const { data: trackData, isLoading: isTrackLoading } = useWork(params?.id || "");
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
+
+  // Normalize track data based on the API response structure { ...track, creator }
+  const track = useMemo(() => {
+    if (!trackData) return null;
+    return {
+      ...trackData,
+      creatorName: trackData.creator?.username || "NEO CREATOR",
+      votes: trackData.listenerVotes || 0
+    };
+  }, [trackData]);
 
   const sortedTracks = useMemo(() => 
     [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
@@ -43,7 +53,7 @@ export function MVDetail() {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
-  const mvUrl = track.musicVideoUrl || track.mvUrl;
+  const mvUrl = track.mvUrl;
   const videoId = getYoutubeId(mvUrl || "");
   const rankIndex = sortedTracks.findIndex(st => st.id === track.id);
   const rank = rankIndex !== -1 ? rankIndex + 1 : null;
@@ -81,8 +91,8 @@ export function MVDetail() {
                 {track.title}
               </h1>
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary border border-primary/20">
-                  {track.creatorName?.[0] || "N"}
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary border border-primary/20">
+                  <span className="text-primary/60">NEX</span>
                 </div>
                 <span className="text-lg font-display font-bold uppercase tracking-widest text-white">
                   BY {track.creatorName}

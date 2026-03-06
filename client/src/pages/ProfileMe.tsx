@@ -16,7 +16,7 @@ export function ProfileMe() {
   const totalVotes = creatorTracks.reduce((acc, t) => acc + (t.votes || 0), 0);
   
   // Find rank in the global list sorted by votes
-  const sortedTracks = [...(tracks || [])].sort((a, b) => b.votes - a.votes);
+  const sortedTracks = [...(tracks || [])].sort((a, b) => (b.votes || 0) - (a.votes || 0));
   const bestRank = creatorTracks.length > 0 
     ? Math.min(...creatorTracks.map(ct => sortedTracks.findIndex(st => st.id === ct.id) + 1))
     : "-";

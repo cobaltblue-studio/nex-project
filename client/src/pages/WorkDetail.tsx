@@ -6,9 +6,19 @@ import { useState, useMemo } from "react";
 
 export function TrackDetail() {
   const [, params] = useRoute("/track/:id");
-  const { data: track, isLoading: isTrackLoading } = useWork(params?.id || "");
+  const { data: trackData, isLoading: isTrackLoading } = useWork(params?.id || "");
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Normalize track data based on the API response structure { ...track, creator }
+  const track = useMemo(() => {
+    if (!trackData) return null;
+    return {
+      ...trackData,
+      creatorName: trackData.creator?.username || "NEO CREATOR",
+      votes: trackData.listenerVotes || 0
+    };
+  }, [trackData]);
 
   const sortedTracks = useMemo(() => 
     [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
