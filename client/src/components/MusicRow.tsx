@@ -28,7 +28,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
         </Link>
         <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
           <span className="text-primary/70">
-            NEX {track.creatorName || "NEO CREATOR"}
+            {track.creatorName || "NEO CREATOR"}
           </span>
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
             {track.aiTool}
@@ -44,15 +44,6 @@ export function MusicRow({ track, rank }: MusicRowProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              // Vote logic would go here
-            }}
-            className="px-3 py-1 border border-primary/30 text-primary text-[8px] font-bold uppercase tracking-widest hover:bg-primary/10 rounded-sm transition-all"
-          >
-            Vote
-          </button>
           <Link href={`/track/${track.id}`}>
             <button className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-sm hover:bg-primary hover:text-black hover:border-primary transition-all">
               <Play className="w-3.5 h-3.5 fill-current" />

@@ -1,0 +1,179 @@
+UI ADJUSTMENT INSTRUCTIONS
+(Do not refactor existing structure. Only adjust display logic.)
+
+GENERAL RULE
+Do not modify database schema or existing data structures.
+Only adjust UI rendering and remove redundant elements.
+
+---
+
+1. MUSIC BOARD PAGE
+
+Artist name under the track title currently shows:
+
+NEX PULSEAI
+NEX BEATFORGE
+
+Remove the "NEX" prefix here.
+
+Correct display:
+
+PULSEAI
+BEATFORGE
+
+Reason: the ranking already shows "NEX #001", so the prefix becomes visually redundant.
+
+---
+
+2. MUSIC BOARD ACTION AREA
+
+Current layout shows:
+
+421 VOTES
+[VOTE BUTTON]
+[PLAY BUTTON]
+
+Keep only one action button.
+
+Recommended structure:
+
+421 VOTES     [PLAY ICON]
+
+Votes remain informational.
+Play icon is the primary action.
+
+---
+
+3. MUSIC PLAY PAGE
+
+Update the information block under the player.
+
+Current issues:
+
+"NEX ID" label is incorrect.
+Artist name is incorrect.
+Votes value is missing.
+Category should not be displayed.
+
+Correct structure:
+
+RANK
+#1
+
+TITLE
+ELECTRIC CITY
+
+ARTIST
+PULSEAI
+
+VOTES
+421
+
+Remove the following completely:
+
+CATEGORY
+Genre label at the bottom
+
+Also remove the text:
+
+"NEX NEO CREATOR"
+
+---
+
+4. LYRICS SECTION
+
+Add a lyrics display section under the track information.
+
+Structure:
+
+LYRICS
+
+<song lyrics content here>
+
+Place it under the metadata block.
+
+---
+
+5. VIDEO BOARD PAGE
+
+Remove the artist prefix here as well.
+
+Current:
+
+NEX PULSEAI
+
+Correct:
+
+PULSEAI
+
+Also remove the "WATCH MV" button box.
+
+Each video card already has a hover interaction with a red line and play action.
+The extra button is unnecessary.
+
+---
+
+6. MV PLAY PAGE
+
+Fix metadata under the video player.
+
+Problems:
+
+Duplicate vote buttons
+Incorrect artist name
+Unnecessary category
+
+Correct structure:
+
+RANK
+#1
+
+TITLE
+ELECTRIC CITY
+
+ARTIST
+PULSEAI
+
+VOTES
+421
+
+Remove:
+
+CATEGORY
+Duplicate VOTE buttons
+
+Votes should only be displayed as data, not as a clickable button here.
+
+---
+
+7. NEX PROFILE PAGE
+
+Replace the current "NEX ACCESS DENIED" placeholder.
+
+For now create a simple profile layout:
+
+CREATOR PROFILE
+
+CREATOR
+PULSEAI
+
+TOTAL TRACKS
+12
+
+TOTAL VOTES
+3420
+
+BEST RANK
+#1
+
+TRACK LIST
+
+This page should present creator statistics, not a connection screen.
+
+---
+
+IMPORTANT
+
+Do not change routing structure.
+Do not refactor layout components.
+Only update the UI rendering and remove redundant elements.

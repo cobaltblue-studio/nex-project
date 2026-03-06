@@ -55,15 +55,15 @@ export function MVDetail() {
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
                   {track.creatorName?.[0] || "N"}
                 </div>
-                <span className="text-sm font-bold uppercase tracking-widest text-zinc-400">NEX {track.creatorName}</span>
+                <span className="text-sm font-bold uppercase tracking-widest text-zinc-400">{track.creatorName}</span>
               </div>
             </div>
 
             {/* TRACK INFORMATION BLOCK */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
               <div className="space-y-1">
-                <div className="text-zinc-700">NEX ID</div>
-                <div className="text-white">NEX #{String(track.id).padStart(3, "0")}</div>
+                <div className="text-zinc-700">RANK</div>
+                <div className="text-white">#{track.id}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-700">TITLE</div>
@@ -71,15 +71,11 @@ export function MVDetail() {
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-700">ARTIST</div>
-                <div className="text-white">NEX {track.creatorName}</div>
+                <div className="text-white">{track.creatorName}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-700">VOTES</div>
                 <div className="text-white">{track.votes}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-zinc-700">CATEGORY</div>
-                <div className="text-white">{track.genre || "MV"}</div>
               </div>
             </div>
           </div>
@@ -89,9 +85,6 @@ export function MVDetail() {
               <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Votes</p>
               <p className="text-3xl font-display font-bold text-white">{track.votes}</p>
             </div>
-            <button className="flex items-center gap-3 bg-primary text-black font-bold uppercase tracking-widest px-8 py-4 rounded-sm hover:brightness-110 active:scale-95 transition-all">
-              <Vote className="w-4 h-4" /> Vote
-            </button>
           </div>
         </div>
       </div>

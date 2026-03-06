@@ -47,15 +47,15 @@ export function TrackDetail() {
                 {track.title}
               </h1>
               <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs">
-                NEX {track.creatorName || "NEO CREATOR"}
+                {track.creatorName || "NEO CREATOR"}
               </p>
             </div>
 
             {/* TRACK INFORMATION BLOCK */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
               <div className="space-y-1">
-                <div className="text-zinc-600">NEX ID</div>
-                <div className="text-white text-xs">NEX #{String(track.id).padStart(3, "0")}</div>
+                <div className="text-zinc-600">RANK</div>
+                <div className="text-white text-xs">#{track.id}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-600">TITLE</div>
@@ -63,23 +63,19 @@ export function TrackDetail() {
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-600">ARTIST</div>
-                <div className="text-white text-xs">NEX {track.creatorName}</div>
+                <div className="text-white text-xs">{track.creatorName}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-600">VOTES</div>
                 <div className="text-white text-xs">{track.votes}</div>
               </div>
-              <div className="space-y-1">
-                <div className="text-zinc-600">CATEGORY</div>
-                <div className="text-white text-xs">{track.genre || "NEO"}</div>
-              </div>
             </div>
 
-            {/* LYRICS SECTION (Shazam style) */}
+            {/* LYRICS SECTION */}
             <div className="pt-12 w-full max-w-2xl mx-auto">
               <div className="flex items-center gap-3 justify-center mb-6 text-zinc-500">
                 <div className="h-[1px] flex-1 bg-white/5" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Neural Lyrics</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest">LYRICS</span>
                 <div className="h-[1px] flex-1 bg-white/5" />
               </div>
               <div className="space-y-6 text-xl md:text-2xl font-bold text-zinc-400 text-center leading-relaxed">
@@ -100,17 +96,6 @@ export function TrackDetail() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* METADATA FOOTER */}
-        <div className="mt-20 flex flex-wrap justify-between items-center gap-8 pt-8 border-t border-white/5 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-          <div className="flex gap-6">
-            <span>TOOL: {track.aiTool}</span>
-            <span>GENRE: {track.genre}</span>
-          </div>
-          <div className="text-primary">
-            NEO SCORE: {track.neoScore?.toFixed(1)}
           </div>
         </div>
       </div>
