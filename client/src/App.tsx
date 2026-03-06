@@ -11,6 +11,7 @@ import { Layout } from "@/components/Layout";
 // Pages
 import { Home } from "@/pages/Home";
 import { Join } from "@/pages/Join";
+import { CreatorList } from "@/pages/CreatorList";
 import { ProfileMe } from "@/pages/ProfileMe";
 import { ProfileDetail } from "@/pages/ProfileDetail";
 import { TrackDetail } from "@/pages/WorkDetail";
@@ -25,8 +26,9 @@ function Router() {
         <Route path="/music" component={Home} />
         <Route path="/music-video" component={Home} />
         <Route path="/submit" component={Submit} />
+        <Route path="/profile" component={CreatorList} />
         <Route path="/profile/me" component={ProfileMe} />
-        <Route path="/profile/:id" component={ProfileDetail} />
+        <Route path="/profile/:name" component={ProfileMe} />
         <Route path="/track/:id" component={TrackDetail} />
         <Route path="/mv/:id" component={MVDetail} />
         <Route component={NotFound} />

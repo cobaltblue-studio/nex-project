@@ -2,17 +2,24 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorks } from "@/hooks/use-works";
 import { Loader2, Music } from "lucide-react";
+import { useRoute } from "wouter";
 
 export function ProfileMe() {
-  const { user } = useAuth();
+  const [, params] = useRoute("/profile/:name");
+  const { user: authUser } = useAuth();
   const { data: tracks, isLoading } = useWorks();
 
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
 
-  const creatorName = user?.username || "PULSEAI"; // Fallback to PULSEAI as per instructions
-  const creatorTracks = tracks?.filter(t => t.creatorName === creatorName) || [];
+  const creatorName = params?.name || authUser?.username || "PULSEAI";
+  const creatorTracks = tracks?.filter(t => t.creatorName?.toLowerCase() === creatorName.toLowerCase()) || [];
   const totalVotes = creatorTracks.reduce((acc, t) => acc + (t.votes || 0), 0);
-  const bestRank = creatorTracks.length > 0 ? Math.min(...creatorTracks.map(t => t.id)) : "1";
+  
+  // Find rank in the global list sorted by votes
+  const sortedTracks = [...(tracks || [])].sort((a, b) => b.votes - a.votes);
+  const bestRank = creatorTracks.length > 0 
+    ? Math.min(...creatorTracks.map(ct => sortedTracks.findIndex(st => st.id === ct.id) + 1))
+    : "-";
 
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-20">
@@ -26,15 +33,15 @@ export function ProfileMe() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-sm space-y-2 text-center">
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">CREATOR</p>
-          <p className="text-2xl font-display font-bold text-white truncate">{creatorName}</p>
+          <p className="text-2xl font-display font-bold text-white truncate">{creatorName.toUpperCase()}</p>
         </div>
         <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-sm space-y-2 text-center">
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">TOTAL TRACKS</p>
-          <p className="text-4xl font-display font-bold text-primary">{creatorTracks.length || 12}</p>
+          <p className="text-4xl font-display font-bold text-primary">{creatorTracks.length}</p>
         </div>
         <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-sm space-y-2 text-center">
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">TOTAL VOTES</p>
-          <p className="text-4xl font-display font-bold text-primary">{totalVotes || 3420}</p>
+          <p className="text-4xl font-display font-bold text-primary">{totalVotes}</p>
         </div>
         <div className="bg-[#0A0A0A] border border-white/5 p-8 rounded-sm space-y-2 text-center">
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">BEST RANK</p>
@@ -57,7 +64,7 @@ export function ProfileMe() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-white">{track.votes} VOTES</p>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Rank #{track.id}</p>
+                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Rank #{sortedTracks.findIndex(st => st.id === track.id) + 1}</p>
                 </div>
               </div>
             ))}

@@ -47,7 +47,7 @@ export function TrackDetail() {
                 {track.title}
               </h1>
               <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs">
-                {track.creatorName || "NEO CREATOR"}
+                by {track.creatorName || "NEO CREATOR"}
               </p>
             </div>
 
@@ -55,7 +55,7 @@ export function TrackDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-600">RANK</div>
-                <div className="text-white text-xs">#{track.id}</div>
+                <div className="text-white text-xs">#{track.rank || track.id}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-600">TITLE</div>

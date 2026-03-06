@@ -52,10 +52,12 @@ export function MVDetail() {
                 {track.title}
               </h1>
               <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary border border-primary/20">
                   {track.creatorName?.[0] || "N"}
                 </div>
-                <span className="text-sm font-bold uppercase tracking-widest text-zinc-400">{track.creatorName}</span>
+                <span className="text-lg font-display font-bold uppercase tracking-widest text-white">
+                  {track.creatorName || "NEO CREATOR"}
+                </span>
               </div>
             </div>
 
@@ -63,7 +65,7 @@ export function MVDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-700">RANK</div>
-                <div className="text-white">#{track.id}</div>
+                <div className="text-white">#{track.rank || track.id}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-700">TITLE</div>

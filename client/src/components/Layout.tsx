@@ -17,7 +17,7 @@ export function Layout({ children }: LayoutProps) {
     { path: "/", icon: Home, label: "HOME" },
     { path: "/music", icon: Music, label: "MUSIC" },
     { path: "/music-video", icon: Video, label: "MUSIC VIDEO" },
-    { path: "/profile/me", icon: Disc3, label: "NEX PROFILE" },
+    { path: "/profile", icon: Disc3, label: "NEX PROFILE" },
   ];
 
   return (
