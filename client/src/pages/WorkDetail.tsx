@@ -47,8 +47,32 @@ export function TrackDetail() {
                 {track.title}
               </h1>
               <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs">
-                {track.creatorName || "NEO CREATOR"}
+                NEX {track.creatorName || "NEO CREATOR"}
               </p>
+            </div>
+
+            {/* TRACK INFORMATION BLOCK */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
+              <div className="space-y-1">
+                <div className="text-zinc-600">NEX ID</div>
+                <div className="text-white text-xs">NEX #{String(track.id).padStart(3, "0")}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-600">TITLE</div>
+                <div className="text-white text-xs">{track.title}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-600">ARTIST</div>
+                <div className="text-white text-xs">NEX {track.creatorName}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-600">VOTES</div>
+                <div className="text-white text-xs">{track.votes}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-600">CATEGORY</div>
+                <div className="text-white text-xs">{track.genre || "NEO"}</div>
+              </div>
             </div>
 
             {/* LYRICS SECTION (Shazam style) */}

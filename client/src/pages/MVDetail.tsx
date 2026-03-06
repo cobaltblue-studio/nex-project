@@ -46,15 +46,41 @@ export function MVDetail() {
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 bg-[#0A0A0A] p-8 border border-white/5 rounded-sm">
-          <div className="space-y-4 flex-1">
-            <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tighter uppercase">
-              {track.title}
-            </h1>
-            <div className="flex items-center gap-4">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                {track.creatorName?.[0] || "N"}
+          <div className="space-y-6 flex-1">
+            <div className="space-y-2">
+              <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tighter uppercase">
+                {track.title}
+              </h1>
+              <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                  {track.creatorName?.[0] || "N"}
+                </div>
+                <span className="text-sm font-bold uppercase tracking-widest text-zinc-400">NEX {track.creatorName}</span>
               </div>
-              <span className="text-sm font-bold uppercase tracking-widest text-zinc-400">{track.creatorName}</span>
+            </div>
+
+            {/* TRACK INFORMATION BLOCK */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
+              <div className="space-y-1">
+                <div className="text-zinc-700">NEX ID</div>
+                <div className="text-white">NEX #{String(track.id).padStart(3, "0")}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-700">TITLE</div>
+                <div className="text-white">{track.title}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-700">ARTIST</div>
+                <div className="text-white">NEX {track.creatorName}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-700">VOTES</div>
+                <div className="text-white">{track.votes}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-zinc-700">CATEGORY</div>
+                <div className="text-white">{track.genre || "MV"}</div>
+              </div>
             </div>
           </div>
 

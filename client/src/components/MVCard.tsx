@@ -32,8 +32,9 @@ export function MVCard({ track, index }: MVCardProps) {
 
           <div className="p-2 flex items-center justify-between gap-2">
             <div className="min-w-0">
+              <div className="text-[8px] font-mono text-zinc-600 font-bold mb-0.5">NEX #{String(index + 1).padStart(3, "0")}</div>
               <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-zinc-500">
-                <span className="text-primary/70">{track.creatorName || "NEO CREATOR"}</span>
+                <span className="text-primary/70">NEX {track.creatorName || "NEO CREATOR"}</span>
               </div>
             </div>
             <div className="text-right">

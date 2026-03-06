@@ -16,8 +16,8 @@ export function MusicRow({ track, rank }: MusicRowProps) {
       transition={{ delay: rank * 0.02 }}
       className="group flex items-center gap-4 p-3 hover:bg-white/5 rounded-sm transition-all border-b border-white/5 last:border-0"
     >
-      <div className="w-8 text-[10px] font-mono text-zinc-600 font-bold">
-        {String(rank).padStart(2, "0")}
+      <div className="w-16 text-[10px] font-mono text-zinc-600 font-bold uppercase tracking-tighter">
+        NEX #{String(rank).padStart(3, "0")}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -28,7 +28,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
         </Link>
         <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
           <span className="text-primary/70">
-            {track.creatorName || "NEO CREATOR"}
+            NEX {track.creatorName || "NEO CREATOR"}
           </span>
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
             {track.aiTool}
