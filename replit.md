@@ -35,6 +35,9 @@ Preferred communication style: Simple, everyday language.
 - `/profile` — Creator list
 - `/profile/me` or `/profile/:name` — Creator profile view
 - `/submit` — Track submission form
+- `/battle` — AI Music Duel battle arena (genre select → sequential playback → vote → winner)
+- `/upload` — NEX creator track upload form
+- `/my-tracks` — NEX creator's own track list with stats
 
 **Key Components**:
 - `MusicRow` — Spotify-like row for music lists (rank, title, creator, tool badge, votes, play button)
@@ -81,8 +84,11 @@ Preferred communication style: Simple, everyday language.
 - `likes` — Track likes (userId + trackId)
 - `votes` — Track votes (userId + trackId)
 - `follows` — Creator follows (followerId + creatorProfileId)
+- `track_plays` — Play history (userId + trackId + playedAt); spam prevention: 1 play per 10 min per user per track
+- `battles` — Battle matchups (genre, trackAId, trackBId, trackAVotes, trackBVotes, winnerId)
+- `battle_votes` — Per-user battle votes (battleId + userId + trackId); one vote per battle per user
 
-**Track scoring**: Each track has `aiCraftScore` (admin-assigned), `listenerVotes`, and a computed `neoScore`. Tracks go through statuses: `SUBMITTED` → `PUBLISHED` / `REJECTED`.
+**Track scoring**: Each track has `aiCraftScore` (admin-assigned), `listenerVotes`, `playCount`, and a computed `rankingScore = (votes × 3) + (playCount × 1) + recentBoost`. recentBoost: +30 (<24h), +20 (24-48h), +10 (48-72h), +0 (>72h). Battle wins award +2 to the winning track's rankingScore. Tracks go through statuses: `SUBMITTED` → `PUBLISHED` / `REJECTED`.
 
 ### Authentication
 

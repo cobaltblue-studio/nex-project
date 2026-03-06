@@ -71,6 +71,38 @@ export const trackPlays = pgTable("track_plays", {
   playedAt: timestamp("played_at").defaultNow().notNull(),
 });
 
+// AI Music Battle: two tracks from the same genre face off
+export const battles = pgTable("battles", {
+  id: serial("id").primaryKey(),
+  genre: text("genre").notNull(),
+  trackAId: integer("track_a_id").references(() => tracks.id).notNull(),
+  trackBId: integer("track_b_id").references(() => tracks.id).notNull(),
+  trackAVotes: integer("track_a_votes").default(0).notNull(),
+  trackBVotes: integer("track_b_votes").default(0).notNull(),
+  winnerId: integer("winner_id").references(() => tracks.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Each user can vote once per battle
+export const battleVotes = pgTable("battle_votes", {
+  id: serial("id").primaryKey(),
+  battleId: integer("battle_id").references(() => battles.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  trackId: integer("track_id").references(() => tracks.id).notNull(),
+  votedAt: timestamp("voted_at").defaultNow().notNull(),
+});
+
+export const battlesRelations = relations(battles, ({ one, many }) => ({
+  trackA: one(tracks, { fields: [battles.trackAId], references: [tracks.id] }),
+  trackB: one(tracks, { fields: [battles.trackBId], references: [tracks.id] }),
+  winner: one(tracks, { fields: [battles.winnerId], references: [tracks.id] }),
+  votes: many(battleVotes),
+}));
+
+export const battleVotesRelations = relations(battleVotes, ({ one }) => ({
+  battle: one(battles, { fields: [battleVotes.battleId], references: [battles.id] }),
+}));
+
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
   user: one(users, { fields: [profiles.userId], references: [users.id] }),
   tracks: many(tracks),
@@ -99,3 +131,5 @@ export type Profile = typeof profiles.$inferSelect;
 export type Track = typeof tracks.$inferSelect;
 export type Follow = typeof follows.$inferSelect;
 export type TrackPlay = typeof trackPlays.$inferSelect;
+export type Battle = typeof battles.$inferSelect;
+export type BattleVote = typeof battleVotes.$inferSelect;

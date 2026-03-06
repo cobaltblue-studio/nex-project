@@ -1,6 +1,6 @@
-import { profiles, tracks, likes, votes, follows, trackPlays, type Profile, type Track, type Follow } from "@shared/schema";
+import { profiles, tracks, likes, votes, follows, trackPlays, battles, battleVotes, type Profile, type Track, type Follow, type Battle } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, count, gt } from "drizzle-orm";
+import { eq, desc, and, sql, count, gt, ne } from "drizzle-orm";
 
 // Compute rankingScore = (votes * 3) + (playCount * 1) + recentBoost
 export function computeRankingScore(votesCount: number, playCount: number, createdAt: Date): number {
@@ -32,6 +32,11 @@ export interface IStorage {
   unfollowCreator(followerId: string, creatorProfileId: number): Promise<void>;
   isFollowing(followerId: string, creatorProfileId: number): Promise<boolean>;
   getFollowerCount(creatorProfileId: number): Promise<number>;
+  getAvailableBattleGenres(): Promise<string[]>;
+  createBattle(genre: string): Promise<any | null>;
+  getBattle(id: number): Promise<any | null>;
+  hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
+  recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -185,6 +190,97 @@ export class DatabaseStorage implements IStorage {
       const rs = computeRankingScore(t.listenerVotes, t.playCount, t.createdAt);
       await db.update(tracks).set({ rankingScore: rs }).where(eq(tracks.id, t.id));
     }
+  }
+
+  async getAvailableBattleGenres(): Promise<string[]> {
+    // Return genres that have at least 2 published tracks
+    const results = await db
+      .select({ genre: tracks.genre, cnt: count() })
+      .from(tracks)
+      .where(eq(tracks.status, "PUBLISHED"))
+      .groupBy(tracks.genre)
+      .having(sql`count(*) >= 2`);
+    return results.map(r => r.genre);
+  }
+
+  async createBattle(genre: string): Promise<any | null> {
+    // Fetch all published tracks in this genre
+    const available = await db.select().from(tracks)
+      .where(and(eq(tracks.genre, genre), eq(tracks.status, "PUBLISHED")));
+    if (available.length < 2) return null;
+
+    // Randomly pick 2 different tracks
+    const shuffled = available.sort(() => Math.random() - 0.5);
+    const [trackA, trackB] = shuffled;
+
+    const [battle] = await db.insert(battles).values({
+      genre,
+      trackAId: trackA.id,
+      trackBId: trackB.id,
+    }).returning();
+
+    return this.getBattle(battle.id);
+  }
+
+  async getBattle(id: number): Promise<any | null> {
+    const [battle] = await db.select().from(battles).where(eq(battles.id, id));
+    if (!battle) return null;
+
+    const [trackA] = await db
+      .select({ track: tracks, creator: profiles })
+      .from(tracks).innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .where(eq(tracks.id, battle.trackAId));
+
+    const [trackB] = await db
+      .select({ track: tracks, creator: profiles })
+      .from(tracks).innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .where(eq(tracks.id, battle.trackBId));
+
+    return {
+      ...battle,
+      trackA: trackA ? { ...trackA.track, creatorName: trackA.creator.username } : null,
+      trackB: trackB ? { ...trackB.track, creatorName: trackB.creator.username } : null,
+    };
+  }
+
+  async hasBattleVoted(battleId: number, userId: string): Promise<boolean> {
+    const [r] = await db.select().from(battleVotes)
+      .where(and(eq(battleVotes.battleId, battleId), eq(battleVotes.userId, userId)));
+    return !!r;
+  }
+
+  async recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number }> {
+    const already = await this.hasBattleVoted(battleId, userId);
+    if (already) throw new Error("ALREADY_VOTED");
+
+    const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
+    if (!battle) throw new Error("BATTLE_NOT_FOUND");
+
+    // Record vote
+    await db.insert(battleVotes).values({ battleId, userId, trackId });
+
+    // Increment vote count for the chosen track
+    const isA = trackId === battle.trackAId;
+    const newAVotes = battle.trackAVotes + (isA ? 1 : 0);
+    const newBVotes = battle.trackBVotes + (!isA ? 1 : 0);
+
+    // Determine winner (track with more votes; current battle tally after this vote)
+    const winnerId = newAVotes >= newBVotes ? battle.trackAId : battle.trackBId;
+
+    await db.update(battles).set({
+      trackAVotes: newAVotes,
+      trackBVotes: newBVotes,
+      winnerId,
+    }).where(eq(battles.id, battleId));
+
+    // Award +2 to the voted-for track's rankingScore
+    const [t] = await db.select().from(tracks).where(eq(tracks.id, trackId));
+    if (t) {
+      const newRs = computeRankingScore(t.listenerVotes, t.playCount, t.createdAt) + 2;
+      await db.update(tracks).set({ rankingScore: newRs }).where(eq(tracks.id, trackId));
+    }
+
+    return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId };
   }
 
   async followCreator(followerId: string, creatorProfileId: number): Promise<void> {

@@ -207,6 +207,45 @@ export async function registerRoutes(
     res.json({ message: "Track liked" });
   });
 
+  // --- BATTLE ROUTES ---
+
+  // Get genres with enough published tracks for a battle
+  app.get("/api/battles/genres", async (_req, res) => {
+    const genres = await storage.getAvailableBattleGenres();
+    res.json(genres);
+  });
+
+  // Create a new battle for a given genre
+  app.post("/api/battles/new", async (req, res) => {
+    const { genre } = req.body;
+    if (!genre) return res.status(400).json({ message: "genre is required" });
+    const battle = await storage.createBattle(genre);
+    if (!battle) return res.status(409).json({ message: "Not enough tracks in this genre for a battle" });
+    res.json(battle);
+  });
+
+  // Get a specific battle
+  app.get("/api/battles/:id", async (req, res) => {
+    const battle = await storage.getBattle(Number(req.params.id));
+    if (!battle) return res.status(404).json({ message: "Battle not found" });
+    res.json(battle);
+  });
+
+  // Vote in a battle
+  app.post("/api/battles/:id/vote", isAuthenticated, async (req: any, res) => {
+    const battleId = Number(req.params.id);
+    const { trackId } = req.body;
+    if (!trackId) return res.status(400).json({ message: "trackId is required" });
+    try {
+      const result = await storage.recordBattleVote(battleId, req.user.claims.sub, Number(trackId));
+      res.json(result);
+    } catch (err: any) {
+      if (err?.message === "ALREADY_VOTED") return res.status(409).json({ message: "Already voted in this battle" });
+      if (err?.message === "BATTLE_NOT_FOUND") return res.status(404).json({ message: "Battle not found" });
+      throw err;
+    }
+  });
+
   app.post(api.admin.review.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p || p.role !== "founder")
