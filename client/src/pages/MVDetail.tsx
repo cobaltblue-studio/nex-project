@@ -19,6 +19,9 @@ export function MVDetail() {
   const mvUrl = track.musicVideoUrl || track.mvUrl;
   const videoId = getYoutubeId(mvUrl || "");
 
+  const { data: allTracks } = useWorks();
+  const sortedTracks = useMemo(() => [...(allTracks || [])].sort((a, b) => b.votes - a.votes), [allTracks]);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-6xl mx-auto space-y-12 pb-20">
       <Link href="/music-video" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
@@ -56,7 +59,7 @@ export function MVDetail() {
                   {track.creatorName?.[0] || "N"}
                 </div>
                 <span className="text-lg font-display font-bold uppercase tracking-widest text-white">
-                  by {track.creatorName}
+                  BY {track.creatorName}
                 </span>
               </div>
             </div>
@@ -65,7 +68,7 @@ export function MVDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-700">RANK</div>
-                <div className="text-white">#{track.rank || track.id}</div>
+                <div className="text-white">#{track.rank || sortedTracks.findIndex(st => st.id === track.id) + 1}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-700">TITLE</div>

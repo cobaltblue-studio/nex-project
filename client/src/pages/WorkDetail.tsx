@@ -15,6 +15,9 @@ export function TrackDetail() {
   const isSuno = track.audioUrl?.includes("suno.com");
   const sunoEmbedUrl = isSuno ? track.audioUrl.replace("/song/", "/embed/") : null;
 
+  const { data: allTracks } = useWorks();
+  const sortedTracks = useMemo(() => [...(allTracks || [])].sort((a, b) => b.votes - a.votes), [allTracks]);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
       <Link href="/music" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
@@ -47,7 +50,7 @@ export function TrackDetail() {
                 {track.title}
               </h1>
               <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs">
-                by {track.creatorName}
+                BY {track.creatorName}
               </p>
             </div>
 
@@ -55,7 +58,7 @@ export function TrackDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-600">RANK</div>
-                <div className="text-white text-xs">#{track.rank || track.id}</div>
+                <div className="text-white text-xs">#{track.rank || sortedTracks.findIndex(st => st.id === track.id) + 1}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-600">TITLE</div>

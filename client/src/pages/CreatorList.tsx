@@ -32,7 +32,12 @@ export function CreatorList() {
       creatorMap.set(name, stats);
     });
 
-    return Array.from(creatorMap.values()).sort((a, b) => b.totalVotes - a.totalVotes);
+    return Array.from(creatorMap.values())
+      .sort((a, b) => b.totalVotes - a.totalVotes)
+      .map((creator, index) => ({
+        ...creator,
+        bestRank: index + 1
+      }));
   }, [tracks]);
 
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
@@ -66,7 +71,7 @@ export function CreatorList() {
                   <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest space-y-1">
                     <p>Tracks: <span className="text-white">{creator.totalTracks}</span></p>
                     <p>Votes: <span className="text-white">{creator.totalVotes}</span></p>
-                    <p>Best Rank: <span className="text-primary">#{creator.bestRank}</span></p>
+                    <p>Rank: <span className="text-primary">#{creator.bestRank}</span></p>
                   </div>
                 </div>
               </div>
