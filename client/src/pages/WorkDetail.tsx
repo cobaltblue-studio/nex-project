@@ -47,7 +47,7 @@ export function TrackDetail() {
                 {track.title}
               </h1>
               <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs">
-                by {track.creatorName || "NEO CREATOR"}
+                by {track.creatorName}
               </p>
             </div>
 

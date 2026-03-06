@@ -56,7 +56,7 @@ export function MVDetail() {
                   {track.creatorName?.[0] || "N"}
                 </div>
                 <span className="text-lg font-display font-bold uppercase tracking-widest text-white">
-                  {track.creatorName || "NEO CREATOR"}
+                  by {track.creatorName}
                 </span>
               </div>
             </div>
