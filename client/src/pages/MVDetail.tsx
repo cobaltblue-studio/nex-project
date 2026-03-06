@@ -94,9 +94,11 @@ export function MVDetail() {
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary border border-primary/20">
                   <span className="text-primary/60">NEX</span>
                 </div>
-                <span className="text-lg font-display font-bold uppercase tracking-widest text-white">
-                  BY {track.creatorName}
-                </span>
+                <Link href={`/profile/${track.creatorName.toLowerCase()}`}>
+                  <span className="text-lg font-display font-bold uppercase tracking-widest text-white cursor-pointer hover:text-primary transition-colors">
+                    BY {track.creatorName}
+                  </span>
+                </Link>
               </div>
             </div>
 

@@ -1,16 +1,20 @@
-import { useRoute, Link } from "wouter";
-import { motion } from "framer-motion";
+import { useRoute, Link, useLocation } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
-import { Loader2, ArrowLeft, Play, Pause, Vote, Heart, Music, Info } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Loader2, ArrowLeft, Play, Pause, Vote as VoteIcon, Heart, Music, Info, ChevronUp } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export function TrackDetail() {
   const [, params] = useRoute("/track/:id");
+  const [, setLocation] = useLocation();
   const { data: trackData, isLoading: isTrackLoading } = useWork(params?.id || "");
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { toast } = useToast();
+  const [isVoting, setIsVoting] = useState(false);
 
-  // Normalize track data based on the API response structure { ...track, creator }
+  // Normalize track data
   const track = useMemo(() => {
     if (!trackData) return null;
     return {
@@ -24,7 +28,52 @@ export function TrackDetail() {
     [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
   , [allTracks]);
 
-  // Loading state
+  const rankIndex = useMemo(() => track ? sortedTracks.findIndex(st => st.id === track.id) : -1, [sortedTracks, track]);
+  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
+
+  const nextTrack = useMemo(() => {
+    if (sortedTracks.length === 0 || rankIndex === -1) return null;
+    const nextIdx = (rankIndex + 1) % sortedTracks.length;
+    return sortedTracks[nextIdx];
+  }, [sortedTracks, rankIndex]);
+
+  const handleVote = async () => {
+    if (!track || isVoting) return;
+    
+    const votedTracks = JSON.parse(localStorage.getItem('nex_voted_tracks') || '[]');
+    if (votedTracks.includes(track.id)) {
+      toast({
+        title: "ALREADY VOTED",
+        description: "Neural signature already recorded for this track.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsVoting(true);
+    try {
+      await apiRequest("POST", `/api/tracks/${track.id}/vote`);
+      votedTracks.push(track.id);
+      localStorage.setItem('nex_voted_tracks', JSON.stringify(votedTracks));
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/tracks/${track.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+      
+      toast({
+        title: "VOTE RECORDED",
+        description: "Your resonance has been synthesized.",
+      });
+    } catch (error) {
+      toast({
+        title: "CONNECTION ERROR",
+        description: "Failed to transmit vote to the core.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
   if (isTrackLoading) {
     return (
       <div className="p-20 flex flex-col items-center justify-center space-y-4">
@@ -34,7 +83,6 @@ export function TrackDetail() {
     );
   }
 
-  // Not found or error state
   if (!track) {
     return (
       <div className="p-20 text-center space-y-6">
@@ -50,8 +98,6 @@ export function TrackDetail() {
 
   const isSuno = track.audioUrl?.includes("suno.com");
   const sunoEmbedUrl = isSuno ? track.audioUrl.replace("/song/", "/embed/") : null;
-  const rankIndex = sortedTracks.findIndex(st => st.id === track.id);
-  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
@@ -62,7 +108,7 @@ export function TrackDetail() {
       <div className="bg-[#050505] border border-white/5 p-8 md:p-16 rounded-sm relative overflow-hidden">
         <div className="flex flex-col items-center space-y-12 relative z-10">
           {/* ALBUM COVER & PLAYER */}
-          <div className="w-full max-w-md aspect-square bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.1)]">
+          <div className="w-full max-w-md aspect-square bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.1)] group">
             {isSuno ? (
               <iframe 
                 src={sunoEmbedUrl!} 
@@ -84,9 +130,11 @@ export function TrackDetail() {
               <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none">
                 {track.title}
               </h1>
-              <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs">
-                BY {track.creatorName}
-              </p>
+              <Link href={`/profile/${track.creatorName.toLowerCase()}`}>
+                <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs cursor-pointer hover:text-white transition-colors">
+                  BY {track.creatorName}
+                </p>
+              </Link>
             </div>
 
             {/* TRACK INFORMATION BLOCK */}
@@ -105,11 +153,43 @@ export function TrackDetail() {
                 <div className="text-zinc-600">ARTIST</div>
                 <div className="text-white text-xs">{track.creatorName}</div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col items-center">
                 <div className="text-zinc-600">VOTES</div>
-                <div className="text-white text-xs">{track.votes}</div>
+                <motion.button 
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleVote}
+                  disabled={isVoting}
+                  className="flex flex-col items-center group mt-1"
+                >
+                  <ChevronUp className={`w-4 h-4 ${isVoting ? 'animate-bounce text-primary' : 'text-primary group-hover:text-white'} transition-colors`} />
+                  <span className="text-white text-xs">
+                    {track.votes}
+                  </span>
+                </motion.button>
               </div>
             </div>
+
+            {/* NEXT TRACK SECTION */}
+            {nextTrack && (
+              <div className="pt-8 border-t border-white/5 text-center space-y-4">
+                <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.4em]">Next Track</p>
+                <Link href={`/track/${nextTrack.id}`}>
+                  <motion.div 
+                    whileHover={{ scale: 1.02 }}
+                    className="flex items-center gap-4 bg-white/5 p-4 rounded-sm border border-white/5 hover:border-primary/40 transition-all cursor-pointer group max-w-sm mx-auto"
+                  >
+                    <div className="w-12 h-12 bg-zinc-900 rounded-sm flex items-center justify-center border border-white/10 group-hover:border-primary/20">
+                      <Music className="w-6 h-6 text-zinc-700 group-hover:text-primary transition-colors" />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="text-sm font-bold text-white uppercase truncate group-hover:text-primary transition-colors">{nextTrack.title}</p>
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest truncate">{nextTrack.creatorName}</p>
+                    </div>
+                  </motion.div>
+                </Link>
+              </div>
+            )}
 
             {/* LYRICS SECTION */}
             <div className="pt-12 w-full max-w-2xl mx-auto">
