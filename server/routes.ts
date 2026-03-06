@@ -16,16 +16,64 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
+  // Get current user's profile
   app.get(api.profiles.me.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p) return res.status(404).json({ message: "Profile not found" });
-    res.json(p);
+    const followerCount = await storage.getFollowerCount(p.id);
+    res.json({ ...p, followerCount });
   });
 
+  // Create profile (called after OAuth login for new users)
+  app.post(api.profiles.create.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const existing = await storage.getProfileByUserId(userId);
+    if (existing) return res.status(409).json({ message: "Profile already exists" });
+
+    const { username, role, country, aiToolUsed, bio } = req.body;
+    if (!username) return res.status(400).json({ message: "Username is required" });
+
+    const usernameCheck = await storage.getProfileByUsername(username);
+    if (usernameCheck) return res.status(409).json({ message: "Username already taken" });
+
+    const p = await storage.createProfile({ userId, username, role: role || "listener", country, aiToolUsed, bio });
+    res.status(201).json(p);
+  });
+
+  // Get profile by ID
   app.get(api.profiles.get.path, async (req, res) => {
     const p = await storage.getProfile(Number(req.params.id));
     if (!p) return res.status(404).json({ message: "Profile not found" });
     res.json(p);
+  });
+
+  // Get profile by username (for creator pages)
+  app.get("/api/profiles/by-username/:username", async (req, res) => {
+    const p = await storage.getProfileByUsername(req.params.username);
+    if (!p) return res.status(404).json({ message: "Profile not found" });
+    const full = await storage.getProfile(p.id);
+    res.json(full);
+  });
+
+  // Follow a creator
+  app.post("/api/profiles/:id/follow", isAuthenticated, async (req: any, res) => {
+    const creatorProfileId = Number(req.params.id);
+    await storage.followCreator(req.user.claims.sub, creatorProfileId);
+    res.json({ message: "Following" });
+  });
+
+  // Unfollow a creator
+  app.delete("/api/profiles/:id/follow", isAuthenticated, async (req: any, res) => {
+    const creatorProfileId = Number(req.params.id);
+    await storage.unfollowCreator(req.user.claims.sub, creatorProfileId);
+    res.json({ message: "Unfollowed" });
+  });
+
+  // Check if following
+  app.get("/api/profiles/:id/follow", isAuthenticated, async (req: any, res) => {
+    const creatorProfileId = Number(req.params.id);
+    const isFollowing = await storage.isFollowing(req.user.claims.sub, creatorProfileId);
+    res.json({ isFollowing });
   });
 
   app.get(api.tracks.list.path, async (req, res) => {

@@ -25,17 +25,14 @@ export const tracks = pgTable("tracks", {
   creatorId: integer("creator_id").references(() => profiles.id).notNull(),
   title: text("title").notNull(),
   audioUrl: text("audio_url").notNull(),
-  mvUrl: text("mv_url"), // YouTube link
+  mvUrl: text("mv_url"),
   lyrics: text("lyrics"),
-  aiTool: text("ai_tool").notNull(), // Suno, Udio, Stable Audio
+  aiTool: text("ai_tool").notNull(),
   genre: text("genre").notNull(),
-  status: text("status").default("SUBMITTED").notNull(), // SUBMITTED, PUBLISHED, REJECTED
-  
-  // Scores
+  status: text("status").default("SUBMITTED").notNull(),
   aiCraftScore: doublePrecision("ai_craft_score").default(0).notNull(),
   listenerVotes: integer("listener_votes").default(0).notNull(),
   neoScore: doublePrecision("neo_score").default(0).notNull(),
-  
   isFeatured: boolean("is_featured").default(false).notNull(),
   releaseDate: timestamp("release_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -54,9 +51,17 @@ export const votes = pgTable("votes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const follows = pgTable("follows", {
+  id: serial("id").primaryKey(),
+  followerId: varchar("follower_id").references(() => users.id).notNull(),
+  creatorProfileId: integer("creator_profile_id").references(() => profiles.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
   user: one(users, { fields: [profiles.userId], references: [users.id] }),
   tracks: many(tracks),
+  followers: many(follows),
 }));
 
 export const tracksRelations = relations(tracks, ({ one, many }) => ({
@@ -65,8 +70,13 @@ export const tracksRelations = relations(tracks, ({ one, many }) => ({
   votes: many(votes),
 }));
 
+export const followsRelations = relations(follows, ({ one }) => ({
+  creator: one(profiles, { fields: [follows.creatorProfileId], references: [profiles.id] }),
+}));
+
 export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, userId: true, totalScore: true, createdAt: true });
 export const insertTrackSchema = createInsertSchema(tracks).omit({ id: true, creatorId: true, status: true, aiCraftScore: true, listenerVotes: true, neoScore: true, isFeatured: true, releaseDate: true, createdAt: true });
 
 export type Profile = typeof profiles.$inferSelect;
 export type Track = typeof tracks.$inferSelect;
+export type Follow = typeof follows.$inferSelect;

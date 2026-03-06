@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 
 // Components
 import { Layout } from "@/components/Layout";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 // Pages
 import { Home } from "@/pages/Home";
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/mv/:id" component={MVDetail} />
         <Route component={NotFound} />
       </Switch>
+      <OnboardingModal />
     </Layout>
   );
 }
