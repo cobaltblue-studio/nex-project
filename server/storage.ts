@@ -9,6 +9,7 @@ export interface IStorage {
   createProfile(p: any): Promise<Profile>;
   updateProfile(id: number, data: Partial<Profile>): Promise<Profile>;
   getTracks(filter: { status?: string; featured?: boolean; limit?: number }): Promise<any[]>;
+  getTracksByCreator(creatorId: number): Promise<any[]>;
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
   voteTrack(userId: string, trackId: number): Promise<void>;
@@ -64,6 +65,16 @@ export class DatabaseStorage implements IStorage {
   async getTrack(id: number): Promise<any | undefined> {
     const [r] = await db.select({ track: tracks, creator: profiles }).from(tracks).innerJoin(profiles, eq(tracks.creatorId, profiles.id)).where(eq(tracks.id, id));
     return r ? { ...r.track, creator: r.creator } : undefined;
+  }
+
+  async getTracksByCreator(creatorId: number): Promise<any[]> {
+    const results = await db
+      .select({ track: tracks, creator: profiles })
+      .from(tracks)
+      .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .where(eq(tracks.creatorId, creatorId))
+      .orderBy(desc(tracks.createdAt));
+    return results.map(r => ({ ...r.track, creator: r.creator }));
   }
 
   async createTrack(t: any): Promise<Track> {

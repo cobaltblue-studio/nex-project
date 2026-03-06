@@ -26,6 +26,8 @@ export const tracks = pgTable("tracks", {
   title: text("title").notNull(),
   audioUrl: text("audio_url").notNull(),
   mvUrl: text("mv_url"),
+  coverImage: text("cover_image"),
+  description: text("description"),
   lyrics: text("lyrics"),
   aiTool: text("ai_tool").notNull(),
   genre: text("genre").notNull(),

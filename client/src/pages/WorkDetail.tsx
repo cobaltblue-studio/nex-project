@@ -96,8 +96,27 @@ export function TrackDetail() {
     );
   }
 
-  const isSuno = track.audioUrl?.includes("suno.com");
-  const sunoEmbedUrl = isSuno ? track.audioUrl.replace("/song/", "/embed/") : null;
+  const getEmbedUrl = (url: string | undefined): string | null => {
+    if (!url) return null;
+    // YouTube
+    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0`;
+    // Suno
+    if (url.includes("suno.com")) return url.replace("/song/", "/embed/");
+    // SoundCloud
+    if (url.includes("soundcloud.com")) return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300f0ff&auto_play=false&hide_related=true&show_comments=false&show_artwork=true`;
+    // Vimeo
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    // Udio
+    if (url.includes("udio.com")) return url;
+    // Fallback: use as-is
+    return url;
+  };
+
+  const videoEmbedUrl = getEmbedUrl(track.mvUrl);
+  const audioEmbedUrl = getEmbedUrl(track.audioUrl);
+  const isWidePlayer = !!(videoEmbedUrl);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
@@ -107,14 +126,23 @@ export function TrackDetail() {
 
       <div className="bg-[#050505] border border-white/5 p-8 md:p-16 rounded-sm relative overflow-hidden">
         <div className="flex flex-col items-center space-y-12 relative z-10">
-          {/* ALBUM COVER & PLAYER */}
-          <div className="w-full max-w-md aspect-square bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.1)] group">
-            {isSuno ? (
-              <iframe 
-                src={sunoEmbedUrl!} 
-                width="100%" 
-                height="100%" 
-                style={{ border: 'none' }} 
+          {/* PLAYER */}
+          <div className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.1)] ${isWidePlayer ? "aspect-video max-w-2xl" : "aspect-square max-w-md"}`}>
+            {videoEmbedUrl ? (
+              <iframe
+                src={videoEmbedUrl}
+                width="100%"
+                height="100%"
+                style={{ border: "none" }}
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            ) : audioEmbedUrl ? (
+              <iframe
+                src={audioEmbedUrl}
+                width="100%"
+                height="100%"
+                style={{ border: "none" }}
                 allow="autoplay; encrypted-media"
               />
             ) : (

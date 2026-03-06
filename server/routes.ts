@@ -104,8 +104,12 @@ export async function registerRoutes(
       votes: t.listenerVotes,
       audioUrl: t.audioUrl,
       musicVideoUrl: t.mvUrl,
+      coverImage: t.coverImage,
+      description: t.description,
       aiCraftScore: t.aiCraftScore,
-      neoScore: t.neoScore
+      neoScore: t.neoScore,
+      status: t.status,
+      createdAt: t.createdAt,
     }));
     res.json(formatted);
   });
@@ -126,11 +130,52 @@ export async function registerRoutes(
     res.json(t);
   });
 
+  // Get current creator's own tracks
+  app.get("/api/tracks/my", isAuthenticated, async (req: any, res) => {
+    const p = await storage.getProfileByUserId(req.user.claims.sub);
+    if (!p) return res.status(404).json({ message: "Profile not found" });
+    const ts = await storage.getTracksByCreator(p.id);
+    const formatted = ts.map((t) => ({
+      id: t.id,
+      title: t.title,
+      creatorName: t.creator.username,
+      creatorId: t.creatorId,
+      aiTool: t.aiTool,
+      genre: t.genre,
+      lyrics: t.lyrics,
+      votes: t.listenerVotes,
+      audioUrl: t.audioUrl,
+      musicVideoUrl: t.mvUrl,
+      coverImage: t.coverImage,
+      description: t.description,
+      aiCraftScore: t.aiCraftScore,
+      neoScore: t.neoScore,
+      status: t.status,
+      createdAt: t.createdAt,
+    }));
+    res.json(formatted);
+  });
+
   app.post(api.tracks.create.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p || p.role !== "nex")
       return res.status(403).json({ message: "Only NEX creators can upload" });
-    const t = await storage.createTrack({ ...req.body, creatorId: p.id });
+    const { title, aiTool, genre, audioUrl, mvUrl, coverImage, description, lyrics } = req.body;
+    if (!title || !aiTool || !genre || !audioUrl) {
+      return res.status(400).json({ message: "title, aiTool, genre, and audioUrl are required" });
+    }
+    const t = await storage.createTrack({
+      title, aiTool, genre, audioUrl,
+      mvUrl: mvUrl || null,
+      coverImage: coverImage || null,
+      description: description || null,
+      lyrics: lyrics || null,
+      creatorId: p.id,
+      status: "SUBMITTED",
+      aiCraftScore: 0,
+      listenerVotes: 0,
+      neoScore: 0,
+    });
     res.status(201).json(t);
   });
 

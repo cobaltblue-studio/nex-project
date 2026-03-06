@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Home, Music, Video, Disc3, LogOut, User, ChevronDown } from "lucide-react";
+import { Home, Music, Video, Disc3, LogOut, User, ChevronDown, Upload } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -116,14 +116,38 @@ export function Layout({ children }: LayoutProps) {
                         Profile
                       </div>
                     </Link>
-                    <button
-                      onClick={() => { setUserMenuOpen(false); logout(); }}
-                      data-testid="button-logout"
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
-                    >
-                      <LogOut className="w-3 h-3" />
-                      Logout
-                    </button>
+                    {profile?.role === "nex" && (
+                      <>
+                        <Link href="/my-tracks" onClick={() => setUserMenuOpen(false)}>
+                          <div
+                            data-testid="link-my-tracks"
+                            className="flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer"
+                          >
+                            <Music className="w-3 h-3" />
+                            My Tracks
+                          </div>
+                        </Link>
+                        <Link href="/upload" onClick={() => setUserMenuOpen(false)}>
+                          <div
+                            data-testid="link-upload-track"
+                            className="flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-white hover:bg-primary/5 transition-all cursor-pointer"
+                          >
+                            <Upload className="w-3 h-3" />
+                            Upload Track
+                          </div>
+                        </Link>
+                      </>
+                    )}
+                    <div className="border-t border-white/5 mt-1 pt-1">
+                      <button
+                        onClick={() => { setUserMenuOpen(false); logout(); }}
+                        data-testid="button-logout"
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
+                      >
+                        <LogOut className="w-3 h-3" />
+                        Logout
+                      </button>
+                    </div>
                   </div>
                 </>
               )}

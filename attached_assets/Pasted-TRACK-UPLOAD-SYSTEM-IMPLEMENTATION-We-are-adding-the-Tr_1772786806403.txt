@@ -1,0 +1,166 @@
+TRACK UPLOAD SYSTEM IMPLEMENTATION
+
+We are adding the Track Upload system for NEX creators.
+
+Important rule:
+NEX is a platform for AI-generated music only.
+
+Do NOT modify existing systems:
+
+* Music Chart
+* Music Video Chart
+* Voting
+* Creator profile
+* Follow system
+* Login system
+
+Only add the Track Upload feature and connect it to the existing charts.
+
+---
+
+1. Creator Menu
+
+When a creator is logged in, clicking the username in the header should show a dropdown menu.
+
+Example:
+
+COBALT ▼
+
+Dropdown:
+
+Profile
+My Tracks
+Upload Track
+Logout
+
+---
+
+2. Create "Upload Track" Page
+
+Accessible only to Creator accounts.
+
+Fields required:
+
+Track Title (text)
+
+AI Tool Used (dropdown)
+
+Options:
+Suno
+Udio
+Stable Audio
+MusicGen
+Other
+
+Genre (dropdown)
+
+Example genres:
+Synthwave
+Pop
+EDM
+Ambient
+Experimental
+Other
+
+Audio Source URL (required)
+
+This must accept any embeddable source:
+YouTube
+SoundCloud
+Suno
+Udio
+Vimeo
+Other embed sources
+
+Video Source URL (optional)
+
+Also any embeddable source.
+
+Cover Image (image upload)
+
+Description (optional text)
+
+Confirmation checkbox (required):
+
+"I confirm this track is primarily AI-generated."
+
+Submit Button
+
+---
+
+3. Database Structure
+
+Create a Track model with fields:
+
+title
+artistName
+creatorId
+aiTool
+genre
+audioSourceURL
+videoSourceURL
+coverImage
+description
+votes (default 0)
+createdAt
+
+---
+
+4. Chart Integration
+
+After a track is submitted:
+
+If audioSourceURL exists
+→ automatically appear in Music Chart.
+
+If videoSourceURL exists
+→ automatically appear in Music Video Chart.
+
+Use the same ranking system currently used by votes.
+
+---
+
+5. Track Detail Page Player
+
+When a user clicks a track:
+
+Open the Track Detail page.
+
+If videoSourceURL exists
+→ show embedded video player.
+
+Else
+→ show embedded audio player using audioSourceURL.
+
+The player must run inside NEX using embed iframe.
+
+Do NOT redirect users outside the site.
+
+---
+
+6. My Tracks Page
+
+Creators should be able to see all their uploaded tracks.
+
+Display:
+
+Cover Image
+Track Title
+Votes
+Upload Date
+
+---
+
+7. Security Rules
+
+Only Creator accounts can upload tracks.
+
+Listeners cannot access the Upload Track page.
+
+---
+
+Goal:
+
+Creators can upload AI-generated tracks.
+
+Tracks automatically appear in NEX charts and can be played inside the platform.
