@@ -1,6 +1,7 @@
 import { useRoute, Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
+import { useAuth } from "@/hooks/use-auth";
 import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -27,6 +28,7 @@ export function TrackDetail() {
   const [, params] = useRoute("/track/:id");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
 
   // currentTrackId is the source of truth for the player — decoupled from URL
   const [currentTrackId, setCurrentTrackId] = useState<number>(() => Number(params?.id) || 0);
@@ -34,6 +36,8 @@ export function TrackDetail() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const playerKey = useRef(0); // forces iframe remount on track change
+  const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playCountedRef = useRef<Set<number>>(new Set()); // tracks recorded this session
 
   // Sync currentTrackId if user navigates directly (e.g. browser back/forward)
   useEffect(() => {
@@ -42,6 +46,27 @@ export function TrackDetail() {
       setCurrentTrackId(newId);
     }
   }, [params?.id]);
+
+  // 20-second play timer — records a play after user listens for 20+ seconds
+  useEffect(() => {
+    if (!currentTrackId || !isAuthenticated) return;
+    // Clear any existing timer when track changes
+    if (playTimerRef.current) clearTimeout(playTimerRef.current);
+
+    playTimerRef.current = setTimeout(async () => {
+      // Skip if already recorded in this session
+      if (playCountedRef.current.has(currentTrackId)) return;
+      try {
+        await apiRequest("POST", `/api/tracks/${currentTrackId}/play`, {});
+        playCountedRef.current.add(currentTrackId);
+        queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+      } catch { /* silent — play count is best-effort */ }
+    }, 20_000); // 20 seconds
+
+    return () => {
+      if (playTimerRef.current) clearTimeout(playTimerRef.current);
+    };
+  }, [currentTrackId, isAuthenticated]);
 
   const { data: trackData, isLoading: isTrackLoading } = useWork(String(currentTrackId));
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();

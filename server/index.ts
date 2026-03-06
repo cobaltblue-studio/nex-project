@@ -62,6 +62,10 @@ app.use((req, res, next) => {
 
 (async () => {
   await seed();
+  // Recalculate ranking scores for all tracks on startup
+  const { storage } = await import("./storage");
+  await storage.recalculateAllRankingScores();
+  console.log("Ranking scores recalculated.");
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

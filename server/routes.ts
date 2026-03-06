@@ -108,6 +108,8 @@ export async function registerRoutes(
       description: t.description,
       aiCraftScore: t.aiCraftScore,
       neoScore: t.neoScore,
+      playCount: t.playCount,
+      rankingScore: t.rankingScore,
       status: t.status,
       createdAt: t.createdAt,
     }));
@@ -150,6 +152,8 @@ export async function registerRoutes(
       description: t.description,
       aiCraftScore: t.aiCraftScore,
       neoScore: t.neoScore,
+      playCount: t.playCount,
+      rankingScore: t.rankingScore,
       status: t.status,
       createdAt: t.createdAt,
     }));
@@ -180,8 +184,22 @@ export async function registerRoutes(
   });
 
   app.post(api.tracks.vote.path, isAuthenticated, async (req: any, res) => {
-    await storage.voteTrack(req.user.claims.sub, Number(req.params.id));
-    res.json({ message: "Vote recorded" });
+    try {
+      await storage.voteTrack(req.user.claims.sub, Number(req.params.id));
+      res.json({ message: "Vote recorded" });
+    } catch (err: any) {
+      if (err?.message === "ALREADY_VOTED") {
+        return res.status(409).json({ message: "Already voted for this track" });
+      }
+      throw err;
+    }
+  });
+
+  // Record a play (requires 20s listen time enforced client-side; 10-min spam window enforced server-side)
+  app.post("/api/tracks/:id/play", isAuthenticated, async (req: any, res) => {
+    const trackId = Number(req.params.id);
+    const result = await storage.recordPlay(req.user.claims.sub, trackId);
+    res.json({ counted: result.counted, message: result.counted ? "Play recorded" : "Too soon — play not counted" });
   });
 
   app.post(api.tracks.like.path, isAuthenticated, async (req: any, res) => {
