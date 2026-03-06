@@ -1,22 +1,47 @@
 import { useRoute, Link } from "wouter";
 import { motion } from "framer-motion";
-import { useWork } from "@/hooks/use-works";
+import { useWork, useWorks } from "@/hooks/use-works";
 import { Loader2, ArrowLeft, Play, Pause, Vote, Heart, Music, Info } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 
 export function TrackDetail() {
   const [, params] = useRoute("/track/:id");
-  const { data: track, isLoading } = useWork(params?.id || "");
+  const { data: track, isLoading: isTrackLoading } = useWork(params?.id || "");
+  const { data: allTracks, isLoading: areTracksLoading } = useWorks();
   const [isPlaying, setIsPlaying] = useState(false);
 
-  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
-  if (!track) return <div className="p-20 text-center font-display text-2xl uppercase tracking-widest text-zinc-500 border border-white/5 border-dashed">Track Not Found</div>;
+  const sortedTracks = useMemo(() => 
+    [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
+  , [allTracks]);
+
+  // Loading state
+  if (isTrackLoading) {
+    return (
+      <div className="p-20 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-primary/60">Loading Neural Data...</p>
+      </div>
+    );
+  }
+
+  // Not found or error state
+  if (!track) {
+    return (
+      <div className="p-20 text-center space-y-6">
+        <div className="font-display text-2xl uppercase tracking-widest text-zinc-500 border border-white/5 border-dashed p-12">
+          Track Not Found
+        </div>
+        <Link href="/music" className="inline-block text-primary font-bold uppercase tracking-widest hover:underline">
+          Return to Music Board
+        </Link>
+      </div>
+    );
+  }
 
   const isSuno = track.audioUrl?.includes("suno.com");
   const sunoEmbedUrl = isSuno ? track.audioUrl.replace("/song/", "/embed/") : null;
-
-  const { data: allTracks } = useWorks();
-  const sortedTracks = useMemo(() => [...(allTracks || [])].sort((a, b) => b.votes - a.votes), [allTracks]);
+  const rankIndex = sortedTracks.findIndex(st => st.id === track.id);
+  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
@@ -58,7 +83,9 @@ export function TrackDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-600">RANK</div>
-                <div className="text-white text-xs">#{track.rank || sortedTracks.findIndex(st => st.id === track.id) + 1}</div>
+                <div className="text-white text-xs">
+                  {rank ? `NEX #${String(rank).padStart(3, "0")}` : (areTracksLoading ? '...' : '-')}
+                </div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-600">TITLE</div>

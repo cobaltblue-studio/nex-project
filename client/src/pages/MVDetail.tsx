@@ -1,14 +1,41 @@
 import { useRoute, Link } from "wouter";
 import { motion } from "framer-motion";
-import { useWork } from "@/hooks/use-works";
+import { useWork, useWorks } from "@/hooks/use-works";
 import { Loader2, ArrowLeft, Youtube, Info, Vote } from "lucide-react";
+import { useMemo } from "react";
 
 export function MVDetail() {
   const [, params] = useRoute("/mv/:id");
-  const { data: track, isLoading } = useWork(params?.id || "");
+  const { data: track, isLoading: isTrackLoading } = useWork(params?.id || "");
+  const { data: allTracks, isLoading: areTracksLoading } = useWorks();
 
-  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
-  if (!track) return <div className="p-20 text-center font-display text-2xl uppercase tracking-widest text-zinc-500 border border-white/5 border-dashed">Video Not Found</div>;
+  const sortedTracks = useMemo(() => 
+    [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
+  , [allTracks]);
+
+  // Loading state
+  if (isTrackLoading) {
+    return (
+      <div className="p-20 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-primary/60">Syncing Visual Stream...</p>
+      </div>
+    );
+  }
+
+  // Not found state
+  if (!track) {
+    return (
+      <div className="p-20 text-center space-y-6">
+        <div className="font-display text-2xl uppercase tracking-widest text-zinc-500 border border-white/5 border-dashed p-12">
+          Video Not Found
+        </div>
+        <Link href="/music-video" className="inline-block text-primary font-bold uppercase tracking-widest hover:underline">
+          Return to Video Board
+        </Link>
+      </div>
+    );
+  }
 
   const getYoutubeId = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -18,9 +45,8 @@ export function MVDetail() {
 
   const mvUrl = track.musicVideoUrl || track.mvUrl;
   const videoId = getYoutubeId(mvUrl || "");
-
-  const { data: allTracks } = useWorks();
-  const sortedTracks = useMemo(() => [...(allTracks || [])].sort((a, b) => b.votes - a.votes), [allTracks]);
+  const rankIndex = sortedTracks.findIndex(st => st.id === track.id);
+  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-6xl mx-auto space-y-12 pb-20">
@@ -68,7 +94,9 @@ export function MVDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-700">RANK</div>
-                <div className="text-white">#{track.rank || sortedTracks.findIndex(st => st.id === track.id) + 1}</div>
+                <div className="text-white">
+                  {rank ? `NEX #${String(rank).padStart(3, "0")}` : (areTracksLoading ? '...' : '-')}
+                </div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-700">TITLE</div>
