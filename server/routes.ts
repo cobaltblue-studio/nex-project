@@ -22,12 +22,28 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  // Get current user's profile — auto-upgrade to founder if email matches ADMIN_EMAIL
+  // Get current user's profile — auto-creates a minimal profile on first access
   app.get(api.profiles.me.path, isAuthenticated, async (req: any, res) => {
-    const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p) return res.status(404).json({ message: "Profile not found" });
+    const userId = req.user.claims.sub;
+    let p = await storage.getProfileByUserId(userId);
 
-    // Auto-promote to founder if the logged-in email matches ADMIN_EMAIL
+    if (!p) {
+      // Auto-create a minimal profile so the UI always has role/country to display.
+      // Derive a unique username from email prefix or user ID.
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const assignedRole = (adminEmail && req.user?.claims?.email === adminEmail) ? "founder" : "listener";
+      const emailPrefix = (req.user?.claims?.email as string | undefined)?.split("@")[0] ?? "";
+      const baseUsername = emailPrefix || `user_${userId.slice(0, 8)}`;
+      // Ensure uniqueness by appending a short suffix if needed
+      let username = baseUsername;
+      const existing = await storage.getProfileByUsername(username);
+      if (existing && existing.userId !== userId) {
+        username = `${baseUsername}_${userId.slice(0, 4)}`;
+      }
+      p = await storage.createProfile({ userId, username, role: assignedRole, country: null });
+    }
+
+    // Keep role in sync — always enforce admin email = founder
     if (isAdminEmail(req) && p.role !== "founder") {
       await storage.updateProfile(p.id, { role: "founder" });
       p.role = "founder";
@@ -37,20 +53,29 @@ export async function registerRoutes(
     res.json({ ...p, followerCount });
   });
 
-  // Create profile (called after OAuth login for new users)
+  // Create / update profile (called from the onboarding modal)
   app.post(api.profiles.create.path, isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     const existing = await storage.getProfileByUserId(userId);
-    if (existing) return res.status(409).json({ message: "Profile already exists" });
 
     const { username, country, aiToolUsed, bio } = req.body;
     if (!username) return res.status(400).json({ message: "Username is required" });
 
+    // Force "founder" role if this is the admin email; otherwise use submitted role
+    const assignedRole = isAdminEmail(req) ? "founder" : (req.body.role || "listener");
+
+    if (existing) {
+      // Profile already exists (auto-created on first login) — update it
+      const usernameCheck = await storage.getProfileByUsername(username);
+      if (usernameCheck && usernameCheck.id !== existing.id) {
+        return res.status(409).json({ message: "Username already taken" });
+      }
+      const updated = await storage.updateProfile(existing.id, { username, role: assignedRole, country, aiToolUsed, bio });
+      return res.status(200).json(updated);
+    }
+
     const usernameCheck = await storage.getProfileByUsername(username);
     if (usernameCheck) return res.status(409).json({ message: "Username already taken" });
-
-    // Force "founder" role if this is the admin email; otherwise use the submitted role
-    const assignedRole = isAdminEmail(req) ? "founder" : (req.body.role || "listener");
 
     const p = await storage.createProfile({ userId, username, role: assignedRole, country, aiToolUsed, bio });
     res.status(201).json(p);
