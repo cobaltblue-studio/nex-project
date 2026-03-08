@@ -37,6 +37,7 @@ export interface IStorage {
   getBattle(id: number): Promise<any | null>;
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
   recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number }>;
+  getRisingTracks(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -204,14 +205,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBattle(genre: string): Promise<any | null> {
-    // Fetch all published tracks in this genre
+    // Fetch all published tracks in this genre, sorted by rankingScore desc (rank 0 = best)
     const available = await db.select().from(tracks)
-      .where(and(eq(tracks.genre, genre), eq(tracks.status, "PUBLISHED")));
+      .where(and(eq(tracks.genre, genre), eq(tracks.status, "PUBLISHED")))
+      .orderBy(desc(tracks.rankingScore));
     if (available.length < 2) return null;
 
-    // Randomly pick 2 different tracks
-    const shuffled = available.sort(() => Math.random() - 0.5);
-    const [trackA, trackB] = shuffled;
+    const n = available.length;
+    let idxA: number;
+    let idxB: number;
+
+    // 20% chance of an "upset" match (far-apart ranks), 80% similar-rank match
+    const isUpset = Math.random() < 0.20;
+
+    if (n === 2) {
+      // Only two tracks — always pair them
+      idxA = 0; idxB = 1;
+    } else if (isUpset) {
+      // Upset: pick a top-half track vs a bottom-half track (rank gap >= n/3)
+      const minGap = Math.max(3, Math.floor(n / 3));
+      idxA = Math.floor(Math.random() * Math.floor(n / 2)); // from top half
+      // Find idxB at least minGap lower
+      const candidates = Array.from({ length: n }, (_, i) => i)
+        .filter(i => i !== idxA && Math.abs(i - idxA) >= minGap);
+      idxB = candidates.length > 0
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : (idxA === 0 ? 1 : 0);
+    } else {
+      // Similar rank: pick a random track, then pick another within ±3 positions
+      idxA = Math.floor(Math.random() * n);
+      const window = 3;
+      const candidates = Array.from({ length: n }, (_, i) => i)
+        .filter(i => i !== idxA && Math.abs(i - idxA) <= window);
+      if (candidates.length > 0) {
+        idxB = candidates[Math.floor(Math.random() * candidates.length)];
+      } else {
+        // Fallback: pick nearest track
+        idxB = idxA === 0 ? 1 : idxA - 1;
+      }
+    }
+
+    // Randomly assign A/B so neither is always "the better" track
+    const [trackA, trackB] = Math.random() < 0.5
+      ? [available[idxA], available[idxB]]
+      : [available[idxB], available[idxA]];
 
     const [battle] = await db.insert(battles).values({
       genre,
@@ -220,6 +257,67 @@ export class DatabaseStorage implements IStorage {
     }).returning();
 
     return this.getBattle(battle.id);
+  }
+
+  async getRisingTracks(): Promise<any[]> {
+    // Get all completed battles (with a winner)
+    const allBattles = await db.select().from(battles).where(sql`${battles.winnerId} IS NOT NULL`);
+
+    // Tally battles and wins per track
+    const stats: Record<number, { battles: number; wins: number }> = {};
+    for (const b of allBattles) {
+      const ids = [b.trackAId, b.trackBId];
+      for (const id of ids) {
+        if (!stats[id]) stats[id] = { battles: 0, wins: 0 };
+        stats[id].battles += 1;
+      }
+      if (b.winnerId) {
+        if (!stats[b.winnerId]) stats[b.winnerId] = { battles: 0, wins: 0 };
+        stats[b.winnerId].wins += 1;
+      }
+    }
+
+    // Get top 100 track IDs by rankingScore (to exclude from RISING)
+    const top100 = await db.select({ id: tracks.id })
+      .from(tracks)
+      .where(eq(tracks.status, "PUBLISHED"))
+      .orderBy(desc(tracks.rankingScore))
+      .limit(100);
+    const top100Ids = new Set(top100.map(t => t.id));
+
+    // Filter to qualifying tracks
+    const qualifyingIds = Object.entries(stats)
+      .filter(([id, s]) => {
+        const numId = Number(id);
+        const winRate = s.battles > 0 ? s.wins / s.battles : 0;
+        return s.battles >= 5 && winRate >= 0.6 && !top100Ids.has(numId);
+      })
+      .map(([id]) => Number(id));
+
+    if (qualifyingIds.length === 0) return [];
+
+    // Fetch track + creator data for qualifying tracks
+    const results: any[] = [];
+    for (const id of qualifyingIds) {
+      const [r] = await db
+        .select({ track: tracks, creator: profiles })
+        .from(tracks)
+        .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+        .where(eq(tracks.id, id));
+      if (r) {
+        const s = stats[id];
+        results.push({
+          ...r.track,
+          creatorName: r.creator.username,
+          totalBattles: s.battles,
+          wins: s.wins,
+          winRate: Math.round((s.wins / s.battles) * 100),
+        });
+      }
+    }
+
+    // Sort by win rate desc, then total battles desc
+    return results.sort((a, b) => b.winRate - a.winRate || b.totalBattles - a.totalBattles);
   }
 
   async getBattle(id: number): Promise<any | null> {

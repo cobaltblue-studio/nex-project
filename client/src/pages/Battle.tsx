@@ -84,6 +84,8 @@ export function Battle() {
   const [selectedGenre, setSelectedGenre] = useState<string>("");
   const [battle, setBattle] = useState<BattleData | null>(null);
   const [voteResult, setVoteResult] = useState<{ trackAVotes: number; trackBVotes: number; winnerId: number } | null>(null);
+  const [listenedA, setListenedA] = useState(false);
+  const [listenedB, setListenedB] = useState(false);
 
   const { data: genres = [], isLoading: genresLoading } = useQuery<string[]>({
     queryKey: ["/api/battles/genres"],
@@ -123,12 +125,16 @@ export function Battle() {
   const startBattle = useCallback((genre: string) => {
     setSelectedGenre(genre);
     setPhase("loading");
+    setListenedA(false);
+    setListenedB(false);
     createBattleMutation.mutate(genre);
   }, [createBattleMutation]);
 
   const nextBattle = useCallback(() => {
     setBattle(null);
     setVoteResult(null);
+    setListenedA(false);
+    setListenedB(false);
     setPhase("loading");
     createBattleMutation.mutate(selectedGenre);
   }, [selectedGenre, createBattleMutation]);
@@ -230,7 +236,7 @@ export function Battle() {
             </div>
             <TrackPlayer track={battle.trackA} label="Track A" />
             <button
-              onClick={() => setPhase("track-b")}
+              onClick={() => { setListenedA(true); setPhase("track-b"); }}
               data-testid="button-ready-track-b"
               className="mt-6 w-full flex items-center justify-center gap-2 py-3.5 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary text-[11px] font-bold uppercase tracking-[0.3em] rounded-sm transition-all"
             >
@@ -255,7 +261,7 @@ export function Battle() {
             </div>
             <TrackPlayer track={battle.trackB} label="Track B" />
             <button
-              onClick={() => setPhase("vote")}
+              onClick={() => { setListenedB(true); setPhase("vote"); }}
               data-testid="button-ready-vote"
               className="mt-6 w-full flex items-center justify-center gap-2 py-3.5 border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 text-blue-400 text-[11px] font-bold uppercase tracking-[0.3em] rounded-sm transition-all"
             >
@@ -274,12 +280,31 @@ export function Battle() {
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.3 }}
           >
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6">
+            {/* Listen status bar */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${listenedA ? "text-primary" : "text-zinc-600"}`}>
+                <span className={`w-4 h-4 rounded-sm flex items-center justify-center text-[8px] border ${listenedA ? "bg-primary/10 border-primary/40 text-primary" : "bg-white/3 border-white/10 text-zinc-600"}`}>A</span>
+                {listenedA ? "✓ Listened" : "Not listened"}
+              </div>
+              <div className="h-px flex-1 bg-white/5" />
+              <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${listenedB ? "text-blue-400" : "text-zinc-600"}`}>
+                <span className={`w-4 h-4 rounded-sm flex items-center justify-center text-[8px] border ${listenedB ? "bg-blue-500/10 border-blue-500/40 text-blue-400" : "bg-white/3 border-white/10 text-zinc-600"}`}>B</span>
+                {listenedB ? "✓ Listened" : "Not listened"}
+              </div>
+            </div>
+
+            {(!listenedA || !listenedB) && (
+              <p className="text-[10px] text-zinc-600 uppercase tracking-widest text-center mb-4">
+                Listen to both tracks before voting
+              </p>
+            )}
+
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-5">
               Which track wins the {selectedGenre} battle?
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Track A Vote Card */}
-              <div className="border border-white/10 rounded-sm p-5 bg-black/30 flex flex-col gap-4">
+              <div className={`border rounded-sm p-5 flex flex-col gap-4 transition-all ${listenedA && listenedB ? "border-white/10 bg-black/30" : "border-white/5 bg-black/15 opacity-60"}`}>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-sm bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[10px] font-bold">A</div>
                   <span className="text-[9px] uppercase tracking-widest text-zinc-500">Track A</span>
@@ -290,16 +315,16 @@ export function Battle() {
                 </div>
                 <button
                   onClick={() => castVote(battle.trackAId)}
-                  disabled={voteMutation.isPending}
+                  disabled={voteMutation.isPending || !listenedA || !listenedB}
                   data-testid="button-vote-track-a"
-                  className="w-full py-3 border border-primary/40 bg-primary/10 hover:bg-primary/25 text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-50"
+                  className="w-full py-3 border border-primary/40 bg-primary/10 hover:bg-primary/25 text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {voteMutation.isPending ? "Voting…" : "Vote Track A"}
                 </button>
               </div>
 
               {/* Track B Vote Card */}
-              <div className="border border-white/10 rounded-sm p-5 bg-black/30 flex flex-col gap-4">
+              <div className={`border rounded-sm p-5 flex flex-col gap-4 transition-all ${listenedA && listenedB ? "border-white/10 bg-black/30" : "border-white/5 bg-black/15 opacity-60"}`}>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-sm bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[10px] font-bold">B</div>
                   <span className="text-[9px] uppercase tracking-widest text-zinc-500">Track B</span>
@@ -310,9 +335,9 @@ export function Battle() {
                 </div>
                 <button
                   onClick={() => castVote(battle.trackBId)}
-                  disabled={voteMutation.isPending}
+                  disabled={voteMutation.isPending || !listenedA || !listenedB}
                   data-testid="button-vote-track-b"
-                  className="w-full py-3 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/25 text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-50"
+                  className="w-full py-3 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/25 text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {voteMutation.isPending ? "Voting…" : "Vote Track B"}
                 </button>

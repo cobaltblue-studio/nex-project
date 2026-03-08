@@ -207,6 +207,12 @@ export async function registerRoutes(
     res.json({ message: "Track liked" });
   });
 
+  // RISING tracks: ≥5 battles, ≥60% win rate, not in top 100
+  app.get("/api/tracks/rising", async (_req, res) => {
+    const rising = await storage.getRisingTracks();
+    res.json(rising);
+  });
+
   // --- BATTLE ROUTES ---
 
   // Get genres with enough published tracks for a battle
