@@ -165,7 +165,7 @@ export function Battle() {
         </h2>
         {selectedGenre && phase !== "genre-select" && (
           <p className="text-zinc-500 text-sm mt-2 uppercase tracking-widest">
-            {selectedGenre} Battle
+            {selectedGenre === "ALL" ? "Any Genre Battle" : `${selectedGenre} Battle`}
           </p>
         )}
       </div>
@@ -192,16 +192,23 @@ export function Battle() {
               <p className="text-zinc-600 text-sm">No genres available yet. Tracks need to be published first.</p>
             ) : (
               <div className="flex flex-wrap gap-3" data-testid="genre-selector">
-                {genres.map((genre) => (
-                  <button
-                    key={genre}
-                    onClick={() => startBattle(genre)}
-                    data-testid={`button-genre-${genre.toLowerCase().replace(/\s/g, "-")}`}
-                    className="px-5 py-2.5 border border-white/10 rounded-sm text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                  >
-                    {genre}
-                  </button>
-                ))}
+                {genres.map((genre) => {
+                  const isAll = genre === "ALL";
+                  return (
+                    <button
+                      key={genre}
+                      onClick={() => startBattle(genre)}
+                      data-testid={`button-genre-${genre.toLowerCase().replace(/\s/g, "-")}`}
+                      className={
+                        isAll
+                          ? "px-5 py-2.5 border rounded-sm text-[11px] font-bold uppercase tracking-[0.2em] transition-all border-primary/50 text-primary bg-primary/10 hover:bg-primary/25"
+                          : "px-5 py-2.5 border border-white/10 rounded-sm text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
+                      }
+                    >
+                      {isAll ? "⚡ Any Genre" : genre}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </motion.div>

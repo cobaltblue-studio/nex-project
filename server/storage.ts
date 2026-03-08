@@ -206,64 +206,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAvailableBattleGenres(): Promise<string[]> {
-    // Return genres that have at least 2 battle-eligible tracks (PUBLISHED legacy + BATTLE_POOL)
-    const results = await db
+    // Battle-eligible statuses: PUBLISHED (legacy), BATTLE_POOL (approved), CHART (graduated)
+    // Genres with >=2 eligible tracks can host same-genre battles
+    const genreResults = await db
       .select({ genre: tracks.genre, cnt: count() })
       .from(tracks)
-      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL')`)
+      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`)
       .groupBy(tracks.genre)
       .having(sql`count(*) >= 2`);
-    return results.map(r => r.genre);
+
+    const genres = genreResults.map(r => r.genre);
+
+    // Always include "ALL" if there are >=2 eligible tracks total (enables cross-genre battles)
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(tracks)
+      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`);
+
+    if (Number(total) >= 2) {
+      return ["ALL", ...genres];
+    }
+    return genres;
   }
 
   async createBattle(genre: string): Promise<any | null> {
-    // Fetch all battle-eligible tracks in this genre, sorted by rankingScore desc (rank 0 = best)
-    const available = await db.select().from(tracks)
-      .where(and(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL')`, eq(tracks.genre, genre)))
-      .orderBy(desc(tracks.rankingScore));
-    if (available.length < 2) return null;
+    // Battle-eligible: PUBLISHED (legacy) + BATTLE_POOL (approved by admin) + CHART (graduated)
+    const eligibleSql = sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`;
 
-    const n = available.length;
-    let idxA: number;
-    let idxB: number;
+    // Build the candidate pool — same genre if specified, otherwise all eligible
+    let pool = await db.select().from(tracks).where(
+      genre && genre !== "ALL"
+        ? and(eligibleSql, eq(tracks.genre, genre))
+        : eligibleSql
+    );
 
-    // 20% chance of an "upset" match (far-apart ranks), 80% similar-rank match
-    const isUpset = Math.random() < 0.20;
-
-    if (n === 2) {
-      // Only two tracks — always pair them
-      idxA = 0; idxB = 1;
-    } else if (isUpset) {
-      // Upset: pick a top-half track vs a bottom-half track (rank gap >= n/3)
-      const minGap = Math.max(3, Math.floor(n / 3));
-      idxA = Math.floor(Math.random() * Math.floor(n / 2)); // from top half
-      // Find idxB at least minGap lower
-      const candidates = Array.from({ length: n }, (_, i) => i)
-        .filter(i => i !== idxA && Math.abs(i - idxA) >= minGap);
-      idxB = candidates.length > 0
-        ? candidates[Math.floor(Math.random() * candidates.length)]
-        : (idxA === 0 ? 1 : 0);
-    } else {
-      // Similar rank: pick a random track, then pick another within ±3 positions
-      idxA = Math.floor(Math.random() * n);
-      const window = 3;
-      const candidates = Array.from({ length: n }, (_, i) => i)
-        .filter(i => i !== idxA && Math.abs(i - idxA) <= window);
-      if (candidates.length > 0) {
-        idxB = candidates[Math.floor(Math.random() * candidates.length)];
-      } else {
-        // Fallback: pick nearest track
-        idxB = idxA === 0 ? 1 : idxA - 1;
-      }
+    // Fallback: if genre-specific pool has <2 tracks, widen to all eligible tracks
+    if (pool.length < 2) {
+      pool = await db.select().from(tracks).where(eligibleSql);
     }
 
-    // Randomly assign A/B so neither is always "the better" track
-    const [trackA, trackB] = Math.random() < 0.5
-      ? [available[idxA], available[idxB]]
-      : [available[idxB], available[idxA]];
+    if (pool.length < 2) return null;
+
+    // Fully random selection — shuffle and take first two
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const trackA = pool[0];
+    const trackB = pool[1];
+
+    // Persist the battle — use the actual genre of trackA when "ALL" was selected
+    const battleGenre = (genre && genre !== "ALL") ? genre : trackA.genre;
 
     const [battle] = await db.insert(battles).values({
-      genre,
+      genre: battleGenre,
       trackAId: trackA.id,
       trackBId: trackB.id,
     }).returning();
