@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useWorks } from "@/hooks/use-works";
 import { MusicRow } from "@/components/MusicRow";
@@ -8,9 +8,7 @@ import { useLocation } from "wouter";
 
 export function Home() {
   const { data: tracks, isLoading } = useWorks();
-  const [location] = useLocation();
-  const [recentlyPlayed, setRecentlyPlayed] = useState<number[]>([]);
-
+  const [location, setLocation] = useLocation();
   const musicTracks = useMemo(() => 
     (tracks || []).sort((a, b) => b.votes - a.votes)
   , [tracks]);
@@ -23,19 +21,7 @@ export function Home() {
   const isMusic = location === "/music";
   const isMV = location === "/music-video";
 
-  const startRadio = () => {
-    if (!tracks || tracks.length === 0) return;
-    const top50 = [...tracks].sort((a, b) => b.neoScore - a.neoScore).slice(0, 50);
-    const available = top50.filter(t => !recentlyPlayed.includes(t.id));
-    let nextTrack;
-    if (available.length === 0) {
-      nextTrack = top50[Math.floor(Math.random() * top50.length)];
-      setRecentlyPlayed([nextTrack.id]);
-    } else {
-      nextTrack = available[Math.floor(Math.random() * available.length)];
-      setRecentlyPlayed(prev => [...prev.slice(-4), nextTrack.id]);
-    }
-  };
+  const startRadio = () => setLocation("/radio");
 
   if (isLoading) return (
     <div className="py-32 flex flex-col items-center justify-center">
