@@ -9,6 +9,12 @@ import {
   isAuthenticated,
 } from "./replit_integrations/auth";
 
+// Check if the logged-in user's email matches the configured admin email
+function isAdminEmail(req: any): boolean {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  return !!(adminEmail && req.user?.claims?.email === adminEmail);
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -16,10 +22,17 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  // Get current user's profile
+  // Get current user's profile — auto-upgrade to founder if email matches ADMIN_EMAIL
   app.get(api.profiles.me.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p) return res.status(404).json({ message: "Profile not found" });
+
+    // Auto-promote to founder if the logged-in email matches ADMIN_EMAIL
+    if (isAdminEmail(req) && p.role !== "founder") {
+      await storage.updateProfile(p.id, { role: "founder" });
+      p.role = "founder";
+    }
+
     const followerCount = await storage.getFollowerCount(p.id);
     res.json({ ...p, followerCount });
   });
@@ -30,13 +43,16 @@ export async function registerRoutes(
     const existing = await storage.getProfileByUserId(userId);
     if (existing) return res.status(409).json({ message: "Profile already exists" });
 
-    const { username, role, country, aiToolUsed, bio } = req.body;
+    const { username, country, aiToolUsed, bio } = req.body;
     if (!username) return res.status(400).json({ message: "Username is required" });
 
     const usernameCheck = await storage.getProfileByUsername(username);
     if (usernameCheck) return res.status(409).json({ message: "Username already taken" });
 
-    const p = await storage.createProfile({ userId, username, role: role || "listener", country, aiToolUsed, bio });
+    // Force "founder" role if this is the admin email; otherwise use the submitted role
+    const assignedRole = isAdminEmail(req) ? "founder" : (req.body.role || "listener");
+
+    const p = await storage.createProfile({ userId, username, role: assignedRole, country, aiToolUsed, bio });
     res.status(201).json(p);
   });
 
@@ -274,7 +290,7 @@ export async function registerRoutes(
   // Admin: get all submitted tracks across all pipeline statuses
   app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p || p.role !== "founder")
+    if (!isAdminEmail(req) && (!p || p.role !== "founder"))
       return res.status(403).json({ message: "Admin access required" });
 
     const statuses = ["PENDING", "BATTLE_POOL", "REJECTED", "CHART"];
@@ -301,7 +317,7 @@ export async function registerRoutes(
 
   app.post(api.admin.review.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p || p.role !== "founder")
+    if (!isAdminEmail(req) && (!p || p.role !== "founder"))
       return res.status(403).json({ message: "Admin access required" });
 
     const { status } = req.body;

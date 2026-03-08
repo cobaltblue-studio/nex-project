@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, CheckCircle, XCircle, ExternalLink, Clock, RefreshCw } from "lucide-react";
+import { ShieldCheck, CheckCircle, XCircle, ExternalLink, Clock, RefreshCw, Loader2 } from "lucide-react";
 
 type Submission = {
   id: number;
@@ -12,6 +14,12 @@ type Submission = {
   trackLink: string;
   status: "PENDING" | "BATTLE_POOL" | "REJECTED" | "CHART";
   createdAt: string;
+};
+
+type Profile = {
+  id: number;
+  role: string;
+  username: string;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -37,11 +45,33 @@ function formatDate(iso: string) {
 }
 
 export default function AdminPanel() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const { data: submissions, isLoading, error, refetch } = useQuery<Submission[]>({
+  // Fetch the current user's profile to check role
+  const { data: profile, isLoading: profileLoading } = useQuery<Profile>({
+    queryKey: ["/api/profiles/me"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const isAdmin = profile?.role === "founder";
+
+  // Redirect non-admins to home
+  useEffect(() => {
+    if (!authLoading && !profileLoading) {
+      if (!isAuthenticated) {
+        setLocation("/");
+      } else if (profile && !isAdmin) {
+        setLocation("/");
+      }
+    }
+  }, [isAuthenticated, authLoading, profile, profileLoading, isAdmin, setLocation]);
+
+  const { data: submissions, isLoading: submissionsLoading, refetch } = useQuery<Submission[]>({
     queryKey: ["/api/admin/submissions"],
+    enabled: isAuthenticated && isAdmin,
     retry: false,
   });
 
@@ -56,6 +86,16 @@ export default function AdminPanel() {
   const pending = submissions?.filter((s) => s.status === "PENDING") ?? [];
   const processed = submissions?.filter((s) => s.status !== "PENDING") ?? [];
 
+  // Show loading while we determine auth state
+  if (authLoading || profileLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 text-zinc-600 animate-spin" />
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated (redirect fires in useEffect)
   if (!isAuthenticated) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
@@ -63,25 +103,20 @@ export default function AdminPanel() {
         <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-600 mb-4">
           Admin access required
         </p>
-        <a
-          href="/api/login"
-          className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline"
-        >
+        <a href="/api/login" className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">
           Login
         </a>
       </div>
     );
   }
 
-  if (error && (error as any)?.message?.includes("403")) {
+  // Show redirect message for non-admin (redirect fires in useEffect)
+  if (!isAdmin) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <ShieldCheck className="w-12 h-12 text-zinc-700 mx-auto mb-4" strokeWidth={1} />
-        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-2">
+        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">
           Access restricted
-        </p>
-        <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-          Founder role required to access this panel
         </p>
       </div>
     );
@@ -95,7 +130,7 @@ export default function AdminPanel() {
           <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">
             NEO Platform
           </p>
-          <h1 className="text-2xl font-black uppercase tracking-[0.15em] text-white">
+          <h1 data-testid="heading-admin-panel" className="text-2xl font-black uppercase tracking-[0.15em] text-white">
             Admin Panel
           </h1>
           <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-1">
@@ -114,14 +149,14 @@ export default function AdminPanel() {
       {/* Pipeline summary */}
       <div className="grid grid-cols-4 gap-3 mb-8">
         {(["PENDING", "BATTLE_POOL", "REJECTED", "CHART"] as const).map((s) => {
-          const count = submissions?.filter((t) => t.status === s).length ?? 0;
+          const cnt = submissions?.filter((t) => t.status === s).length ?? 0;
           return (
             <div
               key={s}
               className="border border-white/5 rounded-sm p-3 bg-black/20 text-center"
-              data-testid={`stat-${s.toLowerCase()}`}
+              data-testid={`stat-${s.toLowerCase().replace("_", "-")}`}
             >
-              <p className="text-lg font-black text-white">{isLoading ? "—" : count}</p>
+              <p className="text-lg font-black text-white">{submissionsLoading ? "—" : cnt}</p>
               <StatusBadge status={s} />
             </div>
           );
@@ -142,9 +177,9 @@ export default function AdminPanel() {
           )}
         </div>
 
-        {isLoading ? (
-          <div className="border border-white/5 rounded-sm p-6 text-center text-zinc-600 text-[10px] uppercase tracking-widest">
-            Loading submissions…
+        {submissionsLoading ? (
+          <div className="border border-white/5 rounded-sm p-6 text-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin mx-auto" />
           </div>
         ) : pending.length === 0 ? (
           <div className="border border-white/5 rounded-sm p-8 text-center bg-black/10">
