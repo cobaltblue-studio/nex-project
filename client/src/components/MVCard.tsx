@@ -1,15 +1,75 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import type { Profile, Track } from "@shared/schema";
-import { Youtube } from "lucide-react";
+import { Youtube, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface MVCardProps {
   track: any;
   index: number;
 }
 
+function getVotedTracks(): number[] {
+  try { return JSON.parse(localStorage.getItem("nex_voted_tracks") || "[]"); } catch { return []; }
+}
+function markVoted(id: number) {
+  const arr = getVotedTracks();
+  if (!arr.includes(id)) localStorage.setItem("nex_voted_tracks", JSON.stringify([...arr, id]));
+}
+
 export function MVCard({ track, index }: MVCardProps) {
-  const mvUrl = track.musicVideoUrl || track.mvUrl;
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const [hasVoted, setHasVoted] = useState(() => getVotedTracks().includes(track.id));
+  const [localVotes, setLocalVotes] = useState<number | null>(null);
+
+  const displayVotes = localVotes !== null ? localVotes : track.votes;
+
+  const voteMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/tracks/${track.id}/vote`),
+    onMutate: () => {
+      const prev = queryClient.getQueryData<any[]>(["/api/tracks"]);
+      if (prev) {
+        queryClient.setQueryData(["/api/tracks"], prev.map(t =>
+          t.id === track.id ? { ...t, votes: t.votes + 1 } : t
+        ));
+      }
+      setLocalVotes((localVotes ?? track.votes) + 1);
+      setHasVoted(true);
+      markVoted(track.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+    },
+    onError: (err: any) => {
+      const is409 = err?.message?.startsWith("409");
+      if (is409) {
+        setHasVoted(true);
+        markVoted(track.id);
+        toast({ title: "Already voted", description: "You've already voted for this track.", variant: "destructive" });
+      } else {
+        setLocalVotes(null);
+        setHasVoted(false);
+        queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+        toast({ title: "Vote failed", variant: "destructive" });
+      }
+    },
+  });
+
+  const handleVote = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      window.location.href = "/api/login";
+      return;
+    }
+    if (hasVoted || voteMutation.isPending) return;
+    voteMutation.mutate();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -22,7 +82,6 @@ export function MVCard({ track, index }: MVCardProps) {
           <div className="aspect-video bg-zinc-900 relative flex items-center justify-center overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
             <Youtube className="w-8 h-8 text-red-600/40 group-hover:text-red-600 group-hover:scale-110 transition-all z-20" />
-            
             <div className="absolute bottom-2 left-2 right-2 z-20">
               <h3 className="text-[10px] font-bold text-white uppercase tracking-wider truncate">
                 {track.title}
@@ -37,9 +96,21 @@ export function MVCard({ track, index }: MVCardProps) {
                 <span className="text-primary/70">{track.creatorName || "NEO CREATOR"}</span>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-[9px] font-display font-bold text-white neon-text">{track.votes} V</p>
-            </div>
+
+            {/* Vote button */}
+            <button
+              onClick={handleVote}
+              disabled={hasVoted || voteMutation.isPending}
+              data-testid={`button-vote-mv-${track.id}`}
+              className={`flex items-center gap-1 px-2 py-1 rounded-sm border text-[9px] font-bold uppercase tracking-wider transition-all ${
+                hasVoted
+                  ? "border-primary/40 bg-primary/10 text-primary cursor-default"
+                  : "border-white/10 bg-white/5 text-zinc-400 hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+              }`}
+            >
+              <ChevronUp className={`w-2.5 h-2.5 ${hasVoted ? "fill-primary text-primary" : ""}`} />
+              <span data-testid={`text-votes-mv-${track.id}`}>{displayVotes}</span>
+            </button>
           </div>
         </div>
       </Link>
