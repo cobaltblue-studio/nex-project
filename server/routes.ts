@@ -122,6 +122,8 @@ export async function registerRoutes(
       status: (req.query.status as string) || undefined,
       featured: req.query.featured === "true",
       limit: req.query.limit ? Number(req.query.limit) : undefined,
+      genre: (req.query.genre as string) || undefined,
+      sortBy: (req.query.sortBy as "rankingScore" | "neoScore") || undefined,
     });
 
     if (ts.length === 0) {
@@ -131,6 +133,8 @@ export async function registerRoutes(
         status: (req.query.status as string) || undefined,
         featured: req.query.featured === "true",
         limit: req.query.limit ? Number(req.query.limit) : undefined,
+        genre: (req.query.genre as string) || undefined,
+        sortBy: (req.query.sortBy as "rankingScore" | "neoScore") || undefined,
       });
     }
 

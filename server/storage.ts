@@ -71,7 +71,7 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getTracks({ status, featured, limit }: { status?: string; featured?: boolean; limit?: number }): Promise<any[]> {
+  async getTracks({ status, featured, limit, genre, sortBy }: { status?: string; featured?: boolean; limit?: number; genre?: string; sortBy?: "rankingScore" | "neoScore" }): Promise<any[]> {
     let q = db.select({ track: tracks, creator: profiles })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
@@ -84,9 +84,14 @@ export class DatabaseStorage implements IStorage {
       filters.push(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`);
     }
     if (featured) filters.push(eq(tracks.isFeatured, true));
+    if (genre) filters.push(eq(tracks.genre, genre));
     if (filters.length) q = q.where(and(...filters));
-    // Sort by rankingScore descending
-    q = q.orderBy(desc(tracks.rankingScore));
+    // Sort by requested field or default rankingScore
+    if (sortBy === "neoScore") {
+      q = q.orderBy(desc(tracks.neoScore));
+    } else {
+      q = q.orderBy(desc(tracks.rankingScore));
+    }
     if (limit) q = q.limit(limit);
     const results = await q;
     return results.map(r => ({ ...r.track, creator: r.creator }));
