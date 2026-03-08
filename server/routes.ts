@@ -271,13 +271,48 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: get all submitted tracks across all pipeline statuses
+  app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
+    const p = await storage.getProfileByUserId(req.user.claims.sub);
+    if (!p || p.role !== "founder")
+      return res.status(403).json({ message: "Admin access required" });
+
+    const statuses = ["PENDING", "BATTLE_POOL", "REJECTED", "CHART"];
+    const all: any[] = [];
+    for (const status of statuses) {
+      const ts = await storage.getTracks({ status });
+      all.push(
+        ...ts.map((t) => ({
+          id: t.id,
+          title: t.title,
+          creatorName: t.artistName || t.creator.username,
+          creatorId: t.creatorId,
+          genre: t.genre,
+          trackLink: t.audioUrl,
+          status: t.status,
+          createdAt: t.createdAt,
+        }))
+      );
+    }
+    // Sort by createdAt desc
+    all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    res.json(all);
+  });
+
   app.post(api.admin.review.path, isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p || p.role !== "founder")
       return res.status(403).json({ message: "Admin access required" });
+
+    const { status } = req.body;
+    const validStatuses = ["BATTLE_POOL", "REJECTED", "PUBLISHED"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status. Must be BATTLE_POOL, REJECTED, or PUBLISHED" });
+    }
+
     await storage.updateTrackStatus(
       Number(req.params.id),
-      req.body.status,
+      status,
       req.body.aiCraftScore,
     );
     res.json({ message: "Review completed" });
