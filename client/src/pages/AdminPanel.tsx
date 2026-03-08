@@ -4,8 +4,12 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, CheckCircle, XCircle, ExternalLink, Clock, RefreshCw, Loader2 } from "lucide-react";
+import {
+  ShieldCheck, CheckCircle, XCircle, ExternalLink,
+  Clock, RefreshCw, Loader2,
+} from "lucide-react";
 
+type AdminCheck = { isAdmin: boolean; email: string | null };
 type Submission = {
   id: number;
   title: string;
@@ -16,17 +20,11 @@ type Submission = {
   createdAt: string;
 };
 
-type Profile = {
-  id: number;
-  role: string;
-  username: string;
-};
-
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
-  BATTLE_POOL: "text-primary bg-primary/10 border-primary/30",
-  REJECTED: "text-red-400 bg-red-400/10 border-red-400/30",
-  CHART: "text-purple-400 bg-purple-400/10 border-purple-400/30",
+  PENDING:     "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+  BATTLE_POOL: "text-primary   bg-primary/10   border-primary/30",
+  REJECTED:    "text-red-400   bg-red-400/10   border-red-400/30",
+  CHART:       "text-purple-400 bg-purple-400/10 border-purple-400/30",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -37,7 +35,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function formatDate(iso: string) {
+function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric",
     hour: "2-digit", minute: "2-digit",
@@ -49,45 +47,51 @@ export default function AdminPanel() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  // Fetch the current user's profile to check role
-  const { data: profile, isLoading: profileLoading } = useQuery<Profile>({
-    queryKey: ["/api/profiles/me"],
+  // --- Step 1: check admin status via email (no profile needed) ---
+  const {
+    data: adminCheck,
+    isLoading: checkLoading,
+    error: checkError,
+  } = useQuery<AdminCheck>({
+    queryKey: ["/api/admin/check"],
     enabled: isAuthenticated,
     retry: false,
   });
 
-  const isAdmin = profile?.role === "founder";
+  const isAdmin = adminCheck?.isAdmin === true;
 
-  // Redirect non-admins to home
+  // Redirect non-admins to home once we have a definitive answer
   useEffect(() => {
-    if (!authLoading && !profileLoading) {
-      if (!isAuthenticated) {
-        setLocation("/");
-      } else if (profile && !isAdmin) {
-        setLocation("/");
-      }
+    if (authLoading || checkLoading) return;
+    if (!isAuthenticated) { setLocation("/"); return; }
+    // checkError means 401 (should not happen if isAuthenticated) — treat as not admin
+    if (checkError || (adminCheck && !adminCheck.isAdmin)) {
+      setLocation("/");
     }
-  }, [isAuthenticated, authLoading, profile, profileLoading, isAdmin, setLocation]);
+  }, [isAuthenticated, authLoading, adminCheck, checkLoading, checkError, setLocation]);
 
-  const { data: submissions, isLoading: submissionsLoading, refetch } = useQuery<Submission[]>({
+  // --- Step 2: load submissions only when confirmed admin ---
+  const {
+    data: submissions,
+    isLoading: subsLoading,
+    refetch,
+  } = useQuery<Submission[]>({
     queryKey: ["/api/admin/submissions"],
-    enabled: isAuthenticated && isAdmin,
+    enabled: isAdmin,
     retry: false,
   });
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       apiRequest("POST", `/api/admin/tracks/${id}/review`, { status }).then((r) => r.json()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/admin/submissions"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/submissions"] }),
   });
 
-  const pending = submissions?.filter((s) => s.status === "PENDING") ?? [];
-  const processed = submissions?.filter((s) => s.status !== "PENDING") ?? [];
+  const pending   = submissions?.filter((s) => s.status === "PENDING")   ?? [];
+  const processed = submissions?.filter((s) => s.status !== "PENDING")   ?? [];
 
-  // Show loading while we determine auth state
-  if (authLoading || profileLoading) {
+  // ---- Render: loading ----
+  if (authLoading || checkLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 text-zinc-600 animate-spin" />
@@ -95,41 +99,37 @@ export default function AdminPanel() {
     );
   }
 
-  // Show login screen if not authenticated (redirect fires in useEffect)
+  // ---- Render: not logged in ----
   if (!isAuthenticated) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <ShieldCheck className="w-12 h-12 text-zinc-700 mx-auto mb-4" strokeWidth={1} />
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <ShieldCheck className="w-10 h-10 text-zinc-700 mx-auto mb-4" strokeWidth={1} />
         <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-600 mb-4">
-          Admin access required
+          Login required
         </p>
         <a href="/api/login" className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">
-          Login
+          Login with Replit
         </a>
       </div>
     );
   }
 
-  // Show redirect message for non-admin (redirect fires in useEffect)
+  // ---- Render: not admin (redirect is in flight via useEffect) ----
   if (!isAdmin) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <ShieldCheck className="w-12 h-12 text-zinc-700 mx-auto mb-4" strokeWidth={1} />
-        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-          Access restricted
-        </p>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
       </div>
     );
   }
 
+  // ---- Render: full admin panel ----
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">
-            NEO Platform
-          </p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEO Platform</p>
           <h1 data-testid="heading-admin-panel" className="text-2xl font-black uppercase tracking-[0.15em] text-white">
             Admin Panel
           </h1>
@@ -141,22 +141,23 @@ export default function AdminPanel() {
           onClick={() => refetch()}
           data-testid="button-refresh"
           className="p-2 border border-white/10 rounded-sm text-zinc-500 hover:text-primary hover:border-primary/30 transition-all"
+          title="Refresh"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Pipeline summary */}
+      {/* Pipeline counters */}
       <div className="grid grid-cols-4 gap-3 mb-8">
-        {(["PENDING", "BATTLE_POOL", "REJECTED", "CHART"] as const).map((s) => {
+        {(["PENDING","BATTLE_POOL","REJECTED","CHART"] as const).map((s) => {
           const cnt = submissions?.filter((t) => t.status === s).length ?? 0;
           return (
             <div
               key={s}
               className="border border-white/5 rounded-sm p-3 bg-black/20 text-center"
-              data-testid={`stat-${s.toLowerCase().replace("_", "-")}`}
+              data-testid={`stat-${s.toLowerCase().replace("_","-")}`}
             >
-              <p className="text-lg font-black text-white">{submissionsLoading ? "—" : cnt}</p>
+              <p className="text-lg font-black text-white">{subsLoading ? "—" : cnt}</p>
               <StatusBadge status={s} />
             </div>
           );
@@ -177,16 +178,14 @@ export default function AdminPanel() {
           )}
         </div>
 
-        {submissionsLoading ? (
-          <div className="border border-white/5 rounded-sm p-6 text-center">
-            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin mx-auto" />
+        {subsLoading ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
           </div>
         ) : pending.length === 0 ? (
           <div className="border border-white/5 rounded-sm p-8 text-center bg-black/10">
             <CheckCircle className="w-8 h-8 text-zinc-700 mx-auto mb-3" strokeWidth={1} />
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-              No pending tracks
-            </p>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending tracks</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -201,13 +200,10 @@ export default function AdminPanel() {
                   className="border border-yellow-400/10 bg-black/30 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center gap-4"
                   data-testid={`row-pending-${track.id}`}
                 >
-                  {/* Track info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
-                        #{track.id}
-                      </span>
-                      <span className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest px-1.5 py-0.5 border border-white/5 rounded-sm">
+                      <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">#{track.id}</span>
+                      <span className="text-[9px] font-bold text-zinc-700 px-1.5 py-0.5 border border-white/5 rounded-sm uppercase tracking-widest">
                         {track.genre}
                       </span>
                     </div>
@@ -228,13 +224,10 @@ export default function AdminPanel() {
                         <ExternalLink className="w-2.5 h-2.5" />
                         Open Track
                       </a>
-                      <span className="text-[9px] text-zinc-700 uppercase tracking-widest">
-                        {formatDate(track.createdAt)}
-                      </span>
+                      <span className="text-[9px] text-zinc-700 uppercase tracking-widest">{fmt(track.createdAt)}</span>
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0">
                     <StatusBadge status="PENDING" />
                     <button
@@ -266,9 +259,7 @@ export default function AdminPanel() {
       {/* Processed tracks */}
       {processed.length > 0 && (
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-4">
-            Processed
-          </p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-4">Processed</p>
           <div className="space-y-1.5">
             {processed.map((track) => (
               <div
@@ -279,21 +270,12 @@ export default function AdminPanel() {
                 <span className="text-[9px] font-bold text-zinc-600 w-8">#{track.id}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-zinc-300 truncate">{track.title}</p>
-                  <p className="text-[9px] text-zinc-600 uppercase tracking-widest">
-                    {track.creatorName} · {track.genre}
-                  </p>
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-widest">{track.creatorName} · {track.genre}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-[9px] text-zinc-700 hidden sm:block">
-                    {formatDate(track.createdAt)}
-                  </span>
+                  <span className="text-[9px] text-zinc-700 hidden sm:block">{fmt(track.createdAt)}</span>
                   <StatusBadge status={track.status} />
-                  <a
-                    href={track.trackLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-zinc-600 hover:text-primary transition-colors"
-                  >
+                  <a href={track.trackLink} target="_blank" rel="noopener noreferrer" className="text-zinc-600 hover:text-primary transition-colors">
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
@@ -303,16 +285,17 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* System flow reference */}
-      <div className="mt-10 border border-white/5 rounded-sm p-4 bg-white/2 text-[9px] text-zinc-600 uppercase tracking-widest">
+      {/* System flow */}
+      <div className="mt-10 border border-white/5 rounded-sm p-4 text-[9px] text-zinc-600 uppercase tracking-widest">
         <p className="text-zinc-500 font-bold mb-2">System flow</p>
         <p className="text-zinc-500">
           Submit → <span className="text-yellow-400">PENDING</span>{" "}
           → Approve → <span className="text-primary">BATTLE_POOL</span>{" "}
+          (appears in Music Chart + Battles){" "}
           → Battle × 10 · Win Rate ≥ 55% → <span className="text-purple-400">CHART</span>
         </p>
         <p className="mt-1">
-          Reject → <span className="text-red-400">REJECTED</span> (excluded from battles)
+          Reject → <span className="text-red-400">REJECTED</span> (excluded from chart and battles)
         </p>
       </div>
     </div>

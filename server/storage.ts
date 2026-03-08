@@ -80,8 +80,8 @@ export class DatabaseStorage implements IStorage {
     if (status) {
       filters.push(eq(tracks.status, status));
     } else {
-      // Default: show chart-eligible tracks (PUBLISHED legacy + CHART earned)
-      filters.push(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`);
+      // Default: show chart-eligible tracks — PUBLISHED (legacy), BATTLE_POOL (approved), CHART (earned)
+      filters.push(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`);
     }
     if (featured) filters.push(eq(tracks.isFeatured, true));
     if (filters.length) q = q.where(and(...filters));

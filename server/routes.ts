@@ -287,6 +287,14 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: lightweight check — returns isAdmin based purely on email, no profile required
+  app.get("/api/admin/check", isAuthenticated, async (req: any, res) => {
+    const admin = isAdminEmail(req);
+    // Also log the email seen for debugging
+    console.log(`[admin/check] email="${req.user?.claims?.email}" isAdmin=${admin} ADMIN_EMAIL="${process.env.ADMIN_EMAIL}"`);
+    res.json({ isAdmin: admin, email: req.user?.claims?.email ?? null });
+  });
+
   // Admin: get all submitted tracks across all pipeline statuses
   app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
     const p = await storage.getProfileByUserId(req.user.claims.sub);
