@@ -22,6 +22,8 @@ export interface IStorage {
   getTracksByCreator(creatorId: number): Promise<any[]>;
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
+  submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; creatorId: number }): Promise<Track>;
+  checkAndPromoteToChart(trackId: number): Promise<void>;
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
   likeTrack(userId: string, trackId: number): Promise<void>;
@@ -75,7 +77,12 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
       .$dynamic();
     const filters = [];
-    if (status) filters.push(eq(tracks.status, status));
+    if (status) {
+      filters.push(eq(tracks.status, status));
+    } else {
+      // Default: show chart-eligible tracks (PUBLISHED legacy + CHART earned)
+      filters.push(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`);
+    }
     if (featured) filters.push(eq(tracks.isFeatured, true));
     if (filters.length) q = q.where(and(...filters));
     // Sort by rankingScore descending
@@ -194,20 +201,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAvailableBattleGenres(): Promise<string[]> {
-    // Return genres that have at least 2 published tracks
+    // Return genres that have at least 2 battle-eligible tracks (PUBLISHED legacy + BATTLE_POOL)
     const results = await db
       .select({ genre: tracks.genre, cnt: count() })
       .from(tracks)
-      .where(eq(tracks.status, "PUBLISHED"))
+      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL')`)
       .groupBy(tracks.genre)
       .having(sql`count(*) >= 2`);
     return results.map(r => r.genre);
   }
 
   async createBattle(genre: string): Promise<any | null> {
-    // Fetch all published tracks in this genre, sorted by rankingScore desc (rank 0 = best)
+    // Fetch all battle-eligible tracks in this genre, sorted by rankingScore desc (rank 0 = best)
     const available = await db.select().from(tracks)
-      .where(and(eq(tracks.genre, genre), eq(tracks.status, "PUBLISHED")))
+      .where(and(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL')`, eq(tracks.genre, genre)))
       .orderBy(desc(tracks.rankingScore));
     if (available.length < 2) return null;
 
@@ -277,10 +284,10 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Get top 100 track IDs by rankingScore (to exclude from RISING)
+    // Get top 100 track IDs by rankingScore (to exclude from RISING) — includes PUBLISHED + CHART
     const top100 = await db.select({ id: tracks.id })
       .from(tracks)
-      .where(eq(tracks.status, "PUBLISHED"))
+      .where(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`)
       .orderBy(desc(tracks.rankingScore))
       .limit(100);
     const top100Ids = new Set(top100.map(t => t.id));
@@ -378,7 +385,45 @@ export class DatabaseStorage implements IStorage {
       await db.update(tracks).set({ rankingScore: newRs }).where(eq(tracks.id, trackId));
     }
 
+    // Check if either battle track should be promoted to CHART
+    await this.checkAndPromoteToChart(battle.trackAId);
+    await this.checkAndPromoteToChart(battle.trackBId);
+
     return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId };
+  }
+
+  async checkAndPromoteToChart(trackId: number): Promise<void> {
+    const [track] = await db.select().from(tracks).where(eq(tracks.id, trackId));
+    // Only BATTLE_POOL tracks can earn their way to CHART
+    if (!track || track.status !== "BATTLE_POOL") return;
+
+    const allBattles = await db.select().from(battles)
+      .where(sql`${battles.winnerId} IS NOT NULL AND (${battles.trackAId} = ${trackId} OR ${battles.trackBId} = ${trackId})`);
+
+    const totalBattles = allBattles.length;
+    const wins = allBattles.filter(b => b.winnerId === trackId).length;
+    const winRate = totalBattles > 0 ? wins / totalBattles : 0;
+
+    if (totalBattles >= 10 && winRate >= 0.55) {
+      await db.update(tracks).set({ status: "CHART" }).where(eq(tracks.id, trackId));
+    }
+  }
+
+  async submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; creatorId: number }): Promise<Track> {
+    const [t] = await db.insert(tracks).values({
+      title: data.title,
+      artistName: data.artistName,
+      genre: data.genre,
+      audioUrl: data.trackLink,
+      creatorId: data.creatorId,
+      status: "PENDING",
+      aiTool: "submitted",
+      aiCraftScore: 0,
+      listenerVotes: 0,
+      neoScore: 0,
+      rankingScore: 0,
+    }).returning();
+    return t;
   }
 
   async followCreator(followerId: string, creatorProfileId: number): Promise<void> {

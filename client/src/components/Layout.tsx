@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Home, Music, Video, Disc3, LogOut, User, ChevronDown, Upload, Swords, TrendingUp } from "lucide-react";
+import { Home, Music, Video, Disc3, LogOut, User, ChevronDown, Upload, Swords, TrendingUp, Send } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +32,7 @@ export function Layout({ children }: LayoutProps) {
     { path: "/music-video", icon: Video, label: "MUSIC VIDEO" },
     { path: "/battle", icon: Swords, label: "BATTLE" },
     { path: "/rising", icon: TrendingUp, label: "RISING" },
+    { path: "/submit-track", icon: Send, label: "SUBMIT TRACK" },
     { path: "/profile", icon: Disc3, label: "NEX PROFILE" },
   ];
 

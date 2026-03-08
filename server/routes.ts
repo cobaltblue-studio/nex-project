@@ -96,7 +96,7 @@ export async function registerRoutes(
     const formatted = ts.map((t) => ({
       id: t.id,
       title: t.title,
-      creatorName: t.creator.username,
+      creatorName: t.artistName || t.creator.username,
       creatorId: t.creatorId,
       aiTool: t.aiTool,
       genre: t.genre,
@@ -140,7 +140,7 @@ export async function registerRoutes(
     const formatted = ts.map((t) => ({
       id: t.id,
       title: t.title,
-      creatorName: t.creator.username,
+      creatorName: t.artistName || t.creator.username,
       creatorId: t.creatorId,
       aiTool: t.aiTool,
       genre: t.genre,
@@ -205,6 +205,25 @@ export async function registerRoutes(
   app.post(api.tracks.like.path, isAuthenticated, async (req: any, res) => {
     await storage.likeTrack(req.user.claims.sub, Number(req.params.id));
     res.json({ message: "Track liked" });
+  });
+
+  // Submit a track — any authenticated user can submit; saved with PENDING status
+  app.post("/api/tracks/submit", isAuthenticated, async (req: any, res) => {
+    const p = await storage.getProfileByUserId(req.user.claims.sub);
+    if (!p) return res.status(404).json({ message: "Profile not found" });
+
+    const { title, artistName, genre, trackLink } = req.body;
+    if (!title || !artistName || !genre || !trackLink) {
+      return res.status(400).json({ message: "title, artistName, genre, and trackLink are required" });
+    }
+
+    const validGenres = ["Electronic", "Synth Pop", "Rock", "Hip Hop", "Ambient", "Other"];
+    if (!validGenres.includes(genre)) {
+      return res.status(400).json({ message: "Invalid genre" });
+    }
+
+    const t = await storage.submitTrack({ title, artistName, genre, trackLink, creatorId: p.id });
+    res.status(201).json({ message: "Track submitted successfully", trackId: t.id });
   });
 
   // RISING tracks: ≥5 battles, ≥60% win rate, not in top 100

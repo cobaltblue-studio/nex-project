@@ -22,6 +22,7 @@ import { UploadTrack } from "@/pages/UploadTrack";
 import { MyTracks } from "@/pages/MyTracks";
 import { Battle } from "@/pages/Battle";
 import { Rising } from "@/pages/Rising";
+import SubmitTrack from "@/pages/SubmitTrack";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
         <Route path="/profile/:name" component={ProfileMe} />
         <Route path="/battle" component={Battle} />
         <Route path="/rising" component={Rising} />
+        <Route path="/submit-track" component={SubmitTrack} />
         <Route path="/track/:id" component={TrackDetail} />
         <Route path="/mv/:id" component={MVDetail} />
         <Route component={NotFound} />
