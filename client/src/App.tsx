@@ -25,6 +25,8 @@ import { Rising } from "@/pages/Rising";
 import SubmitTrack from "@/pages/SubmitTrack";
 import AdminPanel from "@/pages/AdminPanel";
 import NexRadio from "@/pages/Radio";
+import About from "@/pages/About";
+import ChartMethodology from "@/pages/ChartMethodology";
 
 function Router() {
   return (
@@ -44,6 +46,8 @@ function Router() {
         <Route path="/submit-track" component={SubmitTrack} />
         <Route path="/radio" component={NexRadio} />
         <Route path="/admin" component={AdminPanel} />
+        <Route path="/about" component={About} />
+        <Route path="/chart-methodology" component={ChartMethodology} />
         <Route path="/track/:id" component={TrackDetail} />
         <Route path="/mv/:id" component={MVDetail} />
         <Route component={NotFound} />

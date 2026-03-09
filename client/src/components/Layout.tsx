@@ -196,6 +196,42 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </main>
 
+      {/* Footer */}
+      <footer className="relative z-10 mt-20 mb-20 md:mb-0 border-t border-white/5 bg-black/30 backdrop-blur-sm px-8 md:px-12 py-8">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-center md:text-left">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white">© 2026 NEX</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-600 mt-0.5">AI Music Ranking Platform</p>
+          </div>
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {[
+              { href: "/about", label: "About NEX" },
+              { href: "/chart-methodology", label: "Chart Methodology" },
+              { href: "/submit-track", label: "Submit Track" },
+              { href: "mailto:contact@nex.ai", label: "Contact" },
+            ].map(({ href, label }) => (
+              href.startsWith("mailto:") ? (
+                <a
+                  key={label}
+                  href={href}
+                  className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
+                >
+                  {label}
+                </a>
+              ) : (
+                <Link
+                  key={label}
+                  href={href}
+                  className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
+                >
+                  {label}
+                </Link>
+              )
+            ))}
+          </nav>
+        </div>
+      </footer>
+
       {/* Mobile Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-4">
         {navItems.map((item) => {
