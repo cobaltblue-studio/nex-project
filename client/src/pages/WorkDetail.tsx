@@ -12,7 +12,7 @@ function getEmbedUrl(url: string | undefined, enableJsApi = false): string | nul
   if (!url) return null;
   const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
   if (ytMatch) {
-    const params = new URLSearchParams({ autoplay: "0", rel: "0" });
+    const params = new URLSearchParams({ autoplay: "0", rel: "0", modestbranding: "1", controls: "1", showinfo: "0", disablekb: "1", fs: "0" });
     if (enableJsApi) { params.set("enablejsapi", "1"); params.set("origin", window.location.origin); }
     return `https://www.youtube.com/embed/${ytMatch[1]}?${params.toString()}`;
   }
