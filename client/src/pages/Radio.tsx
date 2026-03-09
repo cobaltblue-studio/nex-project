@@ -10,6 +10,7 @@ import {
   Music2, Mic2, Zap, Waves, Bot, ChevronRight,
   Loader2, List
 } from "lucide-react";
+import { YoutubePlayer, extractYoutubeId, buildIframeEmbedUrl } from "@/components/YoutubePlayer";
 
 type Track = {
   id: number;
@@ -41,29 +42,6 @@ const STATIONS: Station[] = [
   { id: "aipop",      label: "AI Pop Radio",      sublabel: "AI Pop genre",           icon: Bot,    genre: "AI Pop",      color: "text-pink-400 border-pink-400/40 bg-pink-400/5"  },
   { id: "ambient",    label: "Ambient Radio",     sublabel: "Ambient genre",          icon: Waves,  genre: "Ambient",     color: "text-teal-400 border-teal-400/40 bg-teal-400/5"  },
 ];
-
-function getEmbedUrl(url: string | undefined, autoplay = false): string | null {
-  if (!url) return null;
-  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
-  if (ytMatch) {
-    const params = new URLSearchParams({
-      autoplay: autoplay ? "1" : "0",
-      rel: "0",
-      enablejsapi: "1",
-      origin: window.location.origin,
-      modestbranding: "1",
-    });
-    return `https://www.youtube.com/embed/${ytMatch[1]}?${params.toString()}`;
-  }
-  if (url.includes("suno.com")) {
-    const sunoUrl = url.replace("/song/", "/embed/");
-    return autoplay ? sunoUrl + "?autoplay=1" : sunoUrl;
-  }
-  if (url.includes("soundcloud.com")) {
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300f0ff&auto_play=${autoplay}&hide_related=true&show_comments=false`;
-  }
-  return url;
-}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -117,8 +95,13 @@ export default function NexRadio() {
     ? tracks.findIndex((t) => t.id === currentTrack.id) + 1
     : null;
 
-  const embedUrl = radioStarted && currentTrack
-    ? getEmbedUrl(currentTrack.audioUrl || currentTrack.musicVideoUrl, true)
+  // Prefer YouTube (musicVideoUrl) over other platforms — YT gives reliable end-of-video events
+  const activeUrl = radioStarted && currentTrack
+    ? (currentTrack.musicVideoUrl || currentTrack.audioUrl)
+    : null;
+  const ytVideoId = activeUrl ? extractYoutubeId(activeUrl) : null;
+  const iframeUrl = (activeUrl && !ytVideoId)
+    ? buildIframeEmbedUrl(activeUrl, true)
     : null;
 
   const advanceTrack = useCallback(() => {
@@ -127,19 +110,6 @@ export default function NexRadio() {
     playerKey.current += 1;
     setCurrentIndex(next);
   }, []);
-
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      try {
-        const msg = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        if (msg && msg.event === "onStateChange" && msg.info === 0) {
-          advanceTrack();
-        }
-      } catch {}
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, [advanceTrack]);
 
   const startRadio = (station: Station) => {
     setActiveStation(station);
@@ -329,10 +299,18 @@ export default function NexRadio() {
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-zinc-700 animate-spin" />
                   </div>
-                ) : embedUrl ? (
+                ) : ytVideoId ? (
+                  <YoutubePlayer
+                    key={playerKey.current}
+                    videoId={ytVideoId}
+                    autoplay={true}
+                    onEnded={advanceTrack}
+                    className="w-full h-full"
+                  />
+                ) : iframeUrl ? (
                   <iframe
                     key={playerKey.current}
-                    src={embedUrl}
+                    src={iframeUrl}
                     data-testid="iframe-radio-player"
                     className="w-full h-full"
                     allow="autoplay; encrypted-media; fullscreen"

@@ -5,6 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Swords, ChevronRight, Trophy, SkipForward, Music2, Zap, Headphones } from "lucide-react";
+import { YoutubePlayer, extractYoutubeId, buildIframeEmbedUrl } from "@/components/YoutubePlayer";
 
 type Phase = "genre-select" | "loading" | "track-a" | "track-b" | "vote" | "result";
 
@@ -31,22 +32,21 @@ interface BattleData {
   trackB: BattleTrack;
 }
 
-function getEmbedUrl(url: string | undefined): string | null {
-  if (!url) return null;
-  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0`;
-  if (url.includes("suno.com/song/")) return url.replace("suno.com/song/", "suno.com/embed/");
-  if (url.includes("soundcloud.com") && !url.includes("w.soundcloud.com"))
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300f0ff&auto_play=false&hide_related=true`;
-  if (url.includes("vimeo.com/")) {
-    const m = url.match(/vimeo\.com\/(\d+)/);
-    if (m) return `https://player.vimeo.com/video/${m[1]}`;
-  }
-  return url;
-}
+function TrackPlayer({
+  track,
+  label,
+  autoplay = false,
+  onEnded,
+}: {
+  track: BattleTrack;
+  label: string;
+  autoplay?: boolean;
+  onEnded?: () => void;
+}) {
+  const rawUrl = track.musicVideoUrl || track.audioUrl;
+  const ytId = extractYoutubeId(rawUrl);
+  const iframeUrl = (!ytId && rawUrl) ? buildIframeEmbedUrl(rawUrl, autoplay) : null;
 
-function TrackPlayer({ track, label }: { track: BattleTrack; label: string }) {
-  const embedUrl = getEmbedUrl(track.musicVideoUrl || track.audioUrl);
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 mb-1">
@@ -54,9 +54,16 @@ function TrackPlayer({ track, label }: { track: BattleTrack; label: string }) {
         <div className="h-px flex-1 bg-primary/10" />
       </div>
       <div className="border border-white/10 rounded-sm overflow-hidden bg-black/40">
-        {embedUrl ? (
+        {ytId ? (
+          <YoutubePlayer
+            videoId={ytId}
+            autoplay={autoplay}
+            onEnded={onEnded}
+            className="w-full h-[200px] md:h-[260px]"
+          />
+        ) : iframeUrl ? (
           <iframe
-            src={embedUrl}
+            src={iframeUrl}
             className="w-full h-[200px] md:h-[260px]"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen"
             allowFullScreen
@@ -241,13 +248,18 @@ export function Battle() {
               <div className="w-7 h-7 rounded-sm bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[11px] font-bold">A</div>
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400">Now Playing — Track A</p>
             </div>
-            <TrackPlayer track={battle.trackA} label="Track A" />
+            <TrackPlayer
+              track={battle.trackA}
+              label="Track A"
+              autoplay={true}
+              onEnded={() => { setListenedA(true); setPhase("track-b"); }}
+            />
             <button
               onClick={() => { setListenedA(true); setPhase("track-b"); }}
               data-testid="button-ready-track-b"
               className="mt-6 w-full flex items-center justify-center gap-2 py-3.5 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary text-[11px] font-bold uppercase tracking-[0.3em] rounded-sm transition-all"
             >
-              Done Listening — Play Track B
+              Skip to Track B
               <ChevronRight className="w-4 h-4" />
             </button>
           </motion.div>
@@ -266,13 +278,18 @@ export function Battle() {
               <div className="w-7 h-7 rounded-sm bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[11px] font-bold">B</div>
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400">Now Playing — Track B</p>
             </div>
-            <TrackPlayer track={battle.trackB} label="Track B" />
+            <TrackPlayer
+              track={battle.trackB}
+              label="Track B"
+              autoplay={true}
+              onEnded={() => { setListenedB(true); setPhase("vote"); }}
+            />
             <button
               onClick={() => { setListenedB(true); setPhase("vote"); }}
               data-testid="button-ready-vote"
               className="mt-6 w-full flex items-center justify-center gap-2 py-3.5 border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 text-blue-400 text-[11px] font-bold uppercase tracking-[0.3em] rounded-sm transition-all"
             >
-              Done Listening — Cast My Vote
+              Skip to Voting
               <ChevronRight className="w-4 h-4" />
             </button>
           </motion.div>
