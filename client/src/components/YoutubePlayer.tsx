@@ -61,6 +61,7 @@ export function YoutubePlayer({ videoId, autoplay = false, onEnded, className }:
           showinfo: 0,
           disablekb: 1,
           fs: 0,
+          playsinline: 1,
           enablejsapi: 1,
           origin: window.location.origin,
         },

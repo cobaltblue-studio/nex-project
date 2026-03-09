@@ -6,6 +6,7 @@ import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity } from "luc
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
 
 // Universal embed URL builder
 function getEmbedUrl(url: string | undefined, enableJsApi = false): string | null {
@@ -106,22 +107,7 @@ export function TrackDetail() {
     setTimeout(() => setIsTransitioning(false), 400);
   }, [nextTrack, isTransitioning, setLocation]);
 
-  // YouTube postMessage listener — detects video end (state === 0)
-  useEffect(() => {
-    if (!autoPlayNext) return;
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== "https://www.youtube.com") return;
-      try {
-        const data = JSON.parse(event.data);
-        if (data.event === "onStateChange" && data.info === 0) {
-          // YouTube video ended
-          goToNext();
-        }
-      } catch { /* non-JSON message, ignore */ }
-    };
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [autoPlayNext, goToNext]);
+  // onEnded is wired directly through YoutubePlayer's onEnded prop — no postMessage needed
 
   const handleVote = async () => {
     if (!track || isVoting) return;
@@ -167,11 +153,13 @@ export function TrackDetail() {
     );
   }
 
-  const isYouTube = !!(track.mvUrl || track.audioUrl || "").match(/youtu/);
-  const videoEmbedUrl = getEmbedUrl(track.mvUrl, isYouTube);
-  const audioEmbedUrl = getEmbedUrl(track.audioUrl, isYouTube && !track.mvUrl);
-  const isWidePlayer = !!videoEmbedUrl;
-  const activeEmbedUrl = videoEmbedUrl || audioEmbedUrl;
+  const mvYtId = extractYoutubeId(track.mvUrl);
+  const audioYtId = extractYoutubeId(track.audioUrl);
+  const ytId = mvYtId || audioYtId;
+  const videoEmbedUrl = !mvYtId ? getEmbedUrl(track.mvUrl) : null;
+  const audioEmbedUrl = !audioYtId ? getEmbedUrl(track.audioUrl) : null;
+  const nonYtUrl = videoEmbedUrl || audioEmbedUrl;
+  const isWidePlayer = !!(mvYtId || videoEmbedUrl);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
@@ -195,14 +183,20 @@ export function TrackDetail() {
                 transition={{ duration: 0.25 }}
                 className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${isWidePlayer ? "aspect-video" : "aspect-square"}`}
               >
-                {activeEmbedUrl ? (
+                {ytId ? (
+                  <YoutubePlayer
+                    videoId={ytId}
+                    autoplay={true}
+                    onEnded={autoPlayNext ? goToNext : undefined}
+                    className="w-full h-full"
+                  />
+                ) : nonYtUrl ? (
                   <iframe
-                    src={activeEmbedUrl}
+                    src={nonYtUrl}
                     width="100%"
                     height="100%"
                     style={{ border: "none" }}
-                    allow="autoplay; encrypted-media; fullscreen"
-                    allowFullScreen
+                    allow="autoplay; encrypted-media"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

@@ -1,8 +1,9 @@
 import { useRoute, Link } from "wouter";
 import { motion } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
-import { Loader2, ArrowLeft, Youtube, Info, Vote } from "lucide-react";
-import { useMemo } from "react";
+import { Loader2, ArrowLeft, Youtube, RotateCcw } from "lucide-react";
+import { useMemo, useState } from "react";
+import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
 
 export function MVDetail() {
   const [, params] = useRoute("/mv/:id");
@@ -47,14 +48,10 @@ export function MVDetail() {
     );
   }
 
-  const getYoutubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url?.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
+  const [videoEnded, setVideoEnded] = useState(false);
 
   const mvUrl = track.mvUrl;
-  const videoId = getYoutubeId(mvUrl || "");
+  const videoId = extractYoutubeId(mvUrl || "");
   const rankIndex = sortedTracks.findIndex(st => st.id === track.id);
   const rank = rankIndex !== -1 ? rankIndex + 1 : null;
 
@@ -65,16 +62,33 @@ export function MVDetail() {
       </Link>
 
       <div className="space-y-8">
-        <div className="aspect-video bg-black border border-white/5 rounded-sm overflow-hidden shadow-[0_0_100px_rgba(0,240,255,0.05)]">
-          {videoId ? (
-            <iframe
-              width="100%"
-              height="100%"
-              src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&controls=1&showinfo=0&disablekb=1&fs=0`}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            ></iframe>
+        <div className="aspect-video bg-black border border-white/5 rounded-sm overflow-hidden shadow-[0_0_100px_rgba(0,240,255,0.05)] relative">
+          {videoEnded ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-black/90">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">Video Ended</p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setVideoEnded(false)}
+                  className="flex items-center gap-2 px-5 py-2.5 border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-[0.2em] rounded-sm transition-all"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Watch Again
+                </button>
+                <Link
+                  href="/music-video"
+                  className="flex items-center gap-2 px-5 py-2.5 border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-400 text-[10px] font-bold uppercase tracking-[0.2em] rounded-sm transition-all"
+                >
+                  Back to Videos
+                </Link>
+              </div>
+            </div>
+          ) : videoId ? (
+            <YoutubePlayer
+              videoId={videoId}
+              autoplay={true}
+              onEnded={() => setVideoEnded(true)}
+              className="w-full h-full"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center flex-col gap-4 text-zinc-800">
               <Youtube className="w-20 h-20" />
