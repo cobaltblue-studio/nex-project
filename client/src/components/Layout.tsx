@@ -208,7 +208,7 @@ export function Layout({ children }: LayoutProps) {
               { href: "/about", label: "About NEX" },
               { href: "/chart-methodology", label: "Chart Methodology" },
               { href: "/submit-track", label: "Submit Track" },
-              { href: "mailto:contact@nex.ai", label: "Contact" },
+              { href: "mailto:d9ckoblack@gmail.com", label: "Contact" },
             ].map(({ href, label }) => (
               href.startsWith("mailto:") ? (
                 <a
