@@ -15,7 +15,7 @@ export function CreatorList() {
     const sortedTracks = [...tracks].sort((a, b) => b.votes - a.votes);
 
     tracks.forEach(track => {
-      const name = track.creatorName || "NEO CREATOR";
+      const name = track.creatorName || "NEX CREATOR";
       const stats = creatorMap.get(name) || {
         name,
         totalTracks: 0,

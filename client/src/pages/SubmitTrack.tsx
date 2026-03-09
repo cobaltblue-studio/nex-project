@@ -70,7 +70,7 @@ export default function SubmitTrack() {
       {/* Header */}
       <div className="mb-10">
         <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
-          NEO Platform
+          NEX Platform
         </p>
         <h1 className="text-2xl font-black uppercase tracking-[0.15em] text-white">
           Submit Track

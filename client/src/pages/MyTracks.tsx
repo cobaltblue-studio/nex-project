@@ -167,7 +167,7 @@ export function MyTracks() {
                 </div>
                 <div className="space-y-0.5 text-center">
                   <p className="text-[10px] font-mono text-white font-bold">{track.neoScore?.toFixed(1)}</p>
-                  <p className="text-[8px] text-zinc-700 uppercase tracking-widest">NEO Score</p>
+                  <p className="text-[8px] text-zinc-700 uppercase tracking-widest">NEX Score</p>
                 </div>
               </div>
 

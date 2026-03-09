@@ -26,7 +26,7 @@ export function Home() {
   if (isLoading) return (
     <div className="py-32 flex flex-col items-center justify-center">
       <Loader2 className="w-10 h-10 animate-spin text-primary mb-6" />
-      <p className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase">Syncing NEO Data</p>
+      <p className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase">Syncing NEX Data</p>
     </div>
   );
 
@@ -35,8 +35,8 @@ export function Home() {
       <section className="relative py-12 border-b border-white/5">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="text-center md:text-left">
-            <h1 className="text-6xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none">NEO</h1>
-            <p className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] mt-2">AI Music is NEO.</p>
+            <h1 className="text-6xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none">NEX</h1>
+            <p className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] mt-2">AI Music Ranking Platform</p>
           </div>
           <button onClick={startRadio} className="flex items-center gap-3 bg-primary text-black px-8 py-3 rounded-sm hover:brightness-110 transition-all group">
             <Radio className="w-4 h-4 group-hover:animate-pulse" />

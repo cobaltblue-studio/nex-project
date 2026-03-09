@@ -36,7 +36,7 @@ export function WorkCard({ work, index }: WorkCardProps) {
 
         <div className="flex items-center gap-8">
           <div className="text-right">
-            <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mb-0.5">NEO Score</p>
+            <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mb-0.5">NEX Score</p>
             <p className="text-lg font-display font-bold text-white neon-text">{work.neoScore.toFixed(1)}</p>
           </div>
 

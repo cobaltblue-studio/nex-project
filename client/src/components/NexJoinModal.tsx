@@ -48,7 +48,7 @@ export function NexJoinModal({ open, onClose }: Props) {
                 BECOME A NEX CREATOR
               </h2>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Join 50 elite AI music creators competing for the top spot on the NEO chart.
+                Join 50 elite AI music creators competing for the top spot on the NEX chart.
               </p>
             </div>
 
@@ -56,9 +56,9 @@ export function NexJoinModal({ open, onClose }: Props) {
               {[
                 { icon: Zap, label: "Upload AI-generated tracks" },
                 { icon: Zap, label: "Submit music videos" },
-                { icon: Zap, label: "Compete on the NEO chart" },
+                { icon: Zap, label: "Compete on the NEX chart" },
                 { icon: Zap, label: "Build your creator profile" },
-                { icon: Zap, label: "Earn NEO Score recognition" },
+                { icon: Zap, label: "Earn NEX Score recognition" },
               ].map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-3 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />

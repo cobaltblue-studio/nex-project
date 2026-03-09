@@ -14,7 +14,7 @@ export function MVDetail() {
     if (!trackData) return null;
     return {
       ...trackData,
-      creatorName: trackData.creator?.username || "NEO CREATOR",
+      creatorName: trackData.creator?.username || "NEX CREATOR",
       votes: trackData.listenerVotes || 0
     };
   }, [trackData]);

@@ -80,7 +80,7 @@ export function OnboardingModal() {
       setOpen(false);
       navigate("/");
       toast({
-        title: "WELCOME TO NEO",
+        title: "WELCOME TO NEX",
         description: "You are now listening.",
       });
     } catch (err: any) {
@@ -128,7 +128,7 @@ export function OnboardingModal() {
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
       setOpen(false);
       navigate("/");
-      toast({ title: "CREATOR PROFILE ACTIVATED", description: `Welcome to NEO, ${artistName}.` });
+      toast({ title: "CREATOR PROFILE ACTIVATED", description: `Welcome to NEX, ${artistName}.` });
     } catch (err: any) {
       const msg = err?.message || "Failed to create profile";
       toast({ title: "ERROR", description: msg, variant: "destructive" });
@@ -159,7 +159,7 @@ export function OnboardingModal() {
           <div className="flex items-center gap-3 px-8 pt-8 pb-6 border-b border-white/5">
             <Disc3 className="w-5 h-5 text-primary animate-[spin_6s_linear_infinite] flex-shrink-0" />
             <span className="text-white font-display font-bold text-lg uppercase tracking-widest">
-              {step === "role" ? "WELCOME TO NEO" : "CREATOR SETUP"}
+              {step === "role" ? "WELCOME TO NEX" : "CREATOR SETUP"}
             </span>
           </div>
 
@@ -167,7 +167,7 @@ export function OnboardingModal() {
           {step === "role" && (
             <div className="p-8 space-y-6">
               <p className="text-zinc-500 text-[11px] font-bold uppercase tracking-widest text-center">
-                How do you want to experience NEO?
+                How do you want to experience NEX?
               </p>
 
               <div className="grid grid-cols-2 gap-4">

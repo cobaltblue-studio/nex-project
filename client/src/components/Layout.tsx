@@ -61,7 +61,7 @@ export function Layout({ children }: LayoutProps) {
       <header className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50 flex items-center justify-between px-8 md:px-12">
         <Link href="/" className="flex items-center gap-3 text-primary neon-text font-display font-bold text-2xl tracking-tighter group">
           <Disc3 className="w-6 h-6 animate-[spin_8s_linear_infinite] group-hover:drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]" />
-          NEO
+          NEX
         </Link>
 
         <nav className="hidden md:flex items-center gap-12">

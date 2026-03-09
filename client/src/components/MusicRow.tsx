@@ -88,7 +88,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
         </Link>
         <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
           <span className="text-primary/70">
-            {track.creatorName || "NEO CREATOR"}
+            {track.creatorName || "NEX CREATOR"}
           </span>
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
             {track.aiTool}

@@ -59,7 +59,7 @@ export function Join() {
           THE <span className="text-primary neon-text">NEX</span><br />LEAGUE
         </h1>
         <p className="text-zinc-400 font-sans max-w-xl mx-auto text-base md:text-lg leading-relaxed">
-          NEO prioritizes <strong className="text-white">Craft Quality</strong> over viral metrics. Our proprietary AI Score Engine validates every prompt and output.
+          NEX prioritizes <strong className="text-white">Craft Quality</strong> over viral metrics. Our proprietary AI Score Engine validates every prompt and output.
         </p>
         
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">

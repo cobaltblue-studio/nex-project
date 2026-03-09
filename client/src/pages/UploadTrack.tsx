@@ -108,7 +108,7 @@ export function UploadTrack() {
 
       <div className="space-y-2">
         <h1 className="font-display text-4xl font-bold uppercase tracking-tighter text-white">Upload Track</h1>
-        <p className="text-zinc-600 text-[10px] font-mono uppercase tracking-widest">Submit AI-generated music to NEO charts</p>
+        <p className="text-zinc-600 text-[10px] font-mono uppercase tracking-widest">Submit AI-generated music to NEX charts</p>
       </div>
 
       <div className="bg-[#080808] border border-white/5 rounded-sm p-8 space-y-8">
