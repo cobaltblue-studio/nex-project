@@ -100,6 +100,7 @@ export function YoutubePlayer({
         justifyContent: "center",
         alignItems: "center",
         width: "100%",
+        height: "100%",
       }}
     >
       <div
@@ -109,6 +110,7 @@ export function YoutubePlayer({
           width: "100%",
           maxWidth: "900px",
           aspectRatio: "16/9",
+          position: "relative",
         }}
       />
     </div>
