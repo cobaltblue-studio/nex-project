@@ -8,15 +8,22 @@ export async function seed() {
   
   try {
     const trackCount = await db.select({ count: sql<number>`count(*)` }).from(tracks);
-    if (Number(trackCount[0].count) > 0) {
-      console.log("Database already has tracks, skipping seed.");
-      return;
-    }
+    // if (Number(trackCount[0].count) > 0) {
+    //   console.log("Database already has tracks, skipping seed.");
+    //   return;
+    // }
 
     console.log("Seeding NEO database with sample tracks...");
 
     const sampleData = [
-      { title: "Electric City", creator: "PulseAI", tool: "Suno", votes: 421, audioUrl: "https://suno.com/song/03a43243-f4ed-4427-b541-6f4ccb067da5", mvUrl: "https://www.youtube.com/watch?v=UjL392zuOJ8" },
+      {
+       title: "Midnight City, I'm Still Here",
+       creator: "COBALT",
+       tool: "Suno",
+       votes: 0,
+       audioUrl: "",
+       mvUrl: "https://www.youtube.com/watch?v=UjL392zu0J8"
+      },
       { title: "Neon Sky", creator: "BeatForge", tool: "Suno", votes: 389, audioUrl: "https://suno.com/song/03a43243-f4ed-4427-b541-6f4ccb067da5", mvUrl: "https://www.youtube.com/watch?v=UjL392zuOJ8" },
       { title: "Future Love", creator: "SynthLab", tool: "Suno", votes: 355, audioUrl: "https://suno.com/song/03a43243-f4ed-4427-b541-6f4ccb067da5", mvUrl: "https://www.youtube.com/watch?v=UjL392zuOJ8" },
       { title: "Midnight Drive", creator: "PulseAI", tool: "Suno", votes: 330, audioUrl: "https://suno.com/song/03a43243-f4ed-4427-b541-6f4ccb067da5", mvUrl: "https://www.youtube.com/watch?v=UjL392zuOJ8" },

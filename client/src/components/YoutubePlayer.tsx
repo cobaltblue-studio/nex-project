@@ -12,13 +12,16 @@ let _apiReady = false;
 let _callbacks: Array<() => void> = [];
 
 function loadYTApi(cb: () => void) {
-  if (_apiReady && window.YT?.Player) { cb(); return; }
+  if (_apiReady && window.YT?.Player) {
+    cb();
+    return;
+  }
   _callbacks.push(cb);
   if (document.querySelector('script[src*="youtube.com/iframe_api"]')) return;
   const prev = window.onYouTubeIframeAPIReady;
   window.onYouTubeIframeAPIReady = () => {
     _apiReady = true;
-    _callbacks.forEach(f => f());
+    _callbacks.forEach((f) => f());
     _callbacks = [];
     prev?.();
   };
@@ -34,11 +37,18 @@ interface Props {
   className?: string;
 }
 
-export function YoutubePlayer({ videoId, autoplay = false, onEnded, className }: Props) {
+export function YoutubePlayer({
+  videoId,
+  autoplay = false,
+  onEnded,
+  className,
+}: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
-  useEffect(() => { onEndedRef.current = onEnded; }, [onEnded]);
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
 
   useEffect(() => {
     if (!videoId || !wrapperRef.current) return;
@@ -75,19 +85,42 @@ export function YoutubePlayer({ videoId, autoplay = false, onEnded, className }:
 
     return () => {
       destroyed = true;
-      try { playerRef.current?.destroy(); } catch {}
+      try {
+        playerRef.current?.destroy();
+      } catch {}
       playerRef.current = null;
       if (wrapperRef.current) wrapperRef.current.innerHTML = "";
     };
   }, [videoId, autoplay]); // remount fully when videoId or autoplay changes
 
-  return <div ref={wrapperRef} className={className} />;
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        width: "100%",
+      }}
+    >
+      <div
+        ref={wrapperRef}
+        className={className}
+        style={{
+          width: "100%",
+          maxWidth: "900px",
+          aspectRatio: "16/9",
+        }}
+      />
+    </div>
+  );
 }
 
 // Extract YouTube video ID from any YouTube URL format
 export function extractYoutubeId(url: string | undefined): string | null {
   if (!url) return null;
-  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+  const m = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/,
+  );
   return m ? m[1] : null;
 }
 
@@ -101,6 +134,7 @@ export function buildIframeEmbedUrl(url: string, autoplay = false): string {
     return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300f0ff&auto_play=${autoplay}&hide_related=true&show_comments=false`;
   }
   const vimeo = url.match(/vimeo\.com\/(\d+)/);
-  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}${autoplay ? "?autoplay=1" : ""}`;
+  if (vimeo)
+    return `https://player.vimeo.com/video/${vimeo[1]}${autoplay ? "?autoplay=1" : ""}`;
   return url;
 }
