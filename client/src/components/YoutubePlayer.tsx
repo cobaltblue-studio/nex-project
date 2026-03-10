@@ -62,6 +62,8 @@ export function YoutubePlayer({
     loadYTApi(() => {
       if (destroyed) return;
       playerRef.current = new window.YT.Player(uid, {
+        width: "100%",
+        height: "100%",
         videoId,
         playerVars: {
           autoplay: autoplay ? 1 : 0,
