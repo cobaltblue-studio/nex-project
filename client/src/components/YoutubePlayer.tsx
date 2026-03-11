@@ -69,7 +69,7 @@ export function YoutubePlayer({
           autoplay: autoplay ? 1 : 0,
           rel: 0,
           modestbranding: 1,
-          controls: 1,
+          controls: 0,
           showinfo: 0,
           disablekb: 1,
           fs: 0,
