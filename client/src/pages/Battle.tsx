@@ -169,6 +169,9 @@ export function Battle() {
       const data = await res.json();
       setVoteResult(data);
       setPhase("result");
+      setTimeout(() => {
+        startBattle();
+      }, 2000);
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
     },
     onError: (err: any) => {
