@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -61,6 +61,15 @@ function TrackPlayer({
   autoplay?: boolean;
   onEnded?: () => void;
 }) {
+  useEffect(() => {
+    if (!autoplay) return;
+
+    const timer = setTimeout(() => {
+      if (onEnded) onEnded();
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [autoplay]);
   const rawUrl = track.musicVideoUrl || track.audioUrl;
   const ytId = extractYoutubeId(rawUrl);
   const iframeUrl =
