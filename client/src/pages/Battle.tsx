@@ -172,7 +172,7 @@ export function Battle() {
       setPhase("result");
       setTimeout(() => {
         startBattle();
-      }, 2000);
+      }, 4000);
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
     },
     onError: (err: any) => {
