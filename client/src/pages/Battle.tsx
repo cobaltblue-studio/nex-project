@@ -70,6 +70,7 @@ function TrackPlayer({
 
     return () => clearTimeout(timer);
   }, [autoplay]);
+  const randomStart = Math.floor(Math.random() * 60) + 30;
   const rawUrl = track.musicVideoUrl || track.audioUrl;
   const ytId = extractYoutubeId(rawUrl);
   const iframeUrl =
