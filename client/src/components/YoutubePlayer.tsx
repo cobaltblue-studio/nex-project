@@ -67,7 +67,7 @@ export function YoutubePlayer({
         videoId,
         playerVars: {
           autoplay: autoplay ? 1 : 0,
-          start: 0,
+          start: autoplay ? 30 : 0,
           rel: 0,
           modestbranding: 1,
           controls: 0,
