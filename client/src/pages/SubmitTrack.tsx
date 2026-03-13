@@ -225,31 +225,6 @@ export default function SubmitTrack() {
                 )}
               </div>
 
-              {/* Genre */}
-              <div>
-                <label className="block ...">Genre (optional)</label>
-                <div className="relative">
-                  <select
-                    {...form.register("genre")}
-                    data-testid="select-genre"
-                    className="w-full appearance-none bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all cursor-pointer"
-                  >
-                    <option value="">Optional</option>
-                    {GENRES.map((g) => (
-                      <option key={g} value={g} className="bg-[#050505]">
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
-                </div>
-                {form.formState.errors.genre && (
-                  <p className="text-[10px] text-red-400 mt-1 uppercase tracking-widest">
-                    {form.formState.errors.genre.message}
-                  </p>
-                )}
-              </div>
-
               {/* Track Link */}
               <div>
                 <label className="block text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-2">
