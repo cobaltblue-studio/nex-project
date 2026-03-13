@@ -234,7 +234,7 @@ export default function SubmitTrack() {
                 <div className="relative">
                   <input
                     {...form.register("trackLink")}
-                    placeholder="YouTube, SoundCloud, or Suno URL"
+                    placeholder="YouTube, SoundCloud URL"
                     data-testid="input-track-link"
                     className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 pr-28 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
                   />
@@ -245,7 +245,8 @@ export default function SubmitTrack() {
                   )}
                 </div>
                 <p className="text-[9px] text-zinc-700 uppercase tracking-widest mt-1.5">
-                  Supported: YouTube · SoundCloud · Suno
+                  Supported: YouTube · SoundCloud If your track was created with
+                  Suno, upload it to YouTube or SoundCloud first.
                 </p>
                 {form.formState.errors.trackLink && (
                   <p className="text-[10px] text-red-400 mt-1 uppercase tracking-widest">
