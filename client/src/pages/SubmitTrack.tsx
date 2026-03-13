@@ -284,6 +284,7 @@ export default function SubmitTrack() {
                 <p>
                   ④ Chart: max 100 tracks ranked by votes + plays + battle wins
                 </p>
+                <p>⑤ Tracks are ranked by Votes + Plays + Battle Results</p>
               </div>
             </form>
           </motion.div>
