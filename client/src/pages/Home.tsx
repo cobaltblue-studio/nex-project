@@ -35,13 +35,20 @@ export function Home() {
       <section className="relative py-12 border-b border-white/5">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="text-center md:text-left">
-            <h1 className="text-6xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none">NEX</h1>
-            <p className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] mt-2">AI Music Ranking Platform</p>
+            <h1 className="text-6xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none">NEX TOP 100</h1>
+            <p className="text-primary font-bold uppercase tracking-[0.4em] text-[12px] mt-2">AI MUSIC CHART</p>
           </div>
           <button onClick={startRadio} className="flex items-center gap-3 bg-primary text-black px-8 py-3 rounded-sm hover:brightness-110 transition-all group">
             <Radio className="w-4 h-4 group-hover:animate-pulse" />
             <span className="text-[10px] font-bold uppercase tracking-widest">Start Radio</span>
           </button>
+        </div>
+        <div className="mt-6 text-[11px] uppercase tracking-[0.3em] text-zinc-400">
+        NEX Chart Ranking
+        </div>
+
+        <div className="text-[10px] text-zinc-500 tracking-[0.25em]">
+        Based on Plays • Votes • Battle Results
         </div>
       </section>
 
