@@ -352,9 +352,7 @@ export function Battle() {
         )}
 
         <div className="flex justify-center items-center my-6">
-          <div className="text-4xl text-primary animate-pulse">
-            ⚡
-          </div>
+          <div className="text-4xl text-primary animate-pulse">⚡</div>
         </div>
         {/* Phase: Track B */}
         {phase === "track-b" && battle && (
