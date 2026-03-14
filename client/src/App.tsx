@@ -33,8 +33,8 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
-        <Route path="/music" component={Home} />
-        <Route path="/music-video" component={Home} />
+        <Route path="/music" component={Rising} />
+        <Route path="/music-video" component={MVDetail} />
         <Route path="/submit" component={Submit} />
         <Route path="/upload" component={UploadTrack} />
         <Route path="/my-tracks" component={MyTracks} />
