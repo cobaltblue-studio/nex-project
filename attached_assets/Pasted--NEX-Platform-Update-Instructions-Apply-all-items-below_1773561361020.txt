@@ -1,0 +1,291 @@
+# NEX Platform Update Instructions
+
+(Apply all items below carefully. Avoid duplicating features already implemented.)
+
+---
+
+# 1. Battle System Core
+
+Implement the final NEX battle flow.
+
+## Battle Structure
+
+Global Battle: **3 battles per user per day**
+
+Display progress:
+
+Battle 1 / 3 today  
+Battle 2 / 3 today  
+Battle 3 / 3 today  
+
+or
+
+1 battle left today
+
+---
+
+# 2. Battle Matchmaking
+
+Battle pool must include:
+
+NEW  
+RISING  
+CHART  
+
+Matchmaking logic:
+
+SMART RANDOM
+
+Possible pairings:
+
+NEW vs NEW  
+NEW vs CHART  
+RISING vs CHART  
+CHART vs CHART  
+
+Users should experience this as **fully random battles**.
+
+---
+
+# 3. Track Playback Logic
+
+Battle playback rules:
+
+- 20 seconds playback
+- Mid-highlight section
+- Auto play
+- No skip allowed
+
+Playback order:
+
+Random order between Track A and Track B
+
+Example flows:
+
+Track A → Track B  
+Track B → Track A  
+
+---
+
+# 4. Battle Screen Flow
+
+User flow:
+
+ENTER BATTLE  
+↓  
+Random order determined  
+↓  
+Track 1 plays (20s)  
+↓  
+Track 2 plays (20s)  
+↓  
+⚔ AI MUSIC DUEL ⚔ screen  
+↓  
+Vote  
+↓  
+Result  
+↓  
+Next Battle  
+
+---
+
+# 5. VS Screen Design
+
+Display after both tracks finish playing:
+
+⚔ AI MUSIC DUEL ⚔  
+
+Track A  
+VS  
+Track B  
+
+Then show vote options.
+
+---
+
+# 6. Voting System
+
+User can vote once per battle.
+
+Vote Track A  
+Vote Track B  
+
+---
+
+# 7. Result Screen
+
+Display duration:
+
+7 seconds
+
+Result layout:
+
+Winner  
+Track Title  
+
+Vote %  
+Vote Count  
+
+Total Votes  
+
+Example:
+
+48%   124 votes  
+52%   135 votes  
+
+Total votes: 259
+
+Optional event display:
+
+🔥 UPSET  
+#82 beat #6
+
+---
+
+# 8. Result Screen Buttons
+
+Display two actions:
+
+NEXT BATTLE  
+LISTEN FULL TRACK  
+
+---
+
+# 9. Battle Streak System
+
+Track consecutive battles during session.
+
+Display:
+
+🔥 4 Battle Streak  
+
+Rules:
+
+- Session based
+- Resets when user leaves platform
+
+---
+
+# 10. Battle Progress Bar
+
+While tracks are playing, display progress indicator.
+
+Example:
+
+Track A  
+██████████ 20s  
+
+Track B  
+██████████ 20s  
+
+---
+
+# 11. NEW Track System
+
+Flow:
+
+Submit Track  
+↓  
+Admin Approval  
+↓  
+NEW (7 days)
+
+Rules:
+
+Tracks stay in NEW for **7 days**.
+
+Engagement sources:
+
+Play  
+Battle  
+Vote  
+
+If **no engagement within 7 days → auto remove**.
+
+---
+
+# 12. Chart Display Structure
+
+Charts must show **Battle Stats** per track.
+
+Example:
+
+#12 Midnight City  
+Win rate 63% · 24 battles
+
+Required fields:
+
+Rank  
+Track Title  
+Win rate  
+Total battles  
+
+---
+
+# 13. Chart Explanation Text
+
+Add explanation text at the top of chart pages.
+
+TOP 100
+
+This ranking updates after every battle.
+
+Purpose: clarify that **battle results affect rankings**.
+
+---
+
+# 14. MV Chart Layout
+
+MV Chart must match Music Chart layout:
+
+Rank  
+Thumbnail  
+Title  
+Win rate  
+Battles  
+
+---
+
+# 15. Daily Battle Indicator
+
+Users must always see remaining battles.
+
+Examples:
+
+Battle 2 / 3 today
+
+or
+
+1 battle left today
+
+---
+
+# Implementation Rule
+
+Before implementing each feature:
+
+- Check if feature already exists
+- Avoid duplicate logic
+- Avoid UI duplication
+
+---
+
+# Expected NEX Platform Flow
+
+Submit Track  
+↓  
+Admin Approval  
+↓  
+NEW (7 days)  
+↓  
+Battle Pool  
+↓  
+Rising  
+↓  
+Music Chart  
+
+Battle participants come from:
+
+NEW  
+RISING  
+CHART  
