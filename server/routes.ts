@@ -138,6 +138,9 @@ export async function registerRoutes(
       });
     }
 
+    const trackIds = ts.map((t) => t.id);
+    const battleStats = await storage.getBattleStatsForTracks(trackIds);
+
     const formatted = ts.map((t) => ({
       id: t.id,
       title: t.title,
@@ -157,6 +160,11 @@ export async function registerRoutes(
       rankingScore: t.rankingScore,
       status: t.status,
       createdAt: t.createdAt,
+      ...(battleStats[t.id] ? {
+        totalBattles: battleStats[t.id].totalBattles,
+        wins: battleStats[t.id].wins,
+        winRate: battleStats[t.id].winRate,
+      } : {}),
     }));
     res.json(formatted);
   });

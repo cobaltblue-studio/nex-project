@@ -40,6 +40,7 @@ export interface IStorage {
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
   recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number }>;
   getRisingTracks(): Promise<any[]>;
+  getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -326,6 +327,33 @@ export class DatabaseStorage implements IStorage {
 
     // Sort by win rate desc, then total battles desc
     return results.sort((a, b) => b.winRate - a.winRate || b.totalBattles - a.totalBattles);
+  }
+
+  async getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>> {
+    if (trackIds.length === 0) return {};
+    const allBattles = await db.select().from(battles).where(sql`${battles.winnerId} IS NOT NULL`);
+    const stats: Record<number, { battles: number; wins: number }> = {};
+    const idSet = new Set(trackIds);
+    for (const b of allBattles) {
+      for (const id of [b.trackAId, b.trackBId]) {
+        if (!idSet.has(id)) continue;
+        if (!stats[id]) stats[id] = { battles: 0, wins: 0 };
+        stats[id].battles += 1;
+      }
+      if (b.winnerId && idSet.has(b.winnerId)) {
+        if (!stats[b.winnerId]) stats[b.winnerId] = { battles: 0, wins: 0 };
+        stats[b.winnerId].wins += 1;
+      }
+    }
+    const result: Record<number, { totalBattles: number; wins: number; winRate: number }> = {};
+    for (const [id, s] of Object.entries(stats)) {
+      result[Number(id)] = {
+        totalBattles: s.battles,
+        wins: s.wins,
+        winRate: s.battles > 0 ? Math.round((s.wins / s.battles) * 100) : 0,
+      };
+    }
+    return result;
   }
 
   async getBattle(id: number): Promise<any | null> {

@@ -22,6 +22,7 @@ import { UploadTrack } from "@/pages/UploadTrack";
 import { MyTracks } from "@/pages/MyTracks";
 import { Battle } from "@/pages/Battle";
 import { Rising } from "@/pages/Rising";
+import { Music } from "@/pages/Music";
 import SubmitTrack from "@/pages/SubmitTrack";
 import AdminPanel from "@/pages/AdminPanel";
 import NexRadio from "@/pages/Radio";
@@ -33,7 +34,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
-        <Route path="/music" component={Rising} />
+        <Route path="/music" component={Music} />
         <Route path="/music-video" component={MVDetail} />
         <Route path="/submit" component={Submit} />
         <Route path="/upload" component={UploadTrack} />
