@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -135,6 +135,9 @@ export function Battle() {
   } | null>(null);
   const [listenedA, setListenedA] = useState(false);
   const [listenedB, setListenedB] = useState(false);
+  const [countdown, setCountdown] = useState<number>(0);
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextBattleRef = useRef<() => void>(() => {});
 
   const { data: genres = [], isLoading: genresLoading } = useQuery<string[]>({
     queryKey: ["/api/battles/genres"],
@@ -170,9 +173,10 @@ export function Battle() {
       const data = await res.json();
       setVoteResult(data);
       setPhase("result");
-      setTimeout(() => {
-        startBattle();
-      }, 4000);
+      setCountdown(7);
+      autoAdvanceRef.current = setTimeout(() => {
+        nextBattleRef.current();
+      }, 7000);
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
     },
     onError: (err: any) => {
@@ -200,6 +204,11 @@ export function Battle() {
   );
 
   const nextBattle = useCallback(() => {
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+    setCountdown(0);
     setBattle(null);
     setVoteResult(null);
     setListenedA(false);
@@ -207,6 +216,24 @@ export function Battle() {
     setPhase("loading");
     createBattleMutation.mutate(selectedGenre);
   }, [selectedGenre, createBattleMutation]);
+
+  nextBattleRef.current = nextBattle;
+
+  useEffect(() => {
+    if (phase !== "result" || countdown <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase, countdown > 0]);
+
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+      }
+    };
+  }, []);
 
   const castVote = useCallback(
     (trackId: number) => {
@@ -632,6 +659,14 @@ export function Battle() {
                     <SkipForward className="w-4 h-4" />
                     Next Battle
                   </button>
+                  {countdown > 0 && (
+                    <p
+                      className="text-[10px] text-zinc-500 uppercase tracking-widest text-center"
+                      data-testid="text-countdown"
+                    >
+                      Auto-advancing in {countdown}s…
+                    </p>
+                  )}
 
                   <a
                     href={`/track/${winnerTrack.id}`}
@@ -644,6 +679,11 @@ export function Battle() {
 
                   <button
                     onClick={() => {
+                      if (autoAdvanceRef.current) {
+                        clearTimeout(autoAdvanceRef.current);
+                        autoAdvanceRef.current = null;
+                      }
+                      setCountdown(0);
                       setBattle(null);
                       setVoteResult(null);
                       setSelectedGenre("");
