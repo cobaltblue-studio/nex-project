@@ -293,6 +293,12 @@ export async function registerRoutes(
     res.json(genres);
   });
 
+  app.get("/api/battles/daily-count", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const count = await storage.getDailyBattleVoteCount(userId);
+    res.json({ count, dailyMax: 3 });
+  });
+
   // Create a new battle for a given genre
   app.post("/api/battles/new", async (req, res) => {
     const { genre } = req.body;

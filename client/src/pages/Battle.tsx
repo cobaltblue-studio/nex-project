@@ -143,6 +143,11 @@ export function Battle() {
     queryKey: ["/api/battles/genres"],
   });
 
+  const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
+    queryKey: ["/api/battles/daily-count"],
+    enabled: isAuthenticated,
+  });
+
   const createBattleMutation = useMutation({
     mutationFn: (genre: string) =>
       apiRequest("POST", "/api/battles/new", { genre }),
@@ -178,6 +183,7 @@ export function Battle() {
         nextBattleRef.current();
       }, 7000);
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
     },
     onError: (err: any) => {
       if (err?.message?.includes("409") || err?.status === 409) {
@@ -277,6 +283,14 @@ export function Battle() {
               ? "Any Genre Battle"
               : `${selectedGenre} Battle`}
           </p>
+        )}
+        {isAuthenticated && dailyCount && (
+          <div className="mt-3 flex items-center gap-2" data-testid="battle-progress-indicator">
+            <Headphones className="w-3.5 h-3.5 text-primary/60" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+              Battle {dailyCount.count} / {dailyCount.dailyMax} today
+            </span>
+          </div>
         )}
       </div>
 

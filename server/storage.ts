@@ -1,6 +1,6 @@
 import { profiles, tracks, likes, votes, follows, trackPlays, battles, battleVotes, type Profile, type Track, type Follow, type Battle } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, count, gt, ne } from "drizzle-orm";
+import { eq, desc, and, sql, count, gt, gte, ne } from "drizzle-orm";
 
 // Compute rankingScore = (votes * 3) + (playCount * 1) + recentBoost
 export function computeRankingScore(votesCount: number, playCount: number, createdAt: Date): number {
@@ -41,6 +41,7 @@ export interface IStorage {
   recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number }>;
   getRisingTracks(): Promise<any[]>;
   getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>>;
+  getDailyBattleVoteCount(userId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -477,6 +478,16 @@ export class DatabaseStorage implements IStorage {
 
   async getFollowerCount(creatorProfileId: number): Promise<number> {
     const [r] = await db.select({ count: count() }).from(follows).where(eq(follows.creatorProfileId, creatorProfileId));
+    return r?.count || 0;
+  }
+
+  async getDailyBattleVoteCount(userId: string): Promise<number> {
+    const now = new Date();
+    const startOfDayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const [r] = await db
+      .select({ count: count() })
+      .from(battleVotes)
+      .where(and(eq(battleVotes.userId, userId), gte(battleVotes.votedAt, startOfDayUTC)));
     return r?.count || 0;
   }
 }
