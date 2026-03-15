@@ -12,6 +12,26 @@ export function computeRankingScore(votesCount: number, playCount: number, creat
   return (votesCount * 3) + (playCount * 1) + recentBoost;
 }
 
+function weightedPickTwo<T extends { rankingScore: number }>(items: T[]): [T, T] {
+  const weights = items.map(t => Math.max(1, t.rankingScore));
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+
+  const pickIndex = (excludeIdx: number): number => {
+    const adjustedTotal = totalWeight - (excludeIdx >= 0 ? weights[excludeIdx] : 0);
+    let r = Math.random() * adjustedTotal;
+    for (let i = 0; i < items.length; i++) {
+      if (i === excludeIdx) continue;
+      r -= weights[i];
+      if (r <= 0) return i;
+    }
+    return items.length - 1 === excludeIdx ? items.length - 2 : items.length - 1;
+  };
+
+  const idxA = pickIndex(-1);
+  const idxB = pickIndex(idxA);
+  return [items[idxA], items[idxB]];
+}
+
 export interface IStorage {
   getProfileByUserId(userId: string): Promise<Profile | undefined>;
   getProfileByUsername(username: string): Promise<Profile | undefined>;
@@ -232,32 +252,76 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBattle(genre: string): Promise<any | null> {
-    // Battle-eligible: PUBLISHED (legacy) + BATTLE_POOL (approved by admin) + CHART (graduated)
     const eligibleSql = sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`;
 
-    // Build the candidate pool — same genre if specified, otherwise all eligible
     let pool = await db.select().from(tracks).where(
       genre && genre !== "ALL"
         ? and(eligibleSql, eq(tracks.genre, genre))
         : eligibleSql
     );
 
-    // Fallback: if genre-specific pool has <2 tracks, widen to all eligible tracks
     if (pool.length < 2) {
       pool = await db.select().from(tracks).where(eligibleSql);
     }
 
     if (pool.length < 2) return null;
 
-    // Fully random selection — shuffle and take first two
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+    const allBattles = await db.select().from(battles).where(sql`${battles.winnerId} IS NOT NULL`);
+    const battleStats: Record<number, { battles: number; wins: number }> = {};
+    for (const b of allBattles) {
+      for (const id of [b.trackAId, b.trackBId]) {
+        if (!battleStats[id]) battleStats[id] = { battles: 0, wins: 0 };
+        battleStats[id].battles += 1;
+      }
+      if (b.winnerId) {
+        if (!battleStats[b.winnerId]) battleStats[b.winnerId] = { battles: 0, wins: 0 };
+        battleStats[b.winnerId].wins += 1;
+      }
     }
-    const trackA = pool[0];
-    const trackB = pool[1];
 
-    // Persist the battle — use the actual genre of trackA when "ALL" was selected
+    const top100 = await db.select({ id: tracks.id })
+      .from(tracks)
+      .where(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`)
+      .orderBy(desc(tracks.rankingScore))
+      .limit(100);
+    const top100Ids = new Set(top100.map(t => t.id));
+
+    const newPool: typeof pool = [];
+    const risingPool: typeof pool = [];
+    const chartPool: typeof pool = [];
+
+    for (const track of pool) {
+      if (track.status === 'BATTLE_POOL') {
+        newPool.push(track);
+      } else {
+        const s = battleStats[track.id];
+        const winRate = s && s.battles > 0 ? s.wins / s.battles : 0;
+        if (s && s.battles >= 5 && winRate >= 0.6 && !top100Ids.has(track.id)) {
+          risingPool.push(track);
+        } else {
+          chartPool.push(track);
+        }
+      }
+    }
+
+    const pools = [newPool, risingPool, chartPool];
+    const startIdx = Math.floor(Math.random() * 3);
+
+    let trackA: typeof pool[0] | null = null;
+    let trackB: typeof pool[0] | null = null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const currentPool = pools[(startIdx + attempt) % 3];
+      if (currentPool.length >= 2) {
+        [trackA, trackB] = weightedPickTwo(currentPool);
+        break;
+      }
+    }
+
+    if (!trackA || !trackB) {
+      [trackA, trackB] = weightedPickTwo(pool);
+    }
+
     const battleGenre = (genre && genre !== "ALL") ? genre : trackA.genre;
 
     const [battle] = await db.insert(battles).values({
