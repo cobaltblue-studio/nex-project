@@ -232,6 +232,37 @@ export function Home() {
         </button>
       </section>
 
+      {/* ABOUT NEX */}
+      <section className="max-w-3xl mx-auto text-center space-y-6" data-testid="section-about-nex">
+        <h2 className="text-3xl font-display text-white uppercase tracking-widest">
+          About NEX
+        </h2>
+
+        <p className="text-zinc-400 text-sm leading-relaxed">
+          NEX is an AI music ranking platform dedicated to discovering and showcasing the best
+          AI-generated music from around the world.
+        </p>
+
+        <p className="text-zinc-400 text-sm leading-relaxed">
+          Artists can submit their tracks, listeners can explore new sounds, and the community
+          helps shape the future of AI music through battle voting and chart performance.
+        </p>
+
+        <p className="text-zinc-400 text-sm leading-relaxed">
+          Our goal is to build the most credible AI music chart, similar to how Billboard
+          represents traditional music charts. Every track enters the system through submission
+          and battle evaluation before reaching the official chart.
+        </p>
+
+        <button
+          onClick={() => setLocation("/about")}
+          data-testid="button-learn-how-nex-works"
+          className="px-8 py-4 border border-white/20 text-white font-bold text-sm uppercase tracking-widest hover:border-primary/40 hover:text-primary transition-all"
+        >
+          Learn How NEX Works
+        </button>
+      </section>
+
     </motion.div>
   );
 }

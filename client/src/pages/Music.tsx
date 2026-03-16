@@ -19,9 +19,9 @@ interface ChartTrack {
 const TOTAL_SLOTS = 100;
 
 function getZoneForRank(rank: number): { label: string; icon: typeof Crown; color: string; bgColor: string; borderColor: string } | null {
-  if (rank === 1) return { label: "Legend Zone", icon: Crown, color: "text-yellow-400", bgColor: "bg-yellow-400/10", borderColor: "border-yellow-400/30" };
-  if (rank === 11) return { label: "Elite Zone", icon: Star, color: "text-zinc-300", bgColor: "bg-zinc-400/10", borderColor: "border-zinc-400/30" };
-  if (rank === 51) return { label: "Rising Zone", icon: TrendingUp, color: "text-green-400", bgColor: "bg-green-400/10", borderColor: "border-green-400/30" };
+  if (rank === 1) return { label: "Legend Zone", icon: Crown, color: "text-[#FFD700]", bgColor: "bg-[#FFD700]/10", borderColor: "border-[#FFD700]/30" };
+  if (rank === 11) return { label: "Elite Zone", icon: Star, color: "text-[#00D1FF]", bgColor: "bg-[#00D1FF]/10", borderColor: "border-[#00D1FF]/30" };
+  if (rank === 51) return { label: "Rising Zone", icon: TrendingUp, color: "text-[#00FF9C]", bgColor: "bg-[#00FF9C]/10", borderColor: "border-[#00FF9C]/30" };
   return null;
 }
 

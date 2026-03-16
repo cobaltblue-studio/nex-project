@@ -169,7 +169,9 @@ export function Battle() {
   const [listenedA, setListenedA] = useState(false);
   const [listenedB, setListenedB] = useState(false);
   const [countdown, setCountdown] = useState<number>(0);
+  const [showFlash, setShowFlash] = useState(false);
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownStartRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextBattleRef = useRef<() => void>(() => {});
 
   const { data: genres = [], isLoading: genresLoading } = useQuery<string[]>({
@@ -211,7 +213,8 @@ export function Battle() {
       const data = await res.json();
       setVoteResult(data);
       setPhase("result");
-      setCountdown(7);
+      setCountdown(0);
+      countdownStartRef.current = setTimeout(() => setCountdown(3), 4000);
       autoAdvanceRef.current = setTimeout(() => {
         nextBattleRef.current();
       }, 7000);
@@ -247,6 +250,10 @@ export function Battle() {
       clearTimeout(autoAdvanceRef.current);
       autoAdvanceRef.current = null;
     }
+    if (countdownStartRef.current) {
+      clearTimeout(countdownStartRef.current);
+      countdownStartRef.current = null;
+    }
     setCountdown(0);
     setBattle(null);
     setVoteResult(null);
@@ -271,6 +278,9 @@ export function Battle() {
       if (autoAdvanceRef.current) {
         clearTimeout(autoAdvanceRef.current);
       }
+      if (countdownStartRef.current) {
+        clearTimeout(countdownStartRef.current);
+      }
     };
   }, []);
 
@@ -285,7 +295,11 @@ export function Battle() {
         return;
       }
       if (!battle) return;
-      voteMutation.mutate({ battleId: battle.id, trackId });
+      setShowFlash(true);
+      setTimeout(() => {
+        setShowFlash(false);
+        voteMutation.mutate({ battleId: battle.id, trackId });
+      }, 250);
     },
     [isAuthenticated, battle, voteMutation],
   );
@@ -299,6 +313,20 @@ export function Battle() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <AnimatePresence>
+        {showFlash && (
+          <motion.div
+            key="vote-flash"
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-50 pointer-events-none"
+            style={{ backgroundColor: "rgba(255, 212, 0, 0.3)" }}
+            data-testid="vote-flash-overlay"
+          />
+        )}
+      </AnimatePresence>
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <Swords className="w-5 h-5 text-primary" />
@@ -421,9 +449,13 @@ export function Battle() {
           </motion.div>
         )}
 
-        <div className="flex justify-center items-center my-6">
-          <div className="text-4xl text-primary animate-pulse">⚡</div>
-        </div>
+        {phase === "vote" && (
+          <div className="flex justify-center items-center my-6">
+            <div className="text-3xl font-display font-bold text-primary animate-pulse tracking-wider" data-testid="text-vs-label">
+              ⚡ VS ⚡
+            </div>
+          </div>
+        )}
 
         {phase === "track-b" && battle && (
           <motion.div
@@ -519,7 +551,7 @@ export function Battle() {
                 </div>
                 <button
                   onClick={() => castVote(battle.trackAId)}
-                  disabled={voteMutation.isPending || !listenedA || !listenedB}
+                  disabled={voteMutation.isPending || showFlash || !listenedA || !listenedB}
                   data-testid="button-vote-track-a"
                   className="w-full py-3 border border-primary/40 bg-primary/10 hover:bg-primary/25 text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -551,7 +583,7 @@ export function Battle() {
                 </div>
                 <button
                   onClick={() => castVote(battle.trackBId)}
-                  disabled={voteMutation.isPending || !listenedA || !listenedB}
+                  disabled={voteMutation.isPending || showFlash || !listenedA || !listenedB}
                   data-testid="button-vote-track-b"
                   className="w-full py-3 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/25 text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -562,7 +594,11 @@ export function Battle() {
           </motion.div>
         )}
 
-        {phase === "result" && battle && voteResult && (
+        {phase === "result" && battle && voteResult && (() => {
+          const totalVotes = voteResult.trackAVotes + voteResult.trackBVotes;
+          const pctA = totalVotes > 0 ? Math.round((voteResult.trackAVotes / totalVotes) * 100) : 50;
+          const pctB = totalVotes > 0 ? 100 - pctA : 50;
+          return (
           <motion.div
             key="result"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -589,22 +625,32 @@ export function Battle() {
               </div>
             )}
 
-            <div className="flex justify-center gap-8">
-              <div className="text-center">
-                <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">Track A</p>
+            <div className="flex justify-center items-center gap-4">
+              <div className="text-center flex-1">
+                <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{battle.trackA.title}</p>
                 <p className="text-2xl font-display font-bold text-white" data-testid="text-result-votes-a">
-                  {voteResult.trackAVotes}
+                  {pctA}%
                 </p>
               </div>
-              <div className="text-center">
-                <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">Track B</p>
+              <div className="text-zinc-600 text-sm font-bold">/</div>
+              <div className="text-center flex-1">
+                <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{battle.trackB.title}</p>
                 <p className="text-2xl font-display font-bold text-white" data-testid="text-result-votes-b">
-                  {voteResult.trackBVotes}
+                  {pctB}%
                 </p>
               </div>
             </div>
 
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500" data-testid="text-total-votes">
+              Total Votes: {totalVotes}
+            </p>
+
             <div className="space-y-3">
+              {countdown > 0 && (
+                <p className="text-sm font-bold uppercase tracking-widest text-primary" data-testid="text-next-battle-countdown">
+                  Next Battle in {countdown}...
+                </p>
+              )}
               <button
                 onClick={nextBattle}
                 data-testid="button-next-battle"
@@ -612,14 +658,10 @@ export function Battle() {
               >
                 Next Battle <ChevronRight className="w-4 h-4 inline ml-1" />
               </button>
-              {countdown > 0 && (
-                <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-                  Auto-advancing in {countdown}s
-                </p>
-              )}
             </div>
           </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
     </div>
   );
