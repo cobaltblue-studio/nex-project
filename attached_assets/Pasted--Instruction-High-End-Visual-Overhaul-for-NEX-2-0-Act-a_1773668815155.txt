@@ -1,0 +1,35 @@
+# [Instruction: High-End Visual Overhaul for NEX 2.0]
+
+Act as a Senior Creative Developer. Your task is to upgrade the UI/UX to a "Top-Class Global Platform" level. 
+**Crucial Rule:** Do NOT change the existing functional logic (JavaScript/Backend). ONLY overhaul the Visual Layers (CSS/Layout/Typography).
+
+## 1. Global Typography & Spacing
+- **Font:** Import and use 'Inter' (for UI) and 'Montserrat' (for Headings) from Google Fonts. 
+- **Typography Rule:** Apply `letter-spacing: -0.02em` and `line-height: 1.5` globally for a premium look.
+- **Spacing:** Increase whitespace (Padding/Margin) by 1.5x across all sections to ensure the layout "breathes" like a high-end luxury app.
+
+## 2. Branding & Hero Section (Home)
+- **NEX Logo Style:** Apply `text-transform: uppercase`, `font-weight: 900`, and a subtle `text-shadow: 0 0 15px rgba(0, 209, 255, 0.6)`.
+- **Hero Visual:** Replace the static black background with a Deep Gradient (#050505 to #0A0A0A) and add a subtle "Grainy Texture" overlay for a sophisticated feel.
+- **Buttons:** Apply **Glassmorphism**.
+  - Background: `rgba(255, 255, 255, 0.05)`
+  - Border: `1px solid rgba(255, 255, 255, 0.1)`
+  - Effect: `backdrop-filter: blur(12px)`
+  - Hover: Background becomes slightly brighter with a neon border glow.
+
+## 3. The "Bento Grid" Refinement (Creators & Music)
+- **Bento Style:** All cards must have rounded corners (`border-radius: 24px`) and a subtle inner glow.
+- **Visual Density:** For "Empty Slots" and "Future Creators", do NOT leave them as plain boxes. Use a placeholder SVG pattern or a faint "NEX" watermark to fill the visual void.
+- **Elevation:** Use multi-layered shadows to create depth (Z-index feel) between the background and the content cards.
+
+## 4. Battle Arena (The Heart of NEX)
+- **Visual Tension:** Add a pulsating Neon Blue glow around the active track being played.
+- **Progress Bar:** Redesign the "20S PREVIEW" bar to be sleek and minimalist (height: 4px) with a glowing tip as it progresses.
+- **VS Logo:** Change the static 'VS' to a bold, italicized, high-contrast typography with a "Glitch Effect" on hover.
+
+## 5. Global Polish
+- **Color Palette:** Use **#00D1FF (Electric Blue)** for primary actions and **#BD00FF (Neon Violet)** for secondary accents.
+- **Transitions:** Apply `transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1)` to every hover and click interaction for a "silky smooth" feel.
+- **Responsive:** Ensure the "Bento Grid" stacks beautifully on mobile, maintaining the high-end spacing.
+
+**"Apply these styling changes immediately without altering the existing voting, ranking, or navigation logic. Make it look like a Silicon Valley unicorn startup's landing page."**
