@@ -1,0 +1,47 @@
+# [Instruction: Full Platform Overhaul for NEX 2.0]
+
+Act as a Senior Full-stack Developer and Lead UI/UX Designer. 
+Your goal is to transform the current project into a high-end "AI Cultural Data Platform" 
+based on the following specifications and the provided 'NEX MASTER SPEC'.
+
+## 1. Global Navigation & Branding (Strict Order)
+- Implement the confirmed navigation structure: 
+  **HOME | NEW | MUSIC | MUSIC VIDEO | BATTLE | RISING | CREATORS | RADIO | SUBMIT TRACK**
+- The "NEW" menu must always be positioned before "MUSIC".
+- **Visual Identity:** - Apply a **Deep Dark Theme (#0A0A0A)** with **Neon Blue (#00D1FF)** and **Violet** accents.
+  - Use **Glassmorphism** for all cards, buttons, and modals (backdrop-filter: blur(12px)).
+  - Use a modern Sans-serif font (e.g., Inter or Montserrat) for a global look.
+
+## 2. Advanced Page Implementation
+- **HOME (Investor-Ready Landing Page):** - Transform the Home page into a professional landing page for investors and government funding.
+  - Sections: Hero (Title/Subtitle/CTA), Platform Concept, Battle System Intro, Creator Ecosystem, and Call to Action.
+- **MUSIC & VIDEO (Billboard-style Chart):**
+  - Implement a Top 100 Chart structure.
+  - If tracks are missing, show **100 Empty Slots** to maintain the "Top 100" authority.
+  - Fix all YouTube players to a **16:9 Responsive Ratio** (No square frames/cutting).
+
+## 3. Core Battle Engine (Gamification)
+- **Daily Battle Limit:** Implement a logic that limits participation to **3 times per day per user**.
+- **UI Element:** Display "Remaining Battles Today: X / 3" on the Battle page.
+- **Battle Flow:**
+  1. VS Screen (Animated Intro)
+  2. Track A Play (Play 20s Highlight, **Skip Prohibited**)
+  3. Track B Play (Play 20s Highlight, **Skip Prohibited**)
+  4. Vote Screen (Choose A or B)
+  5. Result Screen (Display for 7s with Win/Loss percentages and Vote Counts)
+  6. Auto-transition to the next battle.
+
+## 4. Creator & Submit Track Enhancements
+- **CREATORS Page:** - Professional grid layout (4 columns x 5 rows).
+  - Profile cards showing Creator Image, Name, Top Track, Battle Wins, and Total Plays.
+- **SUBMIT TRACK Page:** - Add "Originality Confirmation Checkbox".
+  - Add "Creator Profile Link" field.
+  - Implement "Duplicate URL Prevention" logic.
+
+## 5. Technical Requirements
+- Use **Tailwind CSS** for styling to ensure a clean, modern look.
+- Ensure the entire site is **Mobile-First Responsive**.
+- Primary language: **English** (to support global expansion).
+- Structure the code to allow future integration of the Chart Ranking Algorithm (Votes + Play Count + Recent Boost).
+
+**"Please refactor the existing codebase (index.html, style.css, script.js, and components) into a single, cohesive, and high-performance system. Begin the overhaul now."**
