@@ -118,24 +118,22 @@ export async function registerRoutes(
   });
 
   app.get(api.tracks.list.path, async (req, res) => {
-    let ts = await storage.getTracks({
+    const trackFilter = {
       status: (req.query.status as string) || undefined,
       featured: req.query.featured === "true",
       limit: req.query.limit ? Number(req.query.limit) : undefined,
       genre: (req.query.genre as string) || undefined,
       sortBy: (req.query.sortBy as "rankingScore" | "neoScore" | "createdAt") || undefined,
-    });
+      trackType: (req.query.trackType as string) || undefined,
+    };
 
-    if (ts.length === 0) {
+    let ts = await storage.getTracks(trackFilter);
+
+    const isFilteredQuery = !!(trackFilter.trackType || trackFilter.genre || trackFilter.status);
+    if (ts.length === 0 && !isFilteredQuery) {
       console.log("No tracks found in production, triggering auto-seed...");
       await seed();
-      ts = await storage.getTracks({
-        status: (req.query.status as string) || undefined,
-        featured: req.query.featured === "true",
-        limit: req.query.limit ? Number(req.query.limit) : undefined,
-        genre: (req.query.genre as string) || undefined,
-        sortBy: (req.query.sortBy as "rankingScore" | "neoScore" | "createdAt") || undefined,
-      });
+      ts = await storage.getTracks(trackFilter);
     }
 
     const trackIds = ts.map((t) => t.id);

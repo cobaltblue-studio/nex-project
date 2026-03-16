@@ -8,7 +8,6 @@ import {
   Swords,
   ChevronRight,
   Trophy,
-  SkipForward,
   Music2,
   Zap,
   Headphones,
@@ -174,10 +173,6 @@ export function Battle() {
   const countdownStartRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextBattleRef = useRef<() => void>(() => {});
 
-  const { data: genres = [], isLoading: genresLoading } = useQuery<string[]>({
-    queryKey: ["/api/battles/genres"],
-  });
-
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
     queryKey: ["/api/battles/daily-count"],
     enabled: isAuthenticated,
@@ -214,10 +209,10 @@ export function Battle() {
       setVoteResult(data);
       setPhase("result");
       setCountdown(0);
-      countdownStartRef.current = setTimeout(() => setCountdown(3), 4000);
+      countdownStartRef.current = setTimeout(() => setCountdown(3), 3000);
       autoAdvanceRef.current = setTimeout(() => {
         nextBattleRef.current();
-      }, 7000);
+      }, 6000);
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
     },
@@ -297,9 +292,11 @@ export function Battle() {
       if (!battle) return;
       setShowFlash(true);
       setTimeout(() => {
-        setShowFlash(false);
         voteMutation.mutate({ battleId: battle.id, trackId });
-      }, 250);
+      }, 300);
+      setTimeout(() => {
+        setShowFlash(false);
+      }, 600);
     },
     [isAuthenticated, battle, voteMutation],
   );
@@ -317,18 +314,17 @@ export function Battle() {
         {showFlash && (
           <motion.div
             key="vote-flash"
-            initial={{ opacity: 0, scale: 1.1 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.15 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-50 pointer-events-none"
-            style={{ backgroundColor: "rgba(255, 212, 0, 0.3)" }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            className="fixed inset-0 z-50 pointer-events-none bg-white"
             data-testid="vote-flash-overlay"
           />
         )}
       </AnimatePresence>
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-2">
+      <div className="mb-10 text-center">
+        <div className="flex items-center justify-center gap-3 mb-2">
           <Swords className="w-5 h-5 text-primary" />
           <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">
             NEX Battle Arena
@@ -339,13 +335,11 @@ export function Battle() {
         </h2>
         {selectedGenre && phase !== "genre-select" && (
           <p className="text-zinc-500 text-sm mt-2 uppercase tracking-widest">
-            {selectedGenre === "ALL"
-              ? "Any Genre Battle"
-              : `${selectedGenre} Battle`}
+            Any Genre Battle
           </p>
         )}
         {isAuthenticated && dailyCount && (
-          <div className="mt-3 flex items-center gap-2" data-testid="battle-progress-indicator">
+          <div className="mt-3 flex items-center justify-center gap-2" data-testid="battle-progress-indicator">
             <Headphones className="w-3.5 h-3.5 text-primary/60" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
               Battle {dailyCount.count} / {dailyCount.dailyMax} today
@@ -362,47 +356,15 @@ export function Battle() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
+            className="flex flex-col items-center justify-center py-12"
           >
-            <p className="text-zinc-400 text-sm mb-6">
-              Choose a genre to start a battle between two AI-generated tracks.
-            </p>
-            {genresLoading ? (
-              <div className="flex gap-2 flex-wrap">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="h-10 w-28 bg-white/5 rounded-sm animate-pulse"
-                  />
-                ))}
-              </div>
-            ) : genres.length === 0 ? (
-              <p className="text-zinc-600 text-sm">
-                No genres available yet. Tracks need to be published first.
-              </p>
-            ) : (
-              <div
-                className="flex flex-wrap gap-3"
-                data-testid="genre-selector"
-              >
-                {genres.map((genre) => {
-                  const isAll = genre === "ALL";
-                  return (
-                    <button
-                      key={genre}
-                      onClick={() => startBattle(genre)}
-                      data-testid={`button-genre-${genre.toLowerCase().replace(/\s/g, "-")}`}
-                      className={
-                        isAll
-                          ? "px-5 py-2.5 border rounded-sm text-[11px] font-bold uppercase tracking-[0.2em] transition-all border-primary/50 text-primary bg-primary/10 hover:bg-primary/25"
-                          : "px-5 py-2.5 border border-white/10 rounded-sm text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                      }
-                    >
-                      {isAll ? "⚡ Any Genre" : genre}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            <button
+              onClick={() => startBattle("ALL")}
+              data-testid="button-start-battle"
+              className="px-8 py-4 border-2 border-primary/60 bg-primary/10 hover:bg-primary/25 text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-sm transition-all hover:border-primary hover:scale-105"
+            >
+              ⚡ NOW START BATTLE ⚡
+            </button>
           </motion.div>
         )}
 
@@ -629,14 +591,14 @@ export function Battle() {
               <div className="text-center flex-1">
                 <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{battle.trackA.title}</p>
                 <p className="text-2xl font-display font-bold text-white" data-testid="text-result-votes-a">
-                  {pctA}%
+                  Track A – {pctA}%
                 </p>
               </div>
               <div className="text-zinc-600 text-sm font-bold">/</div>
               <div className="text-center flex-1">
                 <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{battle.trackB.title}</p>
                 <p className="text-2xl font-display font-bold text-white" data-testid="text-result-votes-b">
-                  {pctB}%
+                  Track B – {pctB}%
                 </p>
               </div>
             </div>

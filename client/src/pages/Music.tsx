@@ -27,9 +27,9 @@ function getZoneForRank(rank: number): { label: string; icon: typeof Crown; colo
 
 export function Music() {
   const { data: tracks, isLoading, isError } = useQuery<ChartTrack[]>({
-    queryKey: ["/api/tracks", "rankingScore", 100],
+    queryKey: ["/api/tracks", "rankingScore", 100, "audio"],
     queryFn: async () => {
-      const res = await fetch("/api/tracks?sortBy=rankingScore&limit=100");
+      const res = await fetch("/api/tracks?sortBy=rankingScore&limit=100&trackType=audio");
       if (!res.ok) throw new Error("Failed to fetch chart");
       return res.json();
     },

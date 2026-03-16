@@ -38,7 +38,7 @@ export interface IStorage {
   getProfile(id: number): Promise<(Profile & { tracks: Track[]; followerCount: number }) | undefined>;
   createProfile(p: any): Promise<Profile>;
   updateProfile(id: number, data: Partial<Profile>): Promise<Profile>;
-  getTracks(filter: { status?: string; featured?: boolean; limit?: number; genre?: string; sortBy?: "rankingScore" | "neoScore" | "createdAt" }): Promise<any[]>;
+  getTracks(filter: { status?: string; featured?: boolean; limit?: number; genre?: string; sortBy?: "rankingScore" | "neoScore" | "createdAt"; trackType?: string }): Promise<any[]>;
   getTracksByCreator(creatorId: number): Promise<any[]>;
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
@@ -94,7 +94,7 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getTracks({ status, featured, limit, genre, sortBy }: { status?: string; featured?: boolean; limit?: number; genre?: string; sortBy?: "rankingScore" | "neoScore" | "createdAt" }): Promise<any[]> {
+  async getTracks({ status, featured, limit, genre, sortBy, trackType }: { status?: string; featured?: boolean; limit?: number; genre?: string; sortBy?: "rankingScore" | "neoScore" | "createdAt"; trackType?: string }): Promise<any[]> {
     let q = db.select({ track: tracks, creator: profiles })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
@@ -108,6 +108,7 @@ export class DatabaseStorage implements IStorage {
     }
     if (featured) filters.push(eq(tracks.isFeatured, true));
     if (genre) filters.push(eq(tracks.genre, genre));
+    if (trackType) filters.push(eq(tracks.trackType, trackType));
     if (filters.length) q = q.where(and(...filters));
     // Sort by requested field or default rankingScore
     if (sortBy === "neoScore") {

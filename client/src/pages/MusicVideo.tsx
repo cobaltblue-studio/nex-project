@@ -13,32 +13,14 @@ interface MVTrack {
   rankingScore: number;
 }
 
-const TOTAL_SLOTS = 100;
-
 export function MusicVideo() {
   const { data: tracks, isLoading, isError } = useQuery<MVTrack[]>({
-    queryKey: ["/api/tracks", "rankingScore", "all-mv"],
+    queryKey: ["/api/tracks", "rankingScore", "video"],
     queryFn: async () => {
-      const [mvRes, allRes] = await Promise.all([
-        fetch("/api/tracks?status=MV&sortBy=rankingScore"),
-        fetch("/api/tracks?sortBy=rankingScore"),
-      ]);
-      if (!mvRes.ok || !allRes.ok) throw new Error("Failed to fetch tracks");
-      const mvTracks: MVTrack[] = await mvRes.json();
-      const allTracks: MVTrack[] = await allRes.json();
-      const mvIds = new Set(mvTracks.map((t) => t.id));
-      const legacyMv = allTracks.filter((t) => !mvIds.has(t.id) && t.musicVideoUrl && t.musicVideoUrl.trim() !== "");
-      const combined = [...mvTracks, ...legacyMv];
-      combined.sort((a, b) => b.rankingScore - a.rankingScore);
-      return combined;
+      const res = await fetch("/api/tracks?sortBy=rankingScore&trackType=video");
+      if (!res.ok) throw new Error("Failed to fetch tracks");
+      return res.json();
     },
-  });
-
-  const mvTracks = (tracks ?? []).slice(0, TOTAL_SLOTS);
-
-  const slots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
-    const track = mvTracks[i] ?? null;
-    return { rank: i + 1, track };
   });
 
   return (
@@ -74,10 +56,16 @@ export function MusicVideo() {
           <Video className="w-10 h-10 text-zinc-700" />
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-mv-chart-error">Failed to Load Chart</p>
         </div>
+      ) : !tracks || tracks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+          <Video className="w-10 h-10 text-zinc-700" />
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-mv-chart-empty">No music videos ranked yet.</p>
+        </div>
       ) : (
         <div className="space-y-2">
-          {slots.map(({ rank, track }) =>
-            track ? (
+          {tracks.map((track, index) => {
+            const rank = index + 1;
+            return (
               <motion.div
                 key={track.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -119,23 +107,8 @@ export function MusicVideo() {
                   </Link>
                 </div>
               </motion.div>
-            ) : (
-              <div
-                key={`empty-${rank}`}
-                className="flex items-center gap-4 p-4 border border-white/5 rounded-sm bg-black/10"
-                data-testid={`row-mv-chart-empty-${rank}`}
-              >
-                <div className="w-10 text-center">
-                  <span className="text-sm font-mono font-bold text-zinc-700">
-                    {String(rank).padStart(2, "0")}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-zinc-700 italic">—</p>
-                </div>
-              </div>
-            )
-          )}
+            );
+          })}
         </div>
       )}
     </div>
