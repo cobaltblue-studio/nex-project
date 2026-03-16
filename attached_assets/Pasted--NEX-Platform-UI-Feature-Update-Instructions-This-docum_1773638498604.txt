@@ -1,0 +1,156 @@
+# NEX Platform UI / Feature Update Instructions
+
+This document describes the next updates required for the NEX AI Music Ranking Platform.
+
+---
+
+# 1. HOME Page Improvements
+
+Add new sections below the hero area to increase engagement.
+
+## Section 1: LIVE BATTLE ARENA
+
+Display currently active battle tracks.
+
+Example layout:
+
+Track A vs Track B
+
+[Vote Now]
+
+Purpose:
+Encourage immediate user interaction and participation in battles.
+
+---
+
+## Section 2: TRENDING TODAY
+
+Display trending tracks based on recent engagement.
+
+Ranking factors:
+
+- Recent battle wins
+- Play count
+- Vote activity
+
+Example layout:
+
+#1 Track Name – Creator
+#2 Track Name – Creator
+#3 Track Name – Creator
+
+---
+
+# 2. Chart Methodology Page
+
+Create a new page explaining how the NEX chart ranking works.
+
+Menu location:
+Footer or main navigation.
+
+Page title:
+
+CHART METHODOLOGY
+
+Content example:
+
+NEX chart rankings are calculated using a combination of the following factors:
+
+- Battle win rate
+- Total votes
+- Track play count
+- Recent activity boost
+
+Only the strongest tracks rise through the system and reach the official NEX charts.
+
+Purpose:
+Increase platform transparency and credibility.
+
+---
+
+# 3. Battle Audio System
+
+Battle tracks must use a fixed highlight preview.
+
+Preview length:
+
+20 seconds
+
+Playback behavior:
+
+- Start from the mid-highlight section of the track
+- No skipping allowed
+- Automatically play Track A then Track B
+
+Purpose:
+Ensure fair comparison and fast user engagement.
+
+---
+
+# 4. Chart Track Playback Fix (Important Bug)
+
+Current issue:
+
+Tracks appearing in the chart are not playing the full track.
+They are using the same 20-second battle preview.
+
+Required fix:
+
+Chart tracks must allow full playback.
+
+Correct behavior:
+
+Battle mode:
+20-second highlight preview only
+
+Chart / Track page:
+Full track playback enabled
+
+Purpose:
+Charts should allow full listening while battles remain short previews.
+
+---
+
+# 5. Creator Country Field
+
+Add a country field to creator profiles.
+
+Example:
+
+COBALT
+South Korea
+
+Purpose:
+
+Enable future features such as:
+
+Top Countries
+Regional rankings
+Global creator statistics
+
+---
+
+# 6. Future Chart Expansion Structure
+
+Initial chart size:
+
+Top 100
+
+Expansion rule:
+
+When the database reaches sufficient scale, expand to:
+
+Top 200
+
+Ranking zones:
+
+#1–10   Legend Zone
+#11–50  Elite Zone
+#51–100 Rising Zone
+
+Future expansion:
+
+#101–200 Discovery Zone
+
+Purpose:
+Create long-term chart prestige and competition.
