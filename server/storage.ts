@@ -58,7 +58,7 @@ export interface IStorage {
   createBattle(genre: string): Promise<any | null>;
   getBattle(id: number): Promise<any | null>;
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
-  recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number }>;
+  recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }>;
   getRisingTracks(): Promise<any[]>;
   getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>>;
   getDailyBattleVoteCount(userId: string): Promise<number>;
@@ -453,7 +453,7 @@ export class DatabaseStorage implements IStorage {
     return !!r;
   }
 
-  async recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number }> {
+  async recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }> {
     const already = await this.hasBattleVoted(battleId, userId);
     if (already) throw new Error("ALREADY_VOTED");
 
@@ -470,6 +470,7 @@ export class DatabaseStorage implements IStorage {
 
     // Determine winner (track with more votes; current battle tally after this vote)
     const winnerId = newAVotes >= newBVotes ? battle.trackAId : battle.trackBId;
+    const loserId = winnerId === battle.trackAId ? battle.trackBId : battle.trackAId;
 
     await db.update(battles).set({
       trackAVotes: newAVotes,
@@ -484,11 +485,22 @@ export class DatabaseStorage implements IStorage {
       await db.update(tracks).set({ rankingScore: newRs }).where(eq(tracks.id, trackId));
     }
 
+    // Update win streaks: winner +1, loser reset to 0
+    await db.update(tracks).set({ winStreak: sql`${tracks.winStreak} + 1` }).where(eq(tracks.id, winnerId));
+    await db.update(tracks).set({ winStreak: 0 }).where(eq(tracks.id, loserId));
+
+    // Fetch updated streak values
+    const [winnerTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, winnerId));
+    const [loserTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, loserId));
+
+    const trackAWinStreak = winnerId === battle.trackAId ? (winnerTrack?.winStreak ?? 0) : (loserTrack?.winStreak ?? 0);
+    const trackBWinStreak = winnerId === battle.trackBId ? (winnerTrack?.winStreak ?? 0) : (loserTrack?.winStreak ?? 0);
+
     // Check if either battle track should be promoted to CHART
     await this.checkAndPromoteToChart(battle.trackAId);
     await this.checkAndPromoteToChart(battle.trackBId);
 
-    return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId };
+    return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId, trackAWinStreak, trackBWinStreak };
   }
 
   async checkAndPromoteToChart(trackId: number): Promise<void> {

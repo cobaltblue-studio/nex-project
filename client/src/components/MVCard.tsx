@@ -94,6 +94,11 @@ export function MVCard({ track, index }: MVCardProps) {
               <div className="text-[8px] font-mono text-zinc-600 font-bold mb-0.5">NEX #{String(index + 1).padStart(3, "0")}</div>
               <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-zinc-500">
                 <span className="text-primary/70">{track.creatorName || "NEX CREATOR"}</span>
+                {track.winStreak > 0 && (
+                  <span className="px-1 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[7px] border border-orange-500/20" data-testid={`text-streak-mv-${track.id}`}>
+                    🔥 WIN STREAK: {track.winStreak}
+                  </span>
+                )}
               </div>
             </div>
 

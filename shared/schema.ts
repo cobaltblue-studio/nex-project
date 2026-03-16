@@ -40,6 +40,7 @@ export const tracks = pgTable("tracks", {
   playCount: integer("play_count").default(0).notNull(),
   rankingScore: doublePrecision("ranking_score").default(0).notNull(),
   lastPlayedAt: timestamp("last_played_at"),
+  winStreak: integer("win_streak").default(0).notNull(),
   isFeatured: boolean("is_featured").default(false).notNull(),
   releaseDate: timestamp("release_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -127,7 +128,7 @@ export const trackPlaysRelations = relations(trackPlays, ({ one }) => ({
 }));
 
 export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, userId: true, totalScore: true, createdAt: true });
-export const insertTrackSchema = createInsertSchema(tracks).omit({ id: true, creatorId: true, status: true, aiCraftScore: true, listenerVotes: true, neoScore: true, playCount: true, rankingScore: true, lastPlayedAt: true, isFeatured: true, releaseDate: true, createdAt: true });
+export const insertTrackSchema = createInsertSchema(tracks).omit({ id: true, creatorId: true, status: true, aiCraftScore: true, listenerVotes: true, neoScore: true, playCount: true, rankingScore: true, lastPlayedAt: true, winStreak: true, isFeatured: true, releaseDate: true, createdAt: true });
 
 export type Profile = typeof profiles.$inferSelect;
 export type Track = typeof tracks.$inferSelect;

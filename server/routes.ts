@@ -158,6 +158,7 @@ export async function registerRoutes(
       rankingScore: t.rankingScore,
       trackType: t.trackType,
       status: t.status,
+      winStreak: t.winStreak,
       createdAt: t.createdAt,
       ...(battleStats[t.id] ? {
         totalBattles: battleStats[t.id].totalBattles,
@@ -208,6 +209,7 @@ export async function registerRoutes(
       rankingScore: t.rankingScore,
       trackType: t.trackType,
       status: t.status,
+      winStreak: t.winStreak,
       createdAt: t.createdAt,
     }));
     res.json(formatted);

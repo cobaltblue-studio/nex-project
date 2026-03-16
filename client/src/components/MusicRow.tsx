@@ -93,6 +93,11 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
             {track.aiTool}
           </span>
+          {track.winStreak > 0 && (
+            <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] border border-orange-500/20" data-testid={`text-streak-${track.id}`}>
+              🔥 WIN STREAK: {track.winStreak}
+            </span>
+          )}
         </div>
       </div>
 

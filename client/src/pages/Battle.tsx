@@ -168,6 +168,8 @@ export function Battle() {
     trackAVotes: number;
     trackBVotes: number;
     winnerId: number;
+    trackAWinStreak: number;
+    trackBWinStreak: number;
   } | null>(null);
   const [listenedA, setListenedA] = useState(false);
   const [listenedB, setListenedB] = useState(false);
@@ -654,6 +656,11 @@ export function Battle() {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackA.title}</span>
                     <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{battle.trackA.creatorName}</p>
                     <p className="text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
+                    {voteResult.trackAWinStreak > 0 && (
+                      <span className="inline-block mt-1 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid="text-result-streak-a">
+                        🔥 WIN STREAK: {voteResult.trackAWinStreak}
+                      </span>
+                    )}
                   </div>
                   <span className="text-sm font-bold text-white" data-testid="text-result-pct-a">{pctA}%</span>
                 </div>
@@ -673,6 +680,11 @@ export function Battle() {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackB.title}</span>
                     <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{battle.trackB.creatorName}</p>
                     <p className="text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
+                    {voteResult.trackBWinStreak > 0 && (
+                      <span className="inline-block mt-1 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid="text-result-streak-b">
+                        🔥 WIN STREAK: {voteResult.trackBWinStreak}
+                      </span>
+                    )}
                   </div>
                   <span className="text-sm font-bold text-white" data-testid="text-result-pct-b">{pctB}%</span>
                 </div>

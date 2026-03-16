@@ -30,6 +30,11 @@ export function WorkCard({ work, index }: WorkCardProps) {
               <span className="text-primary">NEX #{work.creator.nexNumber || '??'}</span>
               <span className="text-zinc-600">•</span>
               <span className="text-zinc-500">{work.aiTool}</span>
+              {work.winStreak > 0 && (
+                <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] border border-orange-500/20" data-testid={`text-streak-${work.id}`}>
+                  🔥 WIN STREAK: {work.winStreak}
+                </span>
+              )}
             </div>
           </div>
         </div>

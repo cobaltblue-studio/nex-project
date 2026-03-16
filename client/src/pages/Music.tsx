@@ -12,6 +12,7 @@ interface ChartTrack {
   coverImage?: string;
   playCount: number;
   rankingScore: number;
+  winStreak: number;
   totalBattles?: number;
   wins?: number;
   winRate?: number;
@@ -139,6 +140,11 @@ export function Music() {
                         {track.creatorName}
                       </span>
                       <span className="block text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</span>
+                      {track.winStreak > 0 && (
+                        <span className="inline-block mt-1 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid={`text-chart-streak-${track.id}`}>
+                          🔥 WIN STREAK: {track.winStreak}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-5 shrink-0">

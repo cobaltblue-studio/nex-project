@@ -12,6 +12,7 @@ interface MVTrack {
   coverImage?: string;
   trackType?: string;
   rankingScore: number;
+  winStreak: number;
 }
 
 export function MusicVideo() {
@@ -103,6 +104,11 @@ export function MusicVideo() {
                     {track.creatorName}
                   </span>
                   <span className="block text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</span>
+                  {track.winStreak > 0 && (
+                    <span className="inline-block mt-1 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid={`text-mv-chart-streak-${track.id}`}>
+                      🔥 WIN STREAK: {track.winStreak}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
