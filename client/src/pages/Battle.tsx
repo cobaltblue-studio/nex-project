@@ -371,7 +371,7 @@ export function Battle() {
             NEX Battle Arena
           </h1>
         </div>
-        <h2 className="text-3xl md:text-5xl font-display font-black text-white tracking-tight">
+        <h2 className="text-3xl md:text-5xl font-display font-black text-white tracking-tight neon-text-strong neon-text-green">
           GLOBAL AI MUSIC BATTLE
         </h2>
         {selectedGenre && phase !== "genre-select" && (

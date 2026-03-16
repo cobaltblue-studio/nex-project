@@ -4,6 +4,7 @@ import { MusicRow } from "@/components/MusicRow";
 import { Radio, Swords, Zap, Music2, Users, TrendingUp, BarChart3, Shield, Target, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -13,6 +14,198 @@ const fadeUp = {
 };
 
 const grainySvg = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")`;
+
+function HeroVisualizer() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
+  const barDataRef = useRef<{ phases: number[]; speeds: number[]; amplitudes: number[]; count: number } | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const buildBarData = (count: number) => ({
+      count,
+      phases: Array.from({ length: count }, () => Math.random() * Math.PI * 2),
+      speeds: Array.from({ length: count }, () => 0.8 + Math.random() * 1.5),
+      amplitudes: Array.from({ length: count }, () => 0.3 + Math.random() * 0.7),
+    });
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      const newCount = window.innerWidth < 768 ? 16 : 40;
+      if (!barDataRef.current || barDataRef.current.count !== newCount) {
+        barDataRef.current = buildBarData(newCount);
+      }
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    let time = 0;
+    const draw = () => {
+      if (!ctx || !canvas || !barDataRef.current) return;
+      const { count, phases, speeds, amplitudes } = barDataRef.current;
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const barWidth = w / count;
+      const gap = barWidth * 0.3;
+      const maxBarH = h * 0.6;
+
+      for (let i = 0; i < count; i++) {
+        const val = (Math.sin(time * speeds[i] + phases[i]) + 1) / 2;
+        const barH = val * amplitudes[i] * maxBarH;
+        const x = i * barWidth + gap / 2;
+        const bw = barWidth - gap;
+
+        ctx.fillStyle = `rgba(0, 255, 128, ${0.08 + val * 0.12})`;
+        ctx.fillRect(x, h - barH, bw, barH);
+
+        ctx.fillStyle = `rgba(0, 255, 128, ${0.03 + val * 0.05})`;
+        ctx.fillRect(x, h - barH - 2, bw, 2);
+      }
+
+      time += 0.02;
+      animRef.current = requestAnimationFrame(draw);
+    };
+
+    animRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none z-[1]"
+      data-testid="canvas-hero-visualizer"
+    />
+  );
+}
+
+function generateDummyData(): number[] {
+  return Array.from({ length: 10 }, () => Math.floor(30 + Math.random() * 70));
+}
+
+function LiveVotingWidget() {
+  const [data, setData] = useState<number[]>(generateDummyData);
+  const [pulse, setPulse] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setData((prev) => {
+        const next = [...prev.slice(1), Math.floor(30 + Math.random() * 70)];
+        return next;
+      });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setPulse((p) => !p), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+
+  const svgW = 220;
+  const svgH = 60;
+  const padX = 4;
+  const padY = 6;
+  const plotW = svgW - padX * 2;
+  const plotH = svgH - padY * 2;
+
+  const points = data.map((v, i) => {
+    const x = padX + (i / (data.length - 1)) * plotW;
+    const y = padY + plotH - ((v - min) / range) * plotH;
+    return `${x},${y}`;
+  });
+  const linePath = `M${points.join(" L")}`;
+  const areaPath = `${linePath} L${padX + plotW},${padY + plotH} L${padX},${padY + plotH} Z`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.5, duration: 0.6 }}
+      className="relative z-10 mx-auto mt-8 max-w-xs"
+      data-testid="widget-live-voting"
+    >
+      <div
+        className="rounded-xl p-4 border"
+        style={{
+          background: "rgba(0, 0, 0, 0.4)",
+          backdropFilter: "blur(12px)",
+          borderColor: "rgba(255, 255, 255, 0.1)",
+        }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-400">
+            Live Voting Trends
+          </span>
+          <span className="flex items-center gap-1.5" data-testid="badge-live">
+            <span
+              className="w-2 h-2 rounded-full bg-red-500"
+              style={{
+                opacity: pulse ? 1 : 0.4,
+                transition: "opacity 0.3s",
+                boxShadow: pulse ? "0 0 6px rgba(255, 0, 0, 0.6)" : "none",
+              }}
+            />
+            <span className="text-[8px] font-black uppercase tracking-widest text-red-400">
+              LIVE
+            </span>
+          </span>
+        </div>
+        <svg
+          viewBox={`0 0 ${svgW} ${svgH}`}
+          className="w-full"
+          data-testid="chart-voting-trends"
+        >
+          <defs>
+            <linearGradient id="votingGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#00FF80" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={areaPath} fill="url(#votingGrad)" />
+          <path d={linePath} fill="none" stroke="#00FF80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          {data.map((v, i) => {
+            const x = padX + (i / (data.length - 1)) * plotW;
+            const y = padY + plotH - ((v - min) / range) * plotH;
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r={i === data.length - 1 ? 3 : 1.5}
+                fill={i === data.length - 1 ? "#00FF80" : "rgba(0, 255, 128, 0.5)"}
+              />
+            );
+          })}
+        </svg>
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[7px] uppercase tracking-widest text-zinc-600">
+            {data.length} data points
+          </span>
+          <span className="text-[9px] font-bold text-green-400">
+            {data[data.length - 1]} votes/min
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 export function Home() {
   const { data: tracks, isLoading } = useWorks();
@@ -49,6 +242,8 @@ export function Home() {
           style={{ backgroundImage: grainySvg, backgroundRepeat: "repeat", backgroundSize: "256px 256px" }}
         />
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 0%, hsla(189,100%,50%,0.06) 0%, transparent 100%)" }} />
+
+        <HeroVisualizer />
 
         <motion.div {...fadeUp} className="relative z-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-6">
@@ -94,6 +289,8 @@ export function Home() {
           </div>
         </motion.div>
 
+        <LiveVotingWidget />
+
         {todayStats && (
           <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.3 }} className="relative z-10">
             <div className="flex flex-wrap justify-center gap-10 pt-8">
@@ -117,7 +314,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-platform-concept" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">What is NEX</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold">
+          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             The Billboard for AI Music
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -158,7 +355,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-battle-system" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">The Engine</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold">
+          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Battle-Driven Rankings
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -252,7 +449,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-creator-ecosystem" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">For Creators</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold">
+          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Creator Ecosystem
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -311,7 +508,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-trending-today" {...fadeUp}>
         <div className="text-center space-y-3 mb-12">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Live Rankings</p>
-          <h2 className="text-3xl md:text-4xl font-display text-white uppercase tracking-tight font-bold">
+          <h2 className="text-3xl md:text-4xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Trending Today
           </h2>
           <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">
@@ -342,7 +539,7 @@ export function Home() {
       <motion.section className="text-center space-y-10 pt-12 px-6" data-testid="section-cta" {...fadeUp}>
         <div className="space-y-5">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Join NEX</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold">
+          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Shape the Future of AI Music
           </h2>
           <p className="text-zinc-400 text-sm md:text-base max-w-xl mx-auto leading-relaxed normal-case font-light">

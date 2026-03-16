@@ -152,7 +152,7 @@ export default function NexRadio() {
       {/* Page header */}
       <div className="mb-8">
         <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
-        <h1 data-testid="heading-radio" className="text-2xl font-black uppercase tracking-[0.15em] text-white flex items-center gap-3">
+        <h1 data-testid="heading-radio" className="text-2xl font-black uppercase tracking-[0.15em] text-white flex items-center gap-3 neon-text-strong neon-text-green">
           <Radio className="w-5 h-5 text-primary" />
           NEX RADIO
         </h1>

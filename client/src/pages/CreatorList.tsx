@@ -143,7 +143,7 @@ export function CreatorList() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-5">
         {Array.from({ length: 20 }).map((_, idx) => {
           const creator = creators[idx];
 
@@ -155,6 +155,7 @@ export function CreatorList() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   className="premium-card p-8 transition-all duration-[400ms] cursor-pointer group hover:scale-[1.03]"
+                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
                   data-testid={`card-creator-${idx}`}
                 >
                   <div className="flex items-start gap-5">
