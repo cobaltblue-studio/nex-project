@@ -6,12 +6,12 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        lg: ".5625rem",
+        md: ".375rem",
+        sm: ".1875rem",
+        "2xl": "1.5rem",
       },
       colors: {
-        // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
         border: "hsl(var(--border) / <alpha-value>)",
@@ -52,6 +52,8 @@ export default {
           border: "var(--destructive-border)",
         },
         ring: "hsl(var(--ring) / <alpha-value>)",
+        electric: "#00D1FF",
+        violet: "#BD00FF",
         chart: {
           "1": "hsl(var(--chart-1) / <alpha-value>)",
           "2": "hsl(var(--chart-2) / <alpha-value>)",
@@ -83,7 +85,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
+        sans: ["'Inter'", "var(--font-sans)", "sans-serif"],
+        display: ["'Montserrat'", "var(--font-display)", "sans-serif"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
       },
@@ -101,11 +104,29 @@ export default {
           "50%": { filter: "brightness(1.8)" },
           "100%": { filter: "brightness(1)" },
         },
+        "neon-pulse": {
+          "0%, 100%": {
+            boxShadow: "0 0 8px hsla(189, 100%, 50%, 0.3), 0 0 20px hsla(189, 100%, 50%, 0.15)",
+          },
+          "50%": {
+            boxShadow: "0 0 16px hsla(189, 100%, 50%, 0.5), 0 0 40px hsla(189, 100%, 50%, 0.25), 0 0 60px hsla(189, 100%, 50%, 0.1)",
+          },
+        },
+        "progress-glow": {
+          "0%, 100%": {
+            boxShadow: "0 0 4px hsla(189, 100%, 50%, 0.6), 0 0 8px hsla(189, 100%, 50%, 0.3)",
+          },
+          "50%": {
+            boxShadow: "0 0 8px hsla(189, 100%, 50%, 0.9), 0 0 16px hsla(189, 100%, 50%, 0.5)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "vote-pulse": "vote-pulse 0.3s ease-in-out",
+        "neon-pulse": "neon-pulse 2s ease-in-out infinite",
+        "progress-glow": "progress-glow 1.5s ease-in-out infinite",
       },
     },
   },

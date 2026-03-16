@@ -32,6 +32,14 @@ interface CreatorStats {
   country?: string | null;
 }
 
+const NexWatermark = () => (
+  <svg viewBox="0 0 80 30" className="w-16 h-6 opacity-[0.04]" fill="currentColor">
+    <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fontSize="24" fontWeight="900" fontFamily="Montserrat, sans-serif" letterSpacing="2">
+      NEX
+    </text>
+  </svg>
+);
+
 export function CreatorList() {
   const { data: tracks, isLoading } = useQuery<TrackData[]>({
     queryKey: ["/api/tracks", "rankingScore", "all-creators"],
@@ -122,10 +130,10 @@ export function CreatorList() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-20">
-      <div className="text-center space-y-4">
+    <div className="max-w-6xl mx-auto space-y-16 pb-24">
+      <div className="text-center space-y-5">
         <h1
-          className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none"
+          className="text-5xl md:text-7xl font-display font-black text-white tracking-tight uppercase leading-none neon-text-strong"
           data-testid="text-creators-title"
         >
           NEX CREATORS
@@ -135,7 +143,7 @@ export function CreatorList() {
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {Array.from({ length: 20 }).map((_, idx) => {
           const creator = creators[idx];
 
@@ -146,11 +154,11 @@ export function CreatorList() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm hover:border-primary/40 transition-all cursor-pointer group"
+                  className="premium-card p-8 transition-premium cursor-pointer group"
                   data-testid={`card-creator-${idx}`}
                 >
                   <div className="flex items-start gap-5">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 group-hover:bg-primary/20 transition-all shrink-0">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 group-hover:bg-primary/20 transition-premium shrink-0">
                       <span className="text-lg font-display font-bold" data-testid={`text-creator-initials-${idx}`}>
                         {creator.initials}
                       </span>
@@ -158,7 +166,7 @@ export function CreatorList() {
                     <div className="space-y-3 min-w-0 flex-1">
                       <div>
                         <h3
-                          className="text-lg font-display font-bold text-white uppercase truncate group-hover:text-primary transition-colors"
+                          className="text-lg font-display font-bold text-white uppercase truncate group-hover:text-primary transition-premium"
                           data-testid={`text-creator-name-${idx}`}
                         >
                           {creator.name}
@@ -183,7 +191,7 @@ export function CreatorList() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3 pt-2 border-t border-white/5">
+                      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-white/5">
                         <div className="text-center">
                           <p className="text-sm font-bold text-white" data-testid={`text-creator-tracks-${idx}`}>
                             {creator.totalTracks}
@@ -218,11 +226,11 @@ export function CreatorList() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              className="bg-[#0A0A0A]/50 border border-dashed border-white/5 p-6 rounded-sm flex flex-col items-center justify-center gap-3 select-none"
+              className="premium-card border-dashed !border-white/[0.04] p-8 flex flex-col items-center justify-center gap-4 select-none"
               data-testid={`card-placeholder-${idx}`}
             >
               <div className="w-14 h-14 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center">
-                <User className="w-6 h-6 text-zinc-700" />
+                <NexWatermark />
               </div>
               <span className="text-xs font-display font-bold text-zinc-700 uppercase tracking-widest">
                 Future Creator
