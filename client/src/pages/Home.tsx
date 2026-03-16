@@ -16,61 +16,44 @@ const fadeUp = {
 const grainySvg = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")`;
 
 function HeroVisualizer() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const animRef = useRef<number>(0);
-  const barDataRef = useRef<{ phases: number[]; speeds: number[]; amplitudes: number[]; count: number } | null>(null);
+  const timeRef = useRef(0);
+  const pathRefs = useRef<(SVGPathElement | null)[]>([]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const svg = svgRef.current;
+    if (!svg) return;
 
-    const buildBarData = (count: number) => ({
-      count,
-      phases: Array.from({ length: count }, () => Math.random() * Math.PI * 2),
-      speeds: Array.from({ length: count }, () => 0.8 + Math.random() * 1.5),
-      amplitudes: Array.from({ length: count }, () => 0.3 + Math.random() * 0.7),
-    });
+    const layers = [
+      { amplitude: 30, frequency: 0.008, speed: 0.015, yOffset: 0.55 },
+      { amplitude: 22, frequency: 0.012, speed: 0.022, yOffset: 0.5 },
+      { amplitude: 18, frequency: 0.018, speed: 0.03, yOffset: 0.6 },
+    ];
 
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = canvas.offsetWidth * dpr;
-      canvas.height = canvas.offsetHeight * dpr;
-      const newCount = window.innerWidth < 768 ? 16 : 40;
-      if (!barDataRef.current || barDataRef.current.count !== newCount) {
-        barDataRef.current = buildBarData(newCount);
-      }
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    let time = 0;
     const draw = () => {
-      if (!ctx || !canvas || !barDataRef.current) return;
-      const { count, phases, speeds, amplitudes } = barDataRef.current;
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
+      const w = svg.clientWidth || 1200;
+      const h = svg.clientHeight || 600;
+      svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      timeRef.current += 1;
 
-      const barWidth = w / count;
-      const gap = barWidth * 0.3;
-      const maxBarH = h * 0.6;
+      layers.forEach((layer, li) => {
+        const path = pathRefs.current[li];
+        if (!path) return;
+        const points: string[] = [];
+        const steps = Math.max(80, Math.floor(w / 8));
+        for (let i = 0; i <= steps; i++) {
+          const x = (i / steps) * w;
+          const y =
+            h * layer.yOffset +
+            Math.sin(x * layer.frequency + timeRef.current * layer.speed) * layer.amplitude +
+            Math.sin(x * layer.frequency * 1.8 + timeRef.current * layer.speed * 0.7) * layer.amplitude * 0.4;
+          points.push(`${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`);
+        }
+        const d = `${points.join(" ")} L${w},${h} L0,${h} Z`;
+        path.setAttribute("d", d);
+      });
 
-      for (let i = 0; i < count; i++) {
-        const val = (Math.sin(time * speeds[i] + phases[i]) + 1) / 2;
-        const barH = val * amplitudes[i] * maxBarH;
-        const x = i * barWidth + gap / 2;
-        const bw = barWidth - gap;
-
-        ctx.fillStyle = `rgba(0, 255, 128, ${0.08 + val * 0.12})`;
-        ctx.fillRect(x, h - barH, bw, barH);
-
-        ctx.fillStyle = `rgba(0, 255, 128, ${0.03 + val * 0.05})`;
-        ctx.fillRect(x, h - barH - 2, bw, 2);
-      }
-
-      time += 0.02;
       animRef.current = requestAnimationFrame(draw);
     };
 
@@ -78,16 +61,39 @@ function HeroVisualizer() {
 
     return () => {
       cancelAnimationFrame(animRef.current);
-      window.removeEventListener("resize", resize);
     };
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
+    <svg
+      ref={svgRef}
       className="absolute inset-0 w-full h-full pointer-events-none z-[1]"
-      data-testid="canvas-hero-visualizer"
-    />
+      preserveAspectRatio="none"
+      data-testid="svg-hero-visualizer"
+    >
+      <defs>
+        <linearGradient id="waveGrad0" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="waveGrad1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="waveGrad2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0, 1, 2].map((i) => (
+        <path
+          key={i}
+          ref={(el) => { pathRefs.current[i] = el; }}
+          fill={`url(#waveGrad${i})`}
+          style={{ filter: "blur(1px)" }}
+        />
+      ))}
+    </svg>
   );
 }
 
@@ -228,7 +234,8 @@ export function Home() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-40 pb-40">
 
       <section
-        className="relative py-36 text-center space-y-10 overflow-hidden"
+        className="relative min-h-screen text-center space-y-10 overflow-hidden flex flex-col"
+        style={{ paddingTop: "15vh", paddingBottom: "8vh" }}
         data-testid="section-hero"
       >
         <div
@@ -249,7 +256,16 @@ export function Home() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-6">
             The Future of AI Music
           </p>
-          <h1 className="text-7xl md:text-9xl font-display font-black text-white leading-none neon-text-strong neon-text-green">
+          <h1
+            className="text-7xl md:text-9xl font-display font-black leading-none neon-text-strong neon-text-green"
+            style={{
+              background: "linear-gradient(180deg, #ffffff 0%, #c0c0c0 40%, #ffffff 60%, #a0a0a0 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 0 15px rgba(0, 255, 128, 0.7)) drop-shadow(0 0 40px rgba(0, 255, 128, 0.3))",
+            }}
+          >
             NEX
           </h1>
           <p className="text-primary font-bold tracking-[0.4em] text-sm uppercase mt-6">
@@ -263,7 +279,7 @@ export function Home() {
         </motion.div>
 
         <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.2 }} className="relative z-10">
-          <div className="flex flex-wrap justify-center gap-5 pt-6">
+          <div className="flex flex-wrap justify-center gap-9 pt-6">
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-battle"
@@ -506,9 +522,9 @@ export function Home() {
       </motion.section>
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-trending-today" {...fadeUp}>
-        <div className="text-center space-y-3 mb-12">
+        <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Live Rankings</p>
-          <h2 className="text-3xl md:text-4xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Trending Today
           </h2>
           <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">
@@ -548,7 +564,7 @@ export function Home() {
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-5">
+        <div className="flex flex-wrap justify-center gap-9">
           <button
             onClick={() => setLocation("/submit")}
             data-testid="button-submit-your-track"
