@@ -181,14 +181,13 @@ export function TrackDetail() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.25 }}
-                className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${isWidePlayer ? "aspect-video" : "aspect-square"}`}
+                className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${ytId ? "" : (isWidePlayer ? "aspect-video" : "aspect-square")}`}
               >
                 {ytId ? (
                   <YoutubePlayer
                     videoId={ytId}
                     autoplay={true}
                     onEnded={autoPlayNext ? goToNext : undefined}
-                    className="w-full h-full"
                   />
                 ) : nonYtUrl ? (
                   <iframe

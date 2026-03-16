@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Home, Music, Video, Disc3, LogOut, ChevronDown, Send, Swords, TrendingUp, ShieldCheck, Radio } from "lucide-react";
+import { Home, Music, Video, Disc3, LogOut, ChevronDown, Send, Swords, TrendingUp, ShieldCheck, Radio, Clock, Users } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -43,10 +43,12 @@ export function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { path: "/", icon: Home, label: "HOME" },
+    { path: "/new", icon: Clock, label: "NEW" },
     { path: "/music", icon: Music, label: "MUSIC" },
     { path: "/music-video", icon: Video, label: "MUSIC VIDEO" },
     { path: "/battle", icon: Swords, label: "BATTLE" },
     { path: "/rising", icon: TrendingUp, label: "RISING" },
+    { path: "/creators", icon: Users, label: "CREATORS" },
     { path: "/radio", icon: Radio, label: "RADIO" },
     { path: "/submit-track", icon: Send, label: "SUBMIT TRACK" },
   ];

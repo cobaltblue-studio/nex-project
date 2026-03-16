@@ -62,9 +62,9 @@ export function MVDetail() {
       </Link>
 
       <div className="space-y-8">
-        <div className="aspect-video bg-black border border-white/5 rounded-sm overflow-hidden shadow-[0_0_100px_rgba(0,240,255,0.05)] relative">
+        <div className="bg-black border border-white/5 rounded-sm overflow-hidden shadow-[0_0_100px_rgba(0,240,255,0.05)] relative">
           {videoEnded ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-black/90">
+            <div className="aspect-video flex flex-col items-center justify-center gap-5 bg-black/90">
               <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">Video Ended</p>
               <div className="flex items-center gap-3">
                 <button
@@ -87,10 +87,9 @@ export function MVDetail() {
               videoId={videoId}
               autoplay={true}
               onEnded={() => setVideoEnded(true)}
-              className="w-full h-full"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center flex-col gap-4 text-zinc-800">
+            <div className="w-full aspect-video flex items-center justify-center flex-col gap-4 text-zinc-800">
               <Youtube className="w-20 h-20" />
               <p className="font-display text-sm uppercase tracking-widest">Video Stream Offline</p>
             </div>

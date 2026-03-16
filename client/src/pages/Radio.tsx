@@ -294,9 +294,9 @@ export default function NexRadio() {
               </div>
 
               {/* Player embed */}
-              <div className="border border-white/5 rounded-sm overflow-hidden bg-black aspect-video relative">
+              <div className="border border-white/5 rounded-sm overflow-hidden bg-black relative">
                 {isLoading ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="aspect-video flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-zinc-700 animate-spin" />
                   </div>
                 ) : ytVideoId ? (
@@ -305,20 +305,21 @@ export default function NexRadio() {
                     videoId={ytVideoId}
                     autoplay={true}
                     onEnded={advanceTrack}
-                    className="w-full h-full"
                   />
                 ) : iframeUrl ? (
-                  <iframe
-                    key={playerKey.current}
-                    src={iframeUrl}
-                    data-testid="iframe-radio-player"
-                    className="w-full h-full"
-                    allow="autoplay; encrypted-media; fullscreen"
-                    allowFullScreen
-                    title={`Radio: ${currentTrack?.title ?? "Track"}`}
-                  />
+                  <div className="aspect-video">
+                    <iframe
+                      key={playerKey.current}
+                      src={iframeUrl}
+                      data-testid="iframe-radio-player"
+                      className="w-full h-full"
+                      allow="autoplay; encrypted-media; fullscreen"
+                      allowFullScreen
+                      title={`Radio: ${currentTrack?.title ?? "Track"}`}
+                    />
+                  </div>
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <div className="aspect-video flex flex-col items-center justify-center gap-3">
                     <Music2 className="w-10 h-10 text-zinc-800" strokeWidth={1} />
                     <p className="text-[10px] text-zinc-700 uppercase tracking-widest">
                       {playlist.length === 0 ? "No tracks available for this station" : "No playable link for this track"}

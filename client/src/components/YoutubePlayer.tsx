@@ -7,7 +7,6 @@ declare global {
   }
 }
 
-// Singleton loader — script injected once, all callbacks queued
 let _apiReady = false;
 let _callbacks: Array<() => void> = [];
 
@@ -80,7 +79,7 @@ export function YoutubePlayer({
         },
         events: {
           onStateChange: (e: { data: number }) => {
-            if (e.data === 0) onEndedRef.current?.(); // 0 = YT.PlayerState.ENDED
+            if (e.data === 0) onEndedRef.current?.();
           },
         },
       });
@@ -94,33 +93,31 @@ export function YoutubePlayer({
       playerRef.current = null;
       if (wrapperRef.current) wrapperRef.current.innerHTML = "";
     };
-  }, [videoId, autoplay]); // remount fully when videoId or autoplay changes
+  }, [videoId, autoplay]);
 
   return (
     <div
       style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
+        position: "relative",
         width: "100%",
-        height: "100%",
+        paddingTop: "56.25%",
       }}
     >
       <div
         ref={wrapperRef}
         className={className}
         style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
           width: "100%",
-          maxWidth: "900px",
-          aspectRatio: "16/9",
-          position: "relative",
+          height: "100%",
         }}
       />
     </div>
   );
 }
 
-// Extract YouTube video ID from any YouTube URL format
 export function extractYoutubeId(url: string | undefined): string | null {
   if (!url) return null;
   const m = url.match(
@@ -129,7 +126,6 @@ export function extractYoutubeId(url: string | undefined): string | null {
   return m ? m[1] : null;
 }
 
-// Build a plain iframe embed URL (for non-YouTube platforms)
 export function buildIframeEmbedUrl(url: string, autoplay = false): string {
   if (url.includes("suno.com")) {
     const base = url.replace("/song/", "/embed/");

@@ -90,18 +90,19 @@ function TrackPlayer({
             videoId={ytId}
             autoplay={autoplay}
             onEnded={onEnded}
-            className="w-full h-[200px] md:h-[260px]"
           />
         ) : iframeUrl ? (
-          <iframe
-            src={iframeUrl}
-            className="w-full h-[200px] md:h-[260px]"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen"
-            allowFullScreen
-            title={track.title}
-          />
+          <div className="aspect-video">
+            <iframe
+              src={iframeUrl}
+              className="w-full h-full"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen"
+              allowFullScreen
+              title={track.title}
+            />
+          </div>
         ) : (
-          <div className="w-full h-[200px] flex items-center justify-center text-zinc-600">
+          <div className="w-full aspect-video flex items-center justify-center text-zinc-600">
             <Music2 className="w-8 h-8" />
           </div>
         )}
