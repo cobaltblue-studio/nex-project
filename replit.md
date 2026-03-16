@@ -35,7 +35,7 @@ Preferred communication style: Simple, everyday language.
 - `/profile` — Creator list
 - `/profile/me` or `/profile/:name` — Creator profile view
 - `/submit` — Track submission form
-- `/battle` — AI Music Duel battle arena (genre select → sequential playback → vote → winner)
+- `/battle` — AI Music Duel battle arena (genre select → 20s preview playback → vote → winner)
 - `/upload` — NEX creator track upload form
 - `/my-tracks` — NEX creator's own track list with stats
 
@@ -89,6 +89,12 @@ Preferred communication style: Simple, everyday language.
 - `battle_votes` — Per-user battle votes (battleId + userId + trackId); one vote per battle per user
 
 **Track scoring**: Each track has `aiCraftScore` (admin-assigned), `listenerVotes`, `playCount`, and a computed `rankingScore = (votes × 3) + (playCount × 1) + recentBoost`. recentBoost: +30 (<24h), +20 (24-48h), +10 (48-72h), +0 (>72h). Battle wins award +2 to the winning track's rankingScore. Tracks go through statuses: `SUBMITTED` → `PUBLISHED` / `REJECTED`.
+
+**Chart Zone Labels**: The Music chart page displays zone labels: Legend Zone (#1–10), Elite Zone (#11–50), Rising Zone (#51–100).
+
+**Battle Preview System**: Battle page plays each track for 20 seconds starting from the mid-point. No seeking or controls are available during battle playback. Chart/TrackDetail/MVDetail pages use full unrestricted playback.
+
+**Creator Profiles**: Creator country is visible on the creator list page and editable on the ProfileMe page via PATCH /api/profiles/me endpoint.
 
 ### Authentication
 

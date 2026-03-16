@@ -1,12 +1,24 @@
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorks } from "@/hooks/use-works";
-import { Loader2, Music, Users, Trophy, TrendingUp, Star } from "lucide-react";
+import { Loader2, Music, Users, Trophy, TrendingUp, Star, MapPin, Edit3, Check, X } from "lucide-react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+const COUNTRY_OPTIONS = [
+  "United States", "United Kingdom", "Canada", "Australia", "Germany",
+  "France", "Japan", "South Korea", "Brazil", "India", "Netherlands",
+  "Sweden", "Norway", "Denmark", "Finland", "Spain", "Italy",
+  "Mexico", "Argentina", "Colombia", "Nigeria", "South Africa",
+  "Indonesia", "Thailand", "Philippines", "Vietnam", "Turkey",
+  "Poland", "Ukraine", "Russia", "China", "Taiwan", "Singapore",
+  "Malaysia", "New Zealand", "Ireland", "Belgium", "Austria",
+  "Switzerland", "Portugal", "Czech Republic", "Romania", "Hungary",
+  "Chile", "Peru", "Egypt", "Kenya", "Ghana", "Other",
+];
 
 export function ProfileMe() {
   const [, params] = useRoute("/profile/:name");
@@ -14,8 +26,11 @@ export function ProfileMe() {
   const { data: tracks, isLoading: tracksLoading } = useWorks();
   const { toast } = useToast();
   const [followLoading, setFollowLoading] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editCountry, setEditCountry] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // Fetch the profile for the creator being viewed
   const creatorName = params?.name || authUser?.username || "";
 
   const { data: creatorProfile, isLoading: profileLoading } = useQuery({
@@ -30,7 +45,6 @@ export function ProfileMe() {
     retry: false,
   });
 
-  // Check if current user is following this creator
   const { data: followStatus } = useQuery({
     queryKey: ["/api/profiles/follow-status", creatorProfile?.id],
     queryFn: async () => {
@@ -83,6 +97,33 @@ export function ProfileMe() {
     }
   };
 
+  const startEditing = () => {
+    setEditCountry(creatorProfile?.country || "");
+    setEditBio(creatorProfile?.bio || "");
+    setIsEditingProfile(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditingProfile(false);
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      await apiRequest("PATCH", "/api/profiles/me", {
+        country: editCountry || null,
+        bio: editBio || null,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles/by-username", creatorName] });
+      toast({ title: "PROFILE UPDATED", description: "Your profile has been saved." });
+      setIsEditingProfile(false);
+    } catch {
+      toast({ title: "ERROR", description: "Failed to save profile.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-20">
       {/* HEADER */}
@@ -105,7 +146,10 @@ export function ProfileMe() {
               </div>
               <div className="flex items-center gap-4 mt-1">
                 {creatorProfile?.country && (
-                  <span className="text-[10px] text-zinc-600 uppercase tracking-widest">{creatorProfile.country}</span>
+                  <span className="flex items-center gap-1 text-[10px] text-zinc-600 uppercase tracking-widest">
+                    <MapPin className="w-3 h-3" />
+                    {creatorProfile.country}
+                  </span>
                 )}
                 {creatorProfile?.aiToolUsed && (
                   <span className="text-[10px] text-primary/60 uppercase tracking-widest">{creatorProfile.aiToolUsed}</span>
@@ -115,24 +159,107 @@ export function ProfileMe() {
           </div>
         </div>
 
-        {!isOwnProfile && creatorProfile?.role === "nex" && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleFollow}
-            disabled={followLoading}
-            data-testid="button-follow"
-            className={`flex items-center gap-2 px-6 py-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all ${
-              isFollowing
-                ? "bg-primary/10 border border-primary/40 text-primary hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
-                : "bg-primary text-black border border-primary hover:brightness-110"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            {followLoading ? "..." : isFollowing ? "FOLLOWING" : "FOLLOW"}
-          </motion.button>
-        )}
+        <div className="flex items-center gap-3">
+          {isOwnProfile && isAuthenticated && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={startEditing}
+              data-testid="button-edit-profile"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-bold uppercase tracking-widest border border-white/10 text-zinc-400 hover:text-primary hover:border-primary/40 transition-all"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              Edit Profile
+            </motion.button>
+          )}
+
+          {!isOwnProfile && creatorProfile?.role === "nex" && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleFollow}
+              disabled={followLoading}
+              data-testid="button-follow"
+              className={`flex items-center gap-2 px-6 py-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all ${
+                isFollowing
+                  ? "bg-primary/10 border border-primary/40 text-primary hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
+                  : "bg-primary text-black border border-primary hover:brightness-110"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              {followLoading ? "..." : isFollowing ? "FOLLOWING" : "FOLLOW"}
+            </motion.button>
+          )}
+        </div>
       </div>
+
+      {/* EDIT PROFILE FORM */}
+      {isEditingProfile && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#0A0A0A] border border-primary/20 p-6 rounded-sm space-y-5"
+          data-testid="section-edit-profile"
+        >
+          <h3 className="text-sm font-bold uppercase tracking-widest text-white flex items-center gap-2">
+            <Edit3 className="w-4 h-4 text-primary" />
+            Edit Profile
+          </h3>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 block">
+                Country
+              </label>
+              <select
+                value={editCountry}
+                onChange={(e) => setEditCountry(e.target.value)}
+                data-testid="select-country"
+                className="w-full bg-black border border-white/10 rounded-sm px-3 py-2.5 text-sm text-white focus:border-primary/40 focus:outline-none transition-colors"
+              >
+                <option value="">Select country</option>
+                {COUNTRY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 block">
+                Bio
+              </label>
+              <textarea
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                data-testid="input-bio"
+                placeholder="Tell the world about your music..."
+                rows={3}
+                className="w-full bg-black border border-white/10 rounded-sm px-3 py-2.5 text-sm text-white focus:border-primary/40 focus:outline-none transition-colors resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveProfile}
+              disabled={saving}
+              data-testid="button-save-profile"
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-black font-bold text-[10px] uppercase tracking-widest rounded-sm hover:brightness-110 transition-all disabled:opacity-50"
+            >
+              <Check className="w-3.5 h-3.5" />
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              onClick={cancelEditing}
+              data-testid="button-cancel-edit"
+              className="flex items-center gap-2 px-5 py-2.5 border border-white/10 text-zinc-400 font-bold text-[10px] uppercase tracking-widest rounded-sm hover:text-white hover:border-white/30 transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+              Cancel
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* STATS GRID */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

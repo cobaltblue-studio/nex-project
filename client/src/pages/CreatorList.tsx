@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, User, Music, Trophy, Headphones } from "lucide-react";
+import { Loader2, User, Music, Trophy, Headphones, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { useMemo } from "react";
 
@@ -8,11 +8,18 @@ interface TrackData {
   id: number;
   title: string;
   creatorName: string;
+  creatorId: number;
   playCount: number;
   rankingScore: number;
   winRate?: number;
   totalBattles?: number;
   wins?: number;
+}
+
+interface ProfileData {
+  id: number;
+  username: string;
+  country?: string | null;
 }
 
 interface CreatorStats {
@@ -22,6 +29,7 @@ interface CreatorStats {
   featuredTrack: string;
   avgWinRate: number;
   initials: string;
+  country?: string | null;
 }
 
 export function CreatorList() {
@@ -33,6 +41,39 @@ export function CreatorList() {
       return res.json();
     },
   });
+
+  const creatorIds = useMemo(() => {
+    if (!tracks) return [];
+    const ids = new Set<number>();
+    tracks.forEach((t) => { if (t.creatorId) ids.add(t.creatorId); });
+    return Array.from(ids);
+  }, [tracks]);
+
+  const { data: profilesData } = useQuery<ProfileData[]>({
+    queryKey: ["/api/profiles/bulk", creatorIds],
+    queryFn: async () => {
+      const results: ProfileData[] = [];
+      for (const id of creatorIds) {
+        try {
+          const res = await fetch(`/api/profiles/${id}`);
+          if (res.ok) {
+            const data = await res.json();
+            results.push(data);
+          }
+        } catch {}
+      }
+      return results;
+    },
+    enabled: creatorIds.length > 0,
+  });
+
+  const profileByIdMap = useMemo(() => {
+    const map = new Map<number, ProfileData>();
+    if (profilesData) {
+      profilesData.forEach((p) => map.set(p.id, p));
+    }
+    return map;
+  }, [profilesData]);
 
   const creators = useMemo(() => {
     if (!tracks) return [];
@@ -50,6 +91,8 @@ export function CreatorList() {
           ? (words[0][0] + words[1][0]).toUpperCase()
           : name.slice(0, 2).toUpperCase();
 
+        const profile = profileByIdMap.get(track.creatorId);
+
         creatorMap.set(name, {
           name,
           totalTracks: 1,
@@ -57,6 +100,7 @@ export function CreatorList() {
           featuredTrack: track.title,
           avgWinRate: track.winRate ?? 0,
           initials,
+          country: profile?.country || null,
         });
       } else {
         existing.totalTracks += 1;
@@ -67,7 +111,7 @@ export function CreatorList() {
     });
 
     return Array.from(creatorMap.values()).sort((a, b) => b.totalPlays - a.totalPlays);
-  }, [tracks]);
+  }, [tracks, profileByIdMap]);
 
   if (isLoading) {
     return (
@@ -108,12 +152,25 @@ export function CreatorList() {
                   </span>
                 </div>
                 <div className="space-y-3 min-w-0 flex-1">
-                  <h3
-                    className="text-lg font-display font-bold text-white uppercase truncate group-hover:text-primary transition-colors"
-                    data-testid={`text-creator-name-${idx}`}
-                  >
-                    {creator.name}
-                  </h3>
+                  <div>
+                    <h3
+                      className="text-lg font-display font-bold text-white uppercase truncate group-hover:text-primary transition-colors"
+                      data-testid={`text-creator-name-${idx}`}
+                    >
+                      {creator.name}
+                    </h3>
+                    {creator.country && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <MapPin className="w-3 h-3 text-zinc-600" />
+                        <span
+                          className="text-[10px] text-zinc-500 uppercase tracking-widest"
+                          data-testid={`text-creator-country-${idx}`}
+                        >
+                          {creator.country}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-1.5 text-[9px] text-zinc-500 uppercase tracking-widest">
                     <Music className="w-3 h-3 text-primary/50" />

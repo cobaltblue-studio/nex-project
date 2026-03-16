@@ -50,7 +50,9 @@ interface BattleData {
   trackB: BattleTrack;
 }
 
-function TrackPlayer({
+const PREVIEW_DURATION = 20;
+
+function BattleTrackPlayer({
   track,
   label,
   autoplay = false,
@@ -61,20 +63,27 @@ function TrackPlayer({
   autoplay?: boolean;
   onEnded?: () => void;
 }) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     if (!autoplay) return;
 
-    const timer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
       if (onEnded) onEnded();
-    }, 10000);
+    }, PREVIEW_DURATION * 1000);
 
-    return () => clearTimeout(timer);
-  }, [autoplay]);
-  const randomStart = Math.floor(Math.random() * 60) + 30;
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [autoplay, onEnded]);
+
   const rawUrl = track.musicVideoUrl || track.audioUrl;
   const ytId = extractYoutubeId(rawUrl);
-  const iframeUrl =
-    !ytId && rawUrl ? buildIframeEmbedUrl(rawUrl, autoplay) : null;
+  const isDirectAudio = !ytId && rawUrl && (rawUrl.endsWith(".mp3") || rawUrl.endsWith(".wav") || rawUrl.endsWith(".ogg") || rawUrl.endsWith(".m4a") || rawUrl.endsWith(".webm"));
 
   return (
     <div className="flex flex-col gap-3">
@@ -83,18 +92,41 @@ function TrackPlayer({
           {label}
         </span>
         <div className="h-px flex-1 bg-primary/10" />
+        <span className="text-[9px] font-bold tracking-[0.3em] text-zinc-600 uppercase">
+          {PREVIEW_DURATION}s preview
+        </span>
       </div>
       <div className="border border-white/10 rounded-sm overflow-hidden bg-black/40">
         {ytId ? (
           <YoutubePlayer
             videoId={ytId}
             autoplay={autoplay}
+            battleMode={true}
             onEnded={onEnded}
           />
-        ) : iframeUrl ? (
+        ) : isDirectAudio ? (
+          <div className="w-full aspect-video flex items-center justify-center bg-black/60">
+            <audio
+              ref={(el) => {
+                audioRef.current = el;
+                if (el && autoplay) {
+                  el.currentTime = Math.max(0, (el.duration || 60) * 0.5);
+                  el.play().catch(() => {});
+                }
+              }}
+              src={rawUrl}
+              className="hidden"
+              onLoadedMetadata={(e) => {
+                const audio = e.currentTarget;
+                audio.currentTime = Math.max(0, audio.duration * 0.5);
+              }}
+            />
+            <Music2 className="w-8 h-8 text-primary animate-pulse" />
+          </div>
+        ) : rawUrl ? (
           <div className="aspect-video">
             <iframe
-              src={iframeUrl}
+              src={buildIframeEmbedUrl(rawUrl, autoplay)}
               className="w-full h-full"
               allow="autoplay; clipboard-write; encrypted-media; fullscreen"
               allowFullScreen
@@ -267,7 +299,6 @@ export function Battle() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Page header */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <Swords className="w-5 h-5 text-primary" />
@@ -296,7 +327,6 @@ export function Battle() {
       </div>
 
       <AnimatePresence mode="wait">
-        {/* Phase: Genre Selection */}
         {phase === "genre-select" && (
           <motion.div
             key="genre-select"
@@ -348,7 +378,6 @@ export function Battle() {
           </motion.div>
         )}
 
-        {/* Phase: Loading */}
         {phase === "loading" && (
           <motion.div
             key="loading"
@@ -364,7 +393,6 @@ export function Battle() {
           </motion.div>
         )}
 
-        {/* Phase: Track A */}
         {phase === "track-a" && battle && (
           <motion.div
             key="track-a"
@@ -378,10 +406,10 @@ export function Battle() {
                 A
               </div>
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-                Now Playing — Track A
+                Now Playing — Track A ({PREVIEW_DURATION}s Preview)
               </p>
             </div>
-            <TrackPlayer
+            <BattleTrackPlayer
               track={battle.trackA}
               label="Track A"
               autoplay={true}
@@ -396,7 +424,7 @@ export function Battle() {
         <div className="flex justify-center items-center my-6">
           <div className="text-4xl text-primary animate-pulse">⚡</div>
         </div>
-        {/* Phase: Track B */}
+
         {phase === "track-b" && battle && (
           <motion.div
             key="track-b"
@@ -410,10 +438,10 @@ export function Battle() {
                 B
               </div>
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-                Now Playing — Track B
+                Now Playing — Track B ({PREVIEW_DURATION}s Preview)
               </p>
             </div>
-            <TrackPlayer
+            <BattleTrackPlayer
               track={battle.trackB}
               label="Track B"
               autoplay={true}
@@ -425,7 +453,6 @@ export function Battle() {
           </motion.div>
         )}
 
-        {/* Phase: Vote */}
         {phase === "vote" && battle && (
           <motion.div
             key="vote"
@@ -434,7 +461,6 @@ export function Battle() {
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Listen status bar */}
             <div className="flex items-center gap-3 mb-5">
               <div
                 className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${listenedA ? "text-primary" : "text-zinc-600"}`}
@@ -469,7 +495,6 @@ export function Battle() {
               Which track wins the {selectedGenre} battle?
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Track A Vote Card */}
               <div
                 className={`border rounded-sm p-5 flex flex-col gap-4 transition-all ${listenedA && listenedB ? "border-white/10 bg-black/30" : "border-white/5 bg-black/15 opacity-60"}`}
               >
@@ -498,11 +523,10 @@ export function Battle() {
                   data-testid="button-vote-track-a"
                   className="w-full py-3 border border-primary/40 bg-primary/10 hover:bg-primary/25 text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {voteMutation.isPending ? "Voting…" : "Vote Track A"}
+                  Vote Track A
                 </button>
               </div>
 
-              {/* Track B Vote Card */}
               <div
                 className={`border rounded-sm p-5 flex flex-col gap-4 transition-all ${listenedA && listenedB ? "border-white/10 bg-black/30" : "border-white/5 bg-black/15 opacity-60"}`}
               >
@@ -531,188 +555,71 @@ export function Battle() {
                   data-testid="button-vote-track-b"
                   className="w-full py-3 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/25 text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {voteMutation.isPending ? "Voting…" : "Vote Track B"}
+                  Vote Track B
                 </button>
               </div>
             </div>
-
-            {!isAuthenticated && (
-              <p className="text-center text-zinc-600 text-[10px] uppercase tracking-widest mt-4">
-                <a href="/api/login" className="text-primary hover:underline">
-                  Login
-                </a>{" "}
-                to cast your vote
-              </p>
-            )}
           </motion.div>
         )}
 
-        {/* Phase: Result */}
-        {phase === "result" &&
-          battle &&
-          voteResult &&
-          winnerTrack &&
-          (() => {
-            const total = voteResult.trackAVotes + voteResult.trackBVotes;
-            const pctA =
-              total > 0
-                ? Math.round((voteResult.trackAVotes / total) * 100)
-                : 50;
-            const pctB =
-              total > 0
-                ? Math.round((voteResult.trackBVotes / total) * 100)
-                : 50;
-            const winnerIsA = voteResult.winnerId === battle.trackAId;
-            return (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4 }}
-                className="flex flex-col items-center text-center gap-6"
+        {phase === "result" && battle && voteResult && (
+          <motion.div
+            key="result"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+            className="text-center space-y-8"
+          >
+            <div className="space-y-3">
+              <Trophy className="w-10 h-10 text-primary mx-auto" />
+              <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-primary">
+                Battle Result
+              </p>
+            </div>
+
+            {winnerTrack && (
+              <div className="space-y-2">
+                <p className="text-3xl font-display font-bold text-white uppercase tracking-tight">
+                  {winnerTrack.title}
+                </p>
+                <p className="text-zinc-500 text-[10px] uppercase tracking-widest">
+                  by {winnerTrack.creatorName}
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-center gap-8">
+              <div className="text-center">
+                <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">Track A</p>
+                <p className="text-2xl font-display font-bold text-white" data-testid="text-result-votes-a">
+                  {voteResult.trackAVotes}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">Track B</p>
+                <p className="text-2xl font-display font-bold text-white" data-testid="text-result-votes-b">
+                  {voteResult.trackBVotes}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={nextBattle}
+                data-testid="button-next-battle"
+                className="px-8 py-3 bg-primary text-black font-bold text-[11px] uppercase tracking-[0.25em] rounded-sm hover:brightness-110 transition-all"
               >
-                <div className="relative">
-                  <Trophy className="w-12 h-12 text-primary mx-auto drop-shadow-[0_0_24px_rgba(0,240,255,0.8)]" />
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-bold tracking-[0.5em] uppercase text-zinc-500 mb-2">
-                    Winner
-                  </p>
-                  <h3
-                    className="text-3xl md:text-4xl font-display font-bold text-primary neon-text"
-                    data-testid="text-battle-winner"
-                  >
-                    {winnerTrack.title}
-                  </h3>
-                  <p className="text-zinc-500 text-sm mt-1 uppercase tracking-widest">
-                    {winnerTrack.creatorName}
-                  </p>
-                </div>
-
-                {/* Vote tally with % */}
-                <div className="w-full">
-                  <div className="flex items-stretch gap-0 w-full mb-3">
-                    {/* Track A bar */}
-                    <div
-                      className="flex flex-col items-center justify-center py-4 px-3 transition-all"
-                      style={{
-                        width: `${pctA}%`,
-                        minWidth: "30%",
-                        background: winnerIsA
-                          ? "rgba(0,240,255,0.08)"
-                          : "rgba(255,255,255,0.03)",
-                        borderLeft: "1px solid rgba(255,255,255,0.08)",
-                        borderTop: "1px solid rgba(255,255,255,0.08)",
-                        borderBottom: "1px solid rgba(255,255,255,0.08)",
-                      }}
-                    >
-                      <p
-                        className={`text-2xl font-display font-bold ${winnerIsA ? "text-primary" : "text-zinc-400"}`}
-                        data-testid="text-pct-a"
-                      >
-                        {pctA}%
-                      </p>
-                      <p
-                        className={`text-[11px] font-bold mt-0.5 ${winnerIsA ? "text-primary/70" : "text-zinc-600"}`}
-                        data-testid="text-votes-a"
-                      >
-                        {voteResult.trackAVotes} vote
-                        {voteResult.trackAVotes !== 1 ? "s" : ""}
-                      </p>
-                      <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-1 truncate max-w-[90px]">
-                        {battle.trackA.title}
-                      </p>
-                    </div>
-
-                    {/* Track B bar */}
-                    <div
-                      className="flex flex-col items-center justify-center py-4 px-3 transition-all"
-                      style={{
-                        width: `${pctB}%`,
-                        minWidth: "30%",
-                        background: !winnerIsA
-                          ? "rgba(96,165,250,0.08)"
-                          : "rgba(255,255,255,0.03)",
-                        borderRight: "1px solid rgba(255,255,255,0.08)",
-                        borderTop: "1px solid rgba(255,255,255,0.08)",
-                        borderBottom: "1px solid rgba(255,255,255,0.08)",
-                      }}
-                    >
-                      <p
-                        className={`text-2xl font-display font-bold ${!winnerIsA ? "text-blue-400" : "text-zinc-400"}`}
-                        data-testid="text-pct-b"
-                      >
-                        {pctB}%
-                      </p>
-                      <p
-                        className={`text-[11px] font-bold mt-0.5 ${!winnerIsA ? "text-blue-400/70" : "text-zinc-600"}`}
-                        data-testid="text-votes-b"
-                      >
-                        {voteResult.trackBVotes} vote
-                        {voteResult.trackBVotes !== 1 ? "s" : ""}
-                      </p>
-                      <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-1 truncate max-w-[90px]">
-                        {battle.trackB.title}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="text-[9px] text-zinc-600 uppercase tracking-widest">
-                    +2 ranking score awarded to the winner
-                  </p>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex flex-col gap-3 w-full max-w-sm">
-                  <button
-                    onClick={nextBattle}
-                    data-testid="button-next-battle"
-                    className="w-full flex items-center justify-center gap-2 py-3.5 border border-primary/40 bg-primary/10 hover:bg-primary/25 text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all"
-                  >
-                    <SkipForward className="w-4 h-4" />
-                    Next Battle
-                  </button>
-                  {countdown > 0 && (
-                    <p
-                      className="text-[10px] text-zinc-500 uppercase tracking-widest text-center"
-                      data-testid="text-countdown"
-                    >
-                      Auto-advancing in {countdown}s…
-                    </p>
-                  )}
-
-                  <a
-                    href={`/track/${winnerTrack.id}`}
-                    data-testid="button-listen-full-track"
-                    className="w-full flex items-center justify-center gap-2 py-3.5 border border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25 text-white text-[11px] font-bold uppercase tracking-[0.25em] rounded-sm transition-all"
-                  >
-                    <Headphones className="w-4 h-4" />
-                    Listen Full Track
-                  </a>
-
-                  <button
-                    onClick={() => {
-                      if (autoAdvanceRef.current) {
-                        clearTimeout(autoAdvanceRef.current);
-                        autoAdvanceRef.current = null;
-                      }
-                      setCountdown(0);
-                      setBattle(null);
-                      setVoteResult(null);
-                      setSelectedGenre("");
-                      setPhase("genre-select");
-                    }}
-                    data-testid="button-change-genre"
-                    className="w-full py-3 text-zinc-600 hover:text-zinc-400 text-[10px] font-bold uppercase tracking-[0.25em] transition-all"
-                  >
-                    Change Genre
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })()}
+                Next Battle <ChevronRight className="w-4 h-4 inline ml-1" />
+              </button>
+              {countdown > 0 && (
+                <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
+                  Auto-advancing in {countdown}s
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

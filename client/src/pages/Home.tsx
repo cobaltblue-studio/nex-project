@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { useWorks } from "@/hooks/use-works";
 import { MusicRow } from "@/components/MusicRow";
-import { Radio } from "lucide-react";
+import { Radio, Swords, Zap } from "lucide-react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 
 export function Home() {
   const { data: tracks, isLoading } = useWorks();
@@ -10,9 +11,13 @@ export function Home() {
 
   const startRadio = () => setLocation("/radio");
 
+  const { data: recentBattle } = useQuery<any>({
+    queryKey: ["/api/battles/recent"],
+  });
+
   const trending = (tracks || [])
     .slice()
-    .sort((a: any, b: any) => b.votes - a.votes)
+    .sort((a: any, b: any) => (b.rankingScore || 0) - (a.rankingScore || 0))
     .slice(0, 5);
 
   return (
@@ -35,6 +40,7 @@ export function Home() {
         <div className="flex justify-center gap-4 pt-6">
           <button
             onClick={() => setLocation("/battle")}
+            data-testid="button-start-battle"
             className="px-6 py-3 bg-primary text-black font-bold text-sm uppercase tracking-widest"
           >
             Start Battle
@@ -42,6 +48,7 @@ export function Home() {
 
           <button
             onClick={() => setLocation("/submit")}
+            data-testid="button-submit-track"
             className="px-6 py-3 border border-white/20 text-white text-sm uppercase tracking-widest"
           >
             Submit Track
@@ -49,12 +56,75 @@ export function Home() {
 
           <button
             onClick={startRadio}
+            data-testid="button-radio"
             className="px-6 py-3 border border-white/20 text-white flex items-center gap-2 text-sm uppercase tracking-widest"
           >
             <Radio size={16} />
             Radio
           </button>
         </div>
+      </section>
+
+      {/* LIVE BATTLE ARENA */}
+      <section className="max-w-3xl mx-auto space-y-6" data-testid="section-live-battle-arena">
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <Swords className="w-5 h-5 text-primary" />
+            <h2 className="text-3xl font-display text-white uppercase tracking-widest">
+              Live Battle Arena
+            </h2>
+          </div>
+          <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">
+            Active matchups happening now
+          </p>
+        </div>
+
+        {recentBattle ? (
+          <div className="border border-white/10 rounded-sm bg-black/30 p-8">
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex-1 text-right">
+                <p className="text-sm font-bold text-white uppercase tracking-wider truncate" data-testid="text-battle-arena-track-a">
+                  {recentBattle.trackA?.title || "Track A"}
+                </p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+                  {recentBattle.trackA?.creatorName || "Creator"}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <span className="text-2xl font-display font-bold text-primary" data-testid="text-battle-vs">VS</span>
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-bold text-white uppercase tracking-wider truncate" data-testid="text-battle-arena-track-b">
+                  {recentBattle.trackB?.title || "Track B"}
+                </p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+                  {recentBattle.trackB?.creatorName || "Creator"}
+                </p>
+              </div>
+            </div>
+            <div className="text-center mt-6">
+              <button
+                onClick={() => setLocation("/battle")}
+                data-testid="button-vote-now"
+                className="px-8 py-3 bg-primary text-black font-bold text-sm uppercase tracking-widest hover:brightness-110 transition-all"
+              >
+                <Zap className="w-4 h-4 inline mr-2" />
+                Vote Now
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="border border-white/10 border-dashed rounded-sm p-8 text-center">
+            <p className="text-zinc-500 text-sm mb-4">No active battles right now</p>
+            <button
+              onClick={() => setLocation("/battle")}
+              data-testid="button-start-first-battle"
+              className="px-6 py-3 border border-primary/40 bg-primary/10 text-primary font-bold text-sm uppercase tracking-widest hover:bg-primary/20 transition-all"
+            >
+              Start a Battle
+            </button>
+          </div>
+        )}
       </section>
 
       {/* WHAT IS NEX */}
@@ -123,15 +193,15 @@ export function Home() {
         </p>
       </section>
 
-      {/* TRENDING */}
-      <section className="max-w-4xl mx-auto space-y-10">
+      {/* TRENDING TODAY */}
+      <section className="max-w-4xl mx-auto space-y-10" data-testid="section-trending-today">
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-display text-white uppercase tracking-widest">
-            Trending Tracks
+            Trending Today
           </h2>
 
           <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">
-            Current top tracks on NEX
+            Ranked by battle wins, plays & votes
           </p>
         </div>
 
@@ -155,6 +225,7 @@ export function Home() {
 
         <button
           onClick={() => setLocation("/submit")}
+          data-testid="button-submit-your-track"
           className="px-8 py-4 bg-primary text-black font-bold text-sm uppercase tracking-widest"
         >
           Submit Your Track

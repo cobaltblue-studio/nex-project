@@ -62,6 +62,7 @@ export interface IStorage {
   getRisingTracks(): Promise<any[]>;
   getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>>;
   getDailyBattleVoteCount(userId: string): Promise<number>;
+  getRecentBattle(): Promise<any | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -555,6 +556,14 @@ export class DatabaseStorage implements IStorage {
       .from(battleVotes)
       .where(and(eq(battleVotes.userId, userId), gte(battleVotes.votedAt, startOfDayUTC)));
     return r?.count || 0;
+  }
+
+  async getRecentBattle(): Promise<any | null> {
+    const [battle] = await db.select().from(battles)
+      .orderBy(desc(battles.createdAt))
+      .limit(1);
+    if (!battle) return null;
+    return this.getBattle(battle.id);
   }
 }
 

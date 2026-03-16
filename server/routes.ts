@@ -285,7 +285,33 @@ export async function registerRoutes(
     res.json(rising);
   });
 
+  // Update own profile (for editing country, bio, etc.)
+  app.patch("/api/profiles/me", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const p = await storage.getProfileByUserId(userId);
+    if (!p) return res.status(404).json({ message: "Profile not found" });
+
+    const { country, bio, aiToolUsed } = req.body;
+    const updates: any = {};
+    if (country !== undefined) updates.country = country;
+    if (bio !== undefined) updates.bio = bio;
+    if (aiToolUsed !== undefined) updates.aiToolUsed = aiToolUsed;
+
+    const updated = await storage.updateProfile(p.id, updates);
+    res.json(updated);
+  });
+
   // --- BATTLE ROUTES ---
+
+  // Get most recent battle (for Live Battle Arena on home page)
+  app.get("/api/battles/recent", async (_req, res) => {
+    try {
+      const battle = await storage.getRecentBattle();
+      res.json(battle);
+    } catch {
+      res.json(null);
+    }
+  });
 
   // Get genres with enough published tracks for a battle
   app.get("/api/battles/genres", async (_req, res) => {

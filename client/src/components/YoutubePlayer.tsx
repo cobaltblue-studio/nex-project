@@ -32,19 +32,26 @@ function loadYTApi(cb: () => void) {
 interface Props {
   videoId: string;
   autoplay?: boolean;
+  battleMode?: boolean;
   onEnded?: () => void;
   className?: string;
 }
 
+const BATTLE_PREVIEW_SECONDS = 20;
+const BATTLE_START_OFFSET = 30;
+
 export function YoutubePlayer({
   videoId,
   autoplay = false,
+  battleMode = false,
   onEnded,
   className,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
+  const battleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     onEndedRef.current = onEnded;
   }, [onEnded]);
@@ -58,6 +65,9 @@ export function YoutubePlayer({
     inner.id = uid;
     wrapperRef.current.appendChild(inner);
 
+    const startTime = battleMode ? BATTLE_START_OFFSET : 0;
+    const endTime = battleMode ? BATTLE_START_OFFSET + BATTLE_PREVIEW_SECONDS : undefined;
+
     loadYTApi(() => {
       if (destroyed) return;
       playerRef.current = new window.YT.Player(uid, {
@@ -66,13 +76,14 @@ export function YoutubePlayer({
         videoId,
         playerVars: {
           autoplay: autoplay ? 1 : 0,
-          start: autoplay ? 30 : 0,
+          start: startTime,
+          ...(endTime ? { end: endTime } : {}),
           rel: 0,
           modestbranding: 1,
-          controls: 0,
+          controls: battleMode ? 0 : 1,
           showinfo: 0,
-          disablekb: 1,
-          fs: 0,
+          disablekb: battleMode ? 1 : 0,
+          fs: battleMode ? 0 : 1,
           playsinline: 1,
           enablejsapi: 1,
           origin: window.location.origin,
@@ -81,19 +92,30 @@ export function YoutubePlayer({
           onStateChange: (e: { data: number }) => {
             if (e.data === 0) onEndedRef.current?.();
           },
+          onReady: () => {
+            if (battleMode && autoplay) {
+              battleTimerRef.current = setTimeout(() => {
+                try {
+                  playerRef.current?.pauseVideo();
+                } catch {}
+                onEndedRef.current?.();
+              }, BATTLE_PREVIEW_SECONDS * 1000);
+            }
+          },
         },
       });
     });
 
     return () => {
       destroyed = true;
+      if (battleTimerRef.current) clearTimeout(battleTimerRef.current);
       try {
         playerRef.current?.destroy();
       } catch {}
       playerRef.current = null;
       if (wrapperRef.current) wrapperRef.current.innerHTML = "";
     };
-  }, [videoId, autoplay]);
+  }, [videoId, autoplay, battleMode]);
 
   return (
     <div
@@ -114,6 +136,19 @@ export function YoutubePlayer({
           height: "100%",
         }}
       />
+      {battleMode && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 10,
+            cursor: "default",
+          }}
+        />
+      )}
     </div>
   );
 }
