@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Component, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,6 +18,29 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+
+class SubmitTrackErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-xl mx-auto px-4 py-12 text-center space-y-4">
+          <p className="text-lg font-bold text-white uppercase tracking-wider">Something went wrong</p>
+          <p className="text-[11px] text-zinc-500 uppercase tracking-widest">Unable to load the submission form.</p>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/30 px-4 py-2 rounded-sm hover:bg-primary/10 transition-all"
+            data-testid="button-retry-submit"
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const GENRES = [
   "Electronic",
@@ -61,7 +84,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export default function SubmitTrack() {
+function SubmitTrackForm() {
   const { isAuthenticated, user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [trackId, setTrackId] = useState<number | null>(null);
@@ -436,5 +459,13 @@ export default function SubmitTrack() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function SubmitTrack() {
+  return (
+    <SubmitTrackErrorBoundary>
+      <SubmitTrackForm />
+    </SubmitTrackErrorBoundary>
   );
 }

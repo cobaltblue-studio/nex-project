@@ -149,13 +149,14 @@ export function CreatorList() {
 
           if (creator) {
             return (
-              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={idx === 0 ? "col-span-1 sm:col-span-2" : ""}>
+              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={idx < 3 ? "col-span-1 sm:col-span-2" : ""}>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="premium-card p-8 transition-all duration-[400ms] cursor-pointer group hover:scale-[1.03]"
-                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
+                  className="premium-card p-8 cursor-pointer group"
+                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out" }}
+                  whileHover={{ scale: 1.03 }}
                   data-testid={`card-creator-${idx}`}
                 >
                   <div className="flex items-start gap-5">
@@ -227,7 +228,9 @@ export function CreatorList() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              className="premium-card border-dashed !border-white/[0.04] p-8 flex flex-col items-center justify-center gap-4 select-none relative overflow-hidden transition-all duration-[400ms] hover:scale-[1.03]"
+              className="premium-card border-dashed !border-white/[0.04] p-8 flex flex-col items-center justify-center gap-4 select-none relative overflow-hidden"
+              style={{ transition: "transform 0.3s ease-in-out" }}
+              whileHover={{ scale: 1.03 }}
               data-testid={`card-placeholder-${idx}`}
             >
               <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" xmlns="http://www.w3.org/2000/svg">

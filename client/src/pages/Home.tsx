@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useWorks } from "@/hooks/use-works";
 import { MusicRow } from "@/components/MusicRow";
-import { Radio, Swords, Zap, Music2, Users, TrendingUp, BarChart3, Shield, Target, ArrowRight } from "lucide-react";
+import { Radio, Swords, Zap, Music2, Users, TrendingUp, BarChart3, Shield, Target, ArrowRight, ChevronDown } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -216,6 +216,14 @@ function LiveVotingWidget() {
 export function Home() {
   const { data: tracks, isLoading } = useWorks();
   const [, setLocation] = useLocation();
+  const [scrollY, setScrollY] = useState(0);
+  const heroVisualizerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const { data: recentBattle } = useQuery<any>({
     queryKey: ["/api/battles/recent"],
@@ -250,7 +258,9 @@ export function Home() {
         />
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 0%, hsla(189,100%,50%,0.06) 0%, transparent 100%)" }} />
 
-        <HeroVisualizer />
+        <div ref={heroVisualizerRef} style={{ transform: `translateY(${scrollY * 0.15}px)` }} className="absolute inset-0 pointer-events-none">
+          <HeroVisualizer />
+        </div>
 
         <motion.div {...fadeUp} className="relative z-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-6">
@@ -327,6 +337,19 @@ export function Home() {
             </div>
           </motion.div>
         )}
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5, duration: 0.8 }}
+          className="relative z-10 mt-auto flex flex-col items-center gap-2 pb-4"
+          data-testid="scroll-guide"
+        >
+          <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-zinc-500">
+            Scroll to Discover
+          </span>
+          <ChevronDown className="w-5 h-5 text-primary/60 animate-bounce" />
+        </motion.div>
       </section>
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-platform-concept" {...fadeUp}>
