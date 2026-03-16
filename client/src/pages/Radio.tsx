@@ -126,20 +126,8 @@ export default function NexRadio() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-10">
-        <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
-        <h1 data-testid="heading-radio" className="text-3xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-strong neon-text-green">
-          <Radio className="w-6 h-6 text-primary inline mr-3" />
-          NEX TOP 100 RADIO
-        </h1>
-        <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-2">
-          Continuous AI stream from the global chart. Click to start the vibe.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {!radioStarted ? (
-          <div className="border border-white/5 rounded-sm bg-black/20 flex flex-col items-center justify-center py-24 px-8 text-center">
+      {!radioStarted ? (
+        <div className="flex flex-col items-center justify-center px-8 text-center" style={{ minHeight: "calc(100vh - 8rem)" }}>
             <div className="w-16 h-16 rounded-full border border-primary/20 bg-primary/5 flex items-center justify-center mb-6">
               <Radio className="w-7 h-7 text-primary" strokeWidth={1.5} />
             </div>
@@ -163,9 +151,20 @@ export default function NexRadio() {
             <p className="text-[8px] text-zinc-700 uppercase tracking-widest mt-4">
               {isLoading ? "Loading tracks..." : `${tracks.length} tracks available`}
             </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="text-center mb-10">
+            <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
+            <h1 data-testid="heading-radio" className="text-3xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-strong neon-text-green">
+              <Radio className="w-6 h-6 text-primary inline mr-3" />
+              NEX TOP 100 RADIO
+            </h1>
+            <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-2">
+              Continuous AI stream from the global chart. Click to start the vibe.
+            </p>
           </div>
-        ) : (
-          <>
+
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-widest text-primary animate-pulse">
@@ -365,9 +364,8 @@ export default function NexRadio() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

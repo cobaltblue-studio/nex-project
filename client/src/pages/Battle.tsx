@@ -364,23 +364,23 @@ export function Battle() {
           />
         )}
       </AnimatePresence>
-      <div className="mb-12 text-center">
-        <div className="flex items-center justify-center gap-3 mb-3">
+      <div className="mb-6 text-center">
+        <div className="flex items-center justify-center gap-3 mb-2">
           <Swords className="w-5 h-5 text-primary" />
           <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">
             NEX Battle Arena
           </h1>
         </div>
-        <h2 className="text-3xl md:text-5xl font-display font-black text-white tracking-tight neon-text-strong neon-text-green">
+        <h2 className="text-2xl md:text-4xl font-display font-black text-white tracking-tight neon-text-strong neon-text-green">
           GLOBAL AI MUSIC BATTLE
         </h2>
         {selectedGenre && phase !== "genre-select" && (
-          <p className="text-zinc-500 text-sm mt-3 uppercase tracking-widest">
+          <p className="text-zinc-500 text-xs mt-2 uppercase tracking-widest">
             Any Genre Battle
           </p>
         )}
         {isAuthenticated && dailyCount && (
-          <div className="mt-4 flex items-center justify-center gap-2" data-testid="battle-progress-indicator">
+          <div className="mt-2 flex items-center justify-center gap-2" data-testid="battle-progress-indicator">
             <Headphones className="w-3.5 h-3.5 text-primary/60" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
               Battle {displayCount} / {dailyMax} today
@@ -389,32 +389,32 @@ export function Battle() {
         )}
       </div>
 
-      <div className="mb-12 premium-card p-7" data-testid="panel-today-stats">
-        <div className="flex items-center gap-2 mb-5">
+      <div className="mb-6 premium-card p-4" data-testid="panel-today-stats">
+        <div className="flex items-center gap-2 mb-3">
           <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-orange-400">
             🔥 TODAY BATTLE STATS
           </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center" data-testid="stat-votes-today">
-            <Vote className="w-4 h-4 text-primary mx-auto mb-1.5" />
-            <p className="text-xl font-display font-bold text-white">{todayStats?.totalVotesToday ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-1">Votes Today</p>
+            <Vote className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.totalVotesToday ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Votes Today</p>
           </div>
           <div className="text-center" data-testid="stat-battles-today">
-            <BarChart3 className="w-4 h-4 text-primary mx-auto mb-1.5" />
-            <p className="text-xl font-display font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-1">Battles Played</p>
+            <BarChart3 className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Battles Played</p>
           </div>
           <div className="text-center" data-testid="stat-tracks-pool">
-            <ListMusic className="w-4 h-4 text-primary mx-auto mb-1.5" />
-            <p className="text-xl font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-1">Battle Pool</p>
+            <ListMusic className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Battle Pool</p>
           </div>
           <div className="text-center" data-testid="stat-new-tracks">
-            <Plus className="w-4 h-4 text-primary mx-auto mb-1.5" />
-            <p className="text-xl font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-1">New Tracks</p>
+            <Plus className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">New Tracks</p>
           </div>
         </div>
       </div>

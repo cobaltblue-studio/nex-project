@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Video, Loader2, Play } from "lucide-react";
+import { Video, Loader2, Play, Dna } from "lucide-react";
 import { Link } from "wouter";
 
 interface MVTrack {
@@ -99,12 +99,27 @@ export function MusicVideo() {
                           #{String(rank).padStart(2, "0")}
                         </span>
                       </div>
-                      <p
-                        className="text-sm font-bold text-white uppercase tracking-wider truncate"
-                        data-testid={`text-mv-title-${track.id}`}
-                      >
-                        {track.title}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p
+                          className="text-sm font-bold text-white uppercase tracking-wider truncate"
+                          data-testid={`text-mv-title-${track.id}`}
+                        >
+                          {track.title}
+                        </p>
+                        <div className="relative group/dna shrink-0">
+                          <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm" data-testid={`icon-mv-dna-${track.id}`}>
+                            <Dna className="w-3.5 h-3.5 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
+                          </button>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
+                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap"
+                              style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,200,0.4)", boxShadow: "0 0 12px rgba(0,255,200,0.15)" }}>
+                              <p className="text-cyan-300">MODEL: SUNO V4.2</p>
+                              <p className="text-cyan-300">MOOD: CYBERPUNK_SYNTH</p>
+                              <p className="text-cyan-300">STAMP: 2026-03-17_NEX</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                       <span
                         className="text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate block mt-0.5"
                         data-testid={`text-mv-creator-${track.id}`}

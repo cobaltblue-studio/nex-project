@@ -122,7 +122,7 @@ export function YoutubePlayer({
       style={{
         position: "relative",
         width: "100%",
-        paddingTop: "56.25%",
+        paddingTop: battleMode ? "47.8%" : "56.25%",
       }}
     >
       <div

@@ -339,16 +339,29 @@ export function Home() {
         )}
 
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.5, duration: 0.8 }}
-          className="relative z-10 mt-auto flex flex-col items-center gap-2 pb-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.5, duration: 1 }}
+          className="relative z-10 mt-auto flex flex-col items-center gap-3 pb-6"
           data-testid="scroll-guide"
         >
-          <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-zinc-500">
-            Scroll to Discover
-          </span>
-          <ChevronDown className="w-5 h-5 text-primary/60 animate-bounce" />
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+            className="flex flex-col items-center gap-2"
+          >
+            <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/80"
+              style={{ textShadow: "0 0 12px hsla(189,100%,50%,0.4)" }}
+            >
+              DISCOVER MORE
+            </span>
+            <motion.div
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <ChevronDown className="w-6 h-6 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))" }} />
+            </motion.div>
+          </motion.div>
         </motion.div>
       </section>
 
