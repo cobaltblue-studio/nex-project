@@ -78,11 +78,6 @@ export function Music() {
             Something went wrong while loading the chart. Please try again later.
           </p>
         </div>
-      ) : !tracks || tracks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-          <MusicIcon className="w-10 h-10 text-zinc-700" />
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-chart-empty">No tracks ranked yet.</p>
-        </div>
       ) : (
         <div className="space-y-2">
           {slots.map(({ rank, track }) => {
@@ -192,7 +187,7 @@ export function Music() {
                       </span>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-zinc-700 italic">—</p>
+                      <p className="text-sm text-zinc-700 italic">— empty</p>
                     </div>
                   </div>
                 )}
