@@ -1,0 +1,25 @@
+# [Instruction: High-End Home Visual Refinement & Layout Fix]
+
+Act as a Lead UI/UX Designer and Frontend Developer. 
+**Goal:** Perfect the HOME page's layout and upgrade the "Scatter Bars" into a sophisticated "Data Visualization" tool.
+**Rules:** 1. Maintain existing JS logic. 2. Focus strictly on Visual Layer.
+
+## 1. Hero Content Placement (Layout Fix)
+- **Problem:** "NEX" title and subtitles are currently too low on the HOME screen.
+- **Action:** Move the entire "NEX" content block (NEX, AI-NEXT CULTURE, CREATOR ECOSYSTEM, etc.) upwards so that the "NEX" title sits at approximately **1/3 from the top** of the screen. Increase the overall vertical margin to prevent overcrowding.
+
+## 2. Advanced Audio Visualizer Background (Visual Upgrade)
+- **Problem:** Current vertical bars are naive, distracting, and look outdated.
+- **Action:** Redesign the audio visualizer from scratch. Make it feel integrated into the background:
+  - **New Style:** Switch from vertical bars to a sophisticated, subtle **SVG Waveform** or **Pulsating Particles** background.
+  - **Effect:** The Waveform should have an elegant, smooth, "silk-like" movement that reacts to the phantom beat. Use a semi-transparent Neon Green (#00FF80) color.
+  - **Blending:** Integrate the new visualizer tightly with the Deep Dark gradient background. Use a faint "grain" overlay to blend the visualizer with the darkness, creating depth.
+
+## 3. High-Impact Typography & Branding
+- **Logo Style:** Ensure the main "NEX" text has a premium, slightly metallic texture with the existing Neon Glow effect.
+- **Button Spacing:** Increase the space between the main CTA buttons ("Submit", "Explore") by 20px to improve mobile-first navigation.
+
+## 4. Overall Cohesiveness Check
+- **Uniformity:** Re-check that the same Neon Green Glow is applied to ALL main page titles (BATTLE, MUSIC, etc.) with consistent alignment and spacing.
+
+**"Execute these styling changes without altering the voting or navigation logic. Focus on making the user experience feel expensive and exclusive."**
