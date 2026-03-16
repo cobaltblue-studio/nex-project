@@ -1,0 +1,36 @@
+# [FINAL MASTER INSTRUCTION: Viewport Optimization & UI Finishing]
+
+Act as a Senior Creative Developer. This is the absolute final polish. 
+Do not ignore these specific layout/positioning values.
+
+## 1. HOME: Sticky Scroll Guide (Absolute Position)
+- **Problem:** The "DISCOVER MORE" indicator is invisible until scrolled.
+- **Requirement:** - Set the indicator container to `position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);`.
+  - Ensure it has `z-index: 100` to stay above the background waves.
+  - **Result:** It MUST be visible on the first screen (above the fold) regardless of resolution.
+
+## 2. RADIO: "Single-Screen" Dashboard Layout
+- **Problem:** Player info and queue are cut off at the bottom.
+- **Action:**
+  - Limit the **Main Player/Visualizer height** to exactly `45vh` (45% of viewport height).
+  - Reduce the **Header padding** to `min-height: 10vh`.
+  - Set the **Song Info & Queue section** to fit within the remaining `45vh`.
+  - **Result:** The title, the video player, song metadata, and the queue list must ALL be visible on one screen without scrolling.
+
+## 3. CREATORS: Dynamic Bento Grid Overhaul
+- **Action:** Re-write the CSS grid logic for the Creators page:
+  - `grid-template-columns: repeat(4, 1fr);`
+  - Set the **first 3 creator cards** to `grid-column: span 2; grid-row: span 2;` (Featured Size).
+  - The remaining "Future Creator" slots should be `grid-column: span 1;`.
+  - Add a **Glowing Border** (`box-shadow: 0 0 10px rgba(0, 255, 128, 0.3)`) to the Featured cards only.
+
+## 4. AI DNA Implementation (Visual Anchor)
+- **Action:** Physically insert a small UI element on every music/video track card.
+- **Code:** Add a small `<span>` or `<div>` with the text **"[AI_DNA]"** in a neon-green mono-spaced font.
+- **Interaction:** Add a CSS hover tooltip that reveals: 
+  `[MODEL: NEX_LYRIA_V3 | SEED: 882934 | STYLE: CYBER_SYNTH]`
+
+## 5. GLOBAL: Neon Title Consistency
+- Re-verify: Ensure BATTLE and RADIO page titles use the exact `text-shadow: 0 0 15px rgba(0, 255, 128, 0.7);` glow effect.
+
+**"Apply these specific CSS values immediately. Fix the layout so that 'No Scroll' is required for the Radio and Battle primary UIs."**
