@@ -9,6 +9,7 @@ interface MVTrack {
   creatorName: string;
   genre: string;
   musicVideoUrl?: string;
+  coverImage?: string;
   trackType?: string;
   rankingScore: number;
 }
@@ -78,6 +79,14 @@ export function MusicVideo() {
                   <span className="text-sm font-mono font-bold text-zinc-500">
                     {String(rank).padStart(2, "0")}
                   </span>
+                </div>
+
+                <div className="w-10 h-10 rounded-sm overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center" data-testid={`img-mv-cover-${track.id}`}>
+                  {track.coverImage ? (
+                    <img src={track.coverImage} alt={track.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <Video className="w-4 h-4 text-zinc-600" />
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">

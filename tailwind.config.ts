@@ -96,10 +96,16 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "vote-pulse": {
+          "0%": { filter: "brightness(1)" },
+          "50%": { filter: "brightness(1.8)" },
+          "100%": { filter: "brightness(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "vote-pulse": "vote-pulse 0.3s ease-in-out",
       },
     },
   },

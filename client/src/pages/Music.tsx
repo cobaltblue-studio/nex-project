@@ -9,6 +9,7 @@ interface ChartTrack {
   creatorName: string;
   genre: string;
   audioUrl: string;
+  coverImage?: string;
   playCount: number;
   rankingScore: number;
   totalBattles?: number;
@@ -109,6 +110,14 @@ export function Music() {
                       <span className="text-sm font-mono font-bold text-zinc-500">
                         {String(rank).padStart(2, "0")}
                       </span>
+                    </div>
+
+                    <div className="w-10 h-10 rounded-sm overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center" data-testid={`img-chart-cover-${track.id}`}>
+                      {track.coverImage ? (
+                        <img src={track.coverImage} alt={track.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <MusicIcon className="w-4 h-4 text-zinc-600" />
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
