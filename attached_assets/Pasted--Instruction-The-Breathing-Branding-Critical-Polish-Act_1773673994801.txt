@@ -1,0 +1,29 @@
+# [Instruction: The "Breathing" Branding & Critical Polish]
+
+Act as a Lead Creative Director and Senior Full-stack Developer. 
+**Goal:** Finalize the visual authority of NEX 2.0 with the "Alive" branding concept and essential bug fixes.
+
+## 1. CRITICAL FIX: Submit Track Page (Restore Route)
+- **Problem:** Clicking "Submit Your Track" results in a plain black screen.
+- **Action:** - Instantly check the **routes** (`App.tsx` or main `index.html`) to ensure the correct component is loaded for `/submit`.
+  - If the file exists but is empty, restore it with the fields from the 'NEX MASTER SPEC' (Title, Creator, Genre, Track Link, Originality Checkbox).
+- **Style:** Ensure the "SUBMIT YOUR AI TRACK" title on this page has the same **Green Neon Glow**.
+
+## 2. Dynamic Hero Section (The "Breathing" NEX Logo)
+- **Problem:** The main "NEX" title on the HOME page is static and doesn't feel alive.
+- **Action:** Apply a sophisticated **"Breathing" CSS Animation** only to the main **"NEX"** text (`image_ba5759.jpg`):
+  - **Animation Type:** Smooth, subtle **Scaling** and **Opacity/Shadow Glow** changes.
+  - **Effect:** The scale should gently oscillate (e.g., from `scale(1.0)` to `scale(1.03)`).
+  - **Feel:** The transition must be ultra-slow (`transition-duration: 4s` or `8s`), like a slow, deep breath, making the platform feel alive and growing.
+
+## 3. High-End Data Visualization Polish (Home Chart)
+- **Problem:** The line chart is too thick and looks like a basic "Office" tool.
+- **Action:** - **Refine Line:** Change the line thickness to `1.5px` (Ultra-thin).
+  - **Area Fill:** Add a subtle, semi-transparent green gradient fill below the line (`rgba(0, 255, 128, 0.1)`).
+  - **Futuristic Feel:** Ensure the entire chart has `backdrop-filter: blur(12px)`.
+
+## 4. Typography & Interaction
+- **Check:** ALL headings on ALL pages must have the same **Neon Green Blur**.
+- **Hover:** Apply a subtle, responsive pulse effect to the three main CTA buttons (Submit, Battle, Learn More).
+
+**"Complete these tasks globally. The user should feel like they are entering a living, breathing AI Cultural Command Center the moment the site opens."**
