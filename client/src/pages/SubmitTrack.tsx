@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import {
   Tag,
   Video,
   Headphones,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -53,6 +54,9 @@ const schema = z.object({
       (url) => SUPPORTED_LINKS.some(({ pattern }) => pattern.test(url)),
       "Only YouTube, SoundCloud, or Suno links are accepted",
     ),
+  originalityConfirmed: z.boolean().refine((val) => val === true, {
+    message: "You must confirm this track is original AI-generated content",
+  }),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -63,6 +67,8 @@ export default function SubmitTrack() {
   const [trackId, setTrackId] = useState<number | null>(null);
   const [submittedTrackType, setSubmittedTrackType] = useState<string>("audio");
 
+  const [duplicateUrl, setDuplicateUrl] = useState(false);
+
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -71,8 +77,42 @@ export default function SubmitTrack() {
       genre: undefined,
       trackType: "audio",
       trackLink: "",
+      originalityConfirmed: false,
     },
   });
+
+  const watchedLink = form.watch("trackLink");
+
+  const checkDuplicateUrl = useCallback(async (url: string) => {
+    if (!url) {
+      setDuplicateUrl(false);
+      return;
+    }
+    try {
+      new URL(url);
+    } catch {
+      setDuplicateUrl(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/tracks/check-url?url=${encodeURIComponent(url)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDuplicateUrl(data.exists);
+      } else {
+        setDuplicateUrl(false);
+      }
+    } catch {
+      setDuplicateUrl(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      checkDuplicateUrl(watchedLink);
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [watchedLink, checkDuplicateUrl]);
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
@@ -85,6 +125,7 @@ export default function SubmitTrack() {
   });
 
   const onSubmit = (data: FormData) => {
+    if (duplicateUrl) return;
     mutation.mutate(data);
   };
 
@@ -326,13 +367,41 @@ export default function SubmitTrack() {
                     {form.formState.errors.trackLink.message}
                   </p>
                 )}
+                {duplicateUrl && (
+                  <div className="flex items-center gap-2 mt-2 p-2.5 border border-red-500/30 bg-red-500/5 rounded-sm" data-testid="warning-duplicate-url">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                    <p className="text-[10px] text-red-400 uppercase tracking-widest">
+                      A track with this URL has already been submitted
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Originality Confirmation */}
+              <div className="pt-1">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    {...form.register("originalityConfirmed")}
+                    data-testid="checkbox-originality"
+                    className="mt-0.5 w-4 h-4 rounded-sm border border-white/20 bg-black/40 accent-primary cursor-pointer"
+                  />
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-widest leading-relaxed group-hover:text-zinc-300 transition-colors">
+                    I confirm this track is original AI-generated content
+                  </span>
+                </label>
+                {form.formState.errors.originalityConfirmed && (
+                  <p className="text-[10px] text-red-400 mt-1.5 ml-7 uppercase tracking-widest">
+                    {form.formState.errors.originalityConfirmed.message}
+                  </p>
+                )}
               </div>
 
               {/* Submit */}
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={mutation.isPending || !isAuthenticated}
+                  disabled={mutation.isPending || !isAuthenticated || duplicateUrl}
                   data-testid="button-submit-track"
                   className="w-full py-3.5 bg-primary/10 hover:bg-primary/20 border border-primary/40 hover:border-primary/60 text-primary text-[11px] font-black uppercase tracking-[0.3em] rounded-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -342,9 +411,12 @@ export default function SubmitTrack() {
               </div>
 
               {mutation.isError && (
-                <p className="text-[10px] text-red-400 text-center uppercase tracking-widest">
-                  {(mutation.error as Error)?.message ||
-                    "Submission failed. Try again."}
+                <p className="text-[10px] text-red-400 text-center uppercase tracking-widest" data-testid="text-submit-error">
+                  {mutation.error instanceof Error && mutation.error.message.includes("409")
+                    ? "A track with this URL has already been submitted"
+                    : mutation.error instanceof Error
+                      ? mutation.error.message
+                      : "Submission failed. Try again."}
                 </p>
               )}
 

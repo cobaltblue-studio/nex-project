@@ -231,10 +231,10 @@ export function Battle() {
       setVoteResult(data);
       setPhase("result");
       setVotedId(null);
-      setCountdown(5);
+      setCountdown(7);
       autoAdvanceRef.current = setTimeout(() => {
         nextBattleRef.current();
-      }, 5000);
+      }, 7000);
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
     },

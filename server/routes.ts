@@ -179,6 +179,13 @@ export async function registerRoutes(
     res.json({ message: "Seeding triggered" });
   });
 
+  app.get("/api/tracks/check-url", async (req, res) => {
+    const url = req.query.url as string;
+    if (!url) return res.status(400).json({ message: "url query parameter is required" });
+    const exists = await storage.trackUrlExists(url);
+    res.json({ exists });
+  });
+
   app.get(api.tracks.get.path, async (req, res) => {
     const t = await storage.getTrack(Number(req.params.id));
     if (!t) return res.status(404).json({ message: "Track not found" });
@@ -267,14 +274,23 @@ export async function registerRoutes(
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p) return res.status(404).json({ message: "Profile not found" });
 
-    const { title, artistName, genre, trackLink, trackType } = req.body;
+    const { title, artistName, genre, trackLink, trackType, originalityConfirmed } = req.body;
     if (!title || !artistName || !genre || !trackLink) {
       return res.status(400).json({ message: "title, artistName, genre, and trackLink are required" });
+    }
+
+    if (originalityConfirmed !== true) {
+      return res.status(400).json({ message: "You must confirm this track is original AI-generated content" });
     }
 
     const validGenres = ["Electronic", "Synth Pop", "Rock", "Hip Hop", "Ambient", "Other"];
     if (!validGenres.includes(genre)) {
       return res.status(400).json({ message: "Invalid genre" });
+    }
+
+    const duplicate = await storage.trackUrlExists(trackLink);
+    if (duplicate) {
+      return res.status(409).json({ message: "A track with this URL has already been submitted" });
     }
 
     const resolvedTrackType = trackType === "video" ? "video" : "audio";

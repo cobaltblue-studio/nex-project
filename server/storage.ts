@@ -1,6 +1,6 @@
 import { profiles, tracks, likes, votes, follows, trackPlays, battles, battleVotes, type Profile, type Track, type Follow, type Battle } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, count, gt, gte, ne } from "drizzle-orm";
+import { eq, desc, and, or, sql, count, gt, gte, ne } from "drizzle-orm";
 
 // Compute rankingScore = (votes * 3) + (playCount * 1) + recentBoost
 export function computeRankingScore(votesCount: number, playCount: number, createdAt: Date): number {
@@ -64,6 +64,7 @@ export interface IStorage {
   getDailyBattleVoteCount(userId: string): Promise<number>;
   getRecentBattle(): Promise<any | null>;
   getTodayStats(): Promise<{ totalVotesToday: number; battlesPlayedToday: number; tracksInPool: number; newTracksToday: number }>;
+  trackUrlExists(url: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -518,6 +519,11 @@ export class DatabaseStorage implements IStorage {
     if (totalBattles >= 10 && winRate >= 0.55) {
       await db.update(tracks).set({ status: "CHART" }).where(eq(tracks.id, trackId));
     }
+  }
+
+  async trackUrlExists(url: string): Promise<boolean> {
+    const [existing] = await db.select({ id: tracks.id }).from(tracks).where(or(eq(tracks.audioUrl, url), eq(tracks.mvUrl, url))).limit(1);
+    return !!existing;
   }
 
   async submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; creatorId: number }): Promise<Track> {
