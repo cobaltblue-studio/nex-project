@@ -1,0 +1,32 @@
+# [Instruction: Apply Title Neon Glow & Revamp MV Chart Layout]
+
+Act as a Lead UI/UX Designer and Developer. 
+**Crucial Rules:** 1. Maintain existing JavaScript logic. Update CSS and HTML layout only.
+2. Maintain English as the primary language.
+
+## 1. Global Title Unity (Neon Green Blur)
+- **Problem:** Currently, only the main "NEX" logo and "NEX CREATOR" titles have a neon glow. Other titles are just plain white.
+- **Action:** Apply the identical Green Neon Glow effect (`text-shadow: 0 0 15px rgba(0, 255, 128, 0.7)`) to ALL titles on ALL pages. This includes:
+  - "AI-NEXT CULTURE IS HERE" (Home)
+  - "NEW AI MUSIC TRACKS" (New)
+  - "AI MUSIC TOP 100 CHART" (Music)
+  - "AI VIDEO TOP 100 CHART" (Music Video)
+  - "RISING TRACKS" (Rising)
+  - "SUBMIT YOUR AI TRACK" (Submit Track)
+  - All other main page titles.
+
+## 2. Music Video Page: "YouTube-Style" List Layout
+- **Current State:** The MV chart looks like a basic list.
+- **Action:** For the "MUSIC VIDEO" page (`image_bbc2dc.jpg`), restructure the list item layout to mimic a premium YouTube feed:
+  - **Left Side:** A prominent, larger **YouTube Video Thumbnail** (16:9 ratio, with a small play icon overlay).
+  - **Right Side (next to the thumbnail):** Clear, structured information (Song Title, Creator, Rank, Vote Count, etc.). 
+  - Apply this structured layout to both filled tracks and "empty slot" placeholders.
+
+## 3. High-Impact "Bento Grid" Refinement (Creators Page)
+- **Current State:** The "Creators" page (`image_bbbfdb.jpg`) is just a grid of repetitive boxes.
+- **Action:** Refine the "Creators" page into a true **Bento Grid** with visual variety:
+  - **Card Sizes:** Vary the size of some cards (e.g., Make the Top Creator's card larger or spanning two columns).
+  - **Visual Void:** Fill "Empty Slots" with a high-end, subtle geometric background pattern or a watermark, not just plain boxes.
+  - **Hover:** Add a smooth, 0.4s transition effect (scaling up slightly) when a user hovers over a creator's card.
+
+**"Apply these styling and layout changes immediately to ensure a high-end, cohesive user experience. Refactor CSS and HTML as needed."**
