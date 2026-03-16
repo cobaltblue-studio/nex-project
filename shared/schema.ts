@@ -32,6 +32,7 @@ export const tracks = pgTable("tracks", {
   artistName: text("artist_name"),
   aiTool: text("ai_tool").notNull(),
   genre: text("genre").notNull(),
+  trackType: text("track_type").default("audio").notNull(),
   status: text("status").default("PENDING").notNull(),
   aiCraftScore: doublePrecision("ai_craft_score").default(0).notNull(),
   listenerVotes: integer("listener_votes").default(0).notNull(),

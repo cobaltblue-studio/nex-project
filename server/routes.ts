@@ -158,6 +158,7 @@ export async function registerRoutes(
       neoScore: t.neoScore,
       playCount: t.playCount,
       rankingScore: t.rankingScore,
+      trackType: t.trackType,
       status: t.status,
       createdAt: t.createdAt,
       ...(battleStats[t.id] ? {
@@ -207,6 +208,7 @@ export async function registerRoutes(
       neoScore: t.neoScore,
       playCount: t.playCount,
       rankingScore: t.rankingScore,
+      trackType: t.trackType,
       status: t.status,
       createdAt: t.createdAt,
     }));
@@ -265,7 +267,7 @@ export async function registerRoutes(
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p) return res.status(404).json({ message: "Profile not found" });
 
-    const { title, artistName, genre, trackLink } = req.body;
+    const { title, artistName, genre, trackLink, trackType } = req.body;
     if (!title || !artistName || !genre || !trackLink) {
       return res.status(400).json({ message: "title, artistName, genre, and trackLink are required" });
     }
@@ -275,8 +277,10 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Invalid genre" });
     }
 
-    const t = await storage.submitTrack({ title, artistName, genre, trackLink, creatorId: p.id });
-    res.status(201).json({ message: "Track submitted successfully", trackId: t.id });
+    const resolvedTrackType = trackType === "video" ? "video" : "audio";
+
+    const t = await storage.submitTrack({ title, artistName, genre, trackLink, trackType: resolvedTrackType, creatorId: p.id });
+    res.status(201).json({ message: "Track submitted successfully", trackId: t.id, trackType: resolvedTrackType });
   });
 
   // RISING tracks: ≥5 battles, ≥60% win rate, not in top 100
@@ -370,7 +374,7 @@ export async function registerRoutes(
     if (!isAdminEmail(req) && (!p || p.role !== "founder"))
       return res.status(403).json({ message: "Admin access required" });
 
-    const statuses = ["PENDING", "BATTLE_POOL", "REJECTED", "CHART"];
+    const statuses = ["PENDING", "BATTLE_POOL", "REJECTED", "CHART", "MV"];
     const all: any[] = [];
     for (const status of statuses) {
       const ts = await storage.getTracks({ status });
@@ -382,6 +386,7 @@ export async function registerRoutes(
           creatorId: t.creatorId,
           genre: t.genre,
           trackLink: t.audioUrl,
+          trackType: t.trackType,
           status: t.status,
           createdAt: t.createdAt,
         }))

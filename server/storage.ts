@@ -42,7 +42,7 @@ export interface IStorage {
   getTracksByCreator(creatorId: number): Promise<any[]>;
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
-  submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; creatorId: number }): Promise<Track>;
+  submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; creatorId: number }): Promise<Track>;
   checkAndPromoteToChart(trackId: number): Promise<void>;
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
@@ -506,14 +506,17 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; creatorId: number }): Promise<Track> {
+  async submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; creatorId: number }): Promise<Track> {
+    const isVideo = data.trackType === "video";
     const [t] = await db.insert(tracks).values({
       title: data.title,
       artistName: data.artistName,
       genre: data.genre,
       audioUrl: data.trackLink,
+      mvUrl: isVideo ? data.trackLink : null,
       creatorId: data.creatorId,
-      status: "PENDING",
+      trackType: data.trackType,
+      status: isVideo ? "MV" : "PENDING",
       aiTool: "submitted",
       aiCraftScore: 0,
       listenerVotes: 0,

@@ -9,6 +9,7 @@ interface MVTrack {
   creatorName: string;
   genre: string;
   musicVideoUrl?: string;
+  trackType?: string;
   rankingScore: number;
 }
 
@@ -18,15 +19,22 @@ export function MusicVideo() {
   const { data: tracks, isLoading, isError } = useQuery<MVTrack[]>({
     queryKey: ["/api/tracks", "rankingScore", "all-mv"],
     queryFn: async () => {
-      const res = await fetch("/api/tracks?sortBy=rankingScore");
-      if (!res.ok) throw new Error("Failed to fetch tracks");
-      return res.json();
+      const [mvRes, allRes] = await Promise.all([
+        fetch("/api/tracks?status=MV&sortBy=rankingScore"),
+        fetch("/api/tracks?sortBy=rankingScore"),
+      ]);
+      if (!mvRes.ok || !allRes.ok) throw new Error("Failed to fetch tracks");
+      const mvTracks: MVTrack[] = await mvRes.json();
+      const allTracks: MVTrack[] = await allRes.json();
+      const mvIds = new Set(mvTracks.map((t) => t.id));
+      const legacyMv = allTracks.filter((t) => !mvIds.has(t.id) && t.musicVideoUrl && t.musicVideoUrl.trim() !== "");
+      const combined = [...mvTracks, ...legacyMv];
+      combined.sort((a, b) => b.rankingScore - a.rankingScore);
+      return combined;
     },
   });
 
-  const mvTracks = (tracks ?? [])
-    .filter((t) => t.musicVideoUrl && t.musicVideoUrl.trim() !== "")
-    .slice(0, TOTAL_SLOTS);
+  const mvTracks = (tracks ?? []).slice(0, TOTAL_SLOTS);
 
   const slots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
     const track = mvTracks[i] ?? null;

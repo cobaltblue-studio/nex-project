@@ -13,6 +13,8 @@ import {
   ChevronDown,
   User,
   Tag,
+  Video,
+  Headphones,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -31,6 +33,8 @@ const SUPPORTED_LINKS = [
   { name: "Suno", pattern: /suno\.com|suno\.ai/ },
 ];
 
+const TRACK_TYPES = ["audio", "video"] as const;
+
 const schema = z.object({
   title: z
     .string()
@@ -41,6 +45,7 @@ const schema = z.object({
     .min(1, "Creator name is required")
     .max(80, "Name too long"),
   genre: z.enum(GENRES).optional(),
+  trackType: z.enum(TRACK_TYPES),
   trackLink: z
     .string()
     .url("Must be a valid URL")
@@ -56,6 +61,7 @@ export default function SubmitTrack() {
   const { isAuthenticated, user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [trackId, setTrackId] = useState<number | null>(null);
+  const [submittedTrackType, setSubmittedTrackType] = useState<string>("audio");
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -63,6 +69,7 @@ export default function SubmitTrack() {
       title: "",
       artistName: "",
       genre: undefined,
+      trackType: "audio",
       trackLink: "",
     },
   });
@@ -72,6 +79,7 @@ export default function SubmitTrack() {
       apiRequest("POST", "/api/tracks/submit", data).then((r) => r.json()),
     onSuccess: (data) => {
       setTrackId(data.trackId);
+      setSubmittedTrackType(data.trackType || "audio");
       setSubmitted(true);
     },
   });
@@ -105,17 +113,31 @@ export default function SubmitTrack() {
 
       {/* Status path */}
       <div className="flex items-center gap-2 mb-8 text-[9px] font-bold uppercase tracking-widest">
-        <span className="px-2 py-1 rounded-sm bg-primary/10 border border-primary/30 text-primary">
-          PENDING
-        </span>
-        <span className="text-zinc-700">→</span>
-        <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
-          BATTLE_POOL
-        </span>
-        <span className="text-zinc-700">→</span>
-        <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
-          CHART
-        </span>
+        {form.watch("trackType") === "video" ? (
+          <>
+            <span className="px-2 py-1 rounded-sm bg-primary/10 border border-primary/30 text-primary">
+              SUBMIT
+            </span>
+            <span className="text-zinc-700">→</span>
+            <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
+              MV PAGE
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="px-2 py-1 rounded-sm bg-primary/10 border border-primary/30 text-primary">
+              PENDING
+            </span>
+            <span className="text-zinc-700">→</span>
+            <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
+              BATTLE_POOL
+            </span>
+            <span className="text-zinc-700">→</span>
+            <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
+              CHART
+            </span>
+          </>
+        )}
       </div>
 
       <AnimatePresence mode="wait">
@@ -134,25 +156,40 @@ export default function SubmitTrack() {
               Track Submitted
             </p>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-6">
-              Your track is now in review · ID #{trackId}
+              Your {submittedTrackType === "video" ? "music video" : "track"} is now {submittedTrackType === "video" ? "on the MV page" : "in review"} · ID #{trackId}
             </p>
             <div className="text-left border border-white/5 rounded-sm p-4 bg-black/30 mb-6 text-[10px] text-zinc-400 uppercase tracking-widest space-y-2">
-              <div className="flex justify-between">
-                <span className="text-zinc-600">Status</span>
-                <span className="text-primary font-bold">PENDING</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-600">Next step</span>
-                <span>Admin Review</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-600">After approval</span>
-                <span>BATTLE_POOL</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-600">Chart entry</span>
-                <span>10+ Battles · 55%+ Win Rate</span>
-              </div>
+              {submittedTrackType === "video" ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-600">Status</span>
+                    <span className="text-primary font-bold">MV</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-600">Pipeline</span>
+                    <span>Music Video Page</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-600">Status</span>
+                    <span className="text-primary font-bold">PENDING</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-600">Next step</span>
+                    <span>Admin Review</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-600">After approval</span>
+                    <span>BATTLE_POOL</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-600">Chart entry</span>
+                    <span>10+ Battles · 55%+ Win Rate</span>
+                  </div>
+                </>
+              )}
             </div>
             <button
               onClick={() => {
@@ -223,6 +260,42 @@ export default function SubmitTrack() {
                     {form.formState.errors.artistName.message}
                   </p>
                 )}
+              </div>
+
+              {/* Track Type */}
+              <div>
+                <label className="block text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-2">
+                  <Tag className="inline w-3 h-3 mr-1 -mt-0.5" />
+                  Track Type
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => form.setValue("trackType", "audio")}
+                    data-testid="radio-track-type-audio"
+                    className={`flex items-center justify-center gap-2 py-3 rounded-sm border text-[10px] font-bold uppercase tracking-widest transition-all ${
+                      form.watch("trackType") === "audio"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-white"
+                    }`}
+                  >
+                    <Headphones className="w-3.5 h-3.5" />
+                    Audio Track
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => form.setValue("trackType", "video")}
+                    data-testid="radio-track-type-video"
+                    className={`flex items-center justify-center gap-2 py-3 rounded-sm border text-[10px] font-bold uppercase tracking-widest transition-all ${
+                      form.watch("trackType") === "video"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-white"
+                    }`}
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    Music Video
+                  </button>
+                </div>
               </div>
 
               {/* Track Link */}
