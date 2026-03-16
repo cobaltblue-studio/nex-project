@@ -56,6 +56,9 @@
 }
 
 @layer utilities {
+  .neon-text-green {
+    text-shadow: 0 0 15px rgba(0, 255, 128, 0.7);
+  }
   .neon-text {
     text-shadow: 0 0 10px hsla(189, 100%, 50%, 0.5), 0 0 30px hsla(189, 100%, 50%, 0.2);
   }

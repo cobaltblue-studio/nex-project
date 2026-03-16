@@ -54,7 +54,7 @@ export function Home() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-6">
             The Future of AI Music
           </p>
-          <h1 className="text-7xl md:text-9xl font-display font-black text-white leading-none neon-text-strong">
+          <h1 className="text-7xl md:text-9xl font-display font-black text-white leading-none neon-text-strong neon-text-green">
             NEX
           </h1>
           <p className="text-primary font-bold tracking-[0.4em] text-sm uppercase mt-6">

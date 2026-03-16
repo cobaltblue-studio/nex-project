@@ -60,7 +60,7 @@ export function Submit() {
           <div className="w-8 h-px bg-primary/30" />
           <span className="text-[10px] font-bold uppercase tracking-[0.3em]">NEX REPOSITORY SUBMISSION</span>
         </div>
-        <h1 className="text-5xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none">Initialize<br />Evaluation</h1>
+        <h1 className="text-5xl md:text-7xl font-display font-bold text-white tracking-tighter uppercase leading-none neon-text-green">Initialize<br />Evaluation</h1>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-12">

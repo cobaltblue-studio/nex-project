@@ -133,7 +133,7 @@ export function CreatorList() {
     <div className="max-w-6xl mx-auto space-y-16 pb-24">
       <div className="text-center space-y-5">
         <h1
-          className="text-5xl md:text-7xl font-display font-black text-white tracking-tight uppercase leading-none neon-text-strong"
+          className="text-5xl md:text-7xl font-display font-black text-white tracking-tight uppercase leading-none neon-text-strong neon-text-green"
           data-testid="text-creators-title"
         >
           NEX CREATORS
@@ -149,12 +149,12 @@ export function CreatorList() {
 
           if (creator) {
             return (
-              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`}>
+              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={idx === 0 ? "col-span-1 sm:col-span-2" : ""}>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="premium-card p-8 transition-premium cursor-pointer group"
+                  className="premium-card p-8 transition-all duration-[400ms] cursor-pointer group hover:scale-[1.03]"
                   data-testid={`card-creator-${idx}`}
                 >
                   <div className="flex items-start gap-5">
@@ -226,13 +226,21 @@ export function CreatorList() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              className="premium-card border-dashed !border-white/[0.04] p-8 flex flex-col items-center justify-center gap-4 select-none"
+              className="premium-card border-dashed !border-white/[0.04] p-8 flex flex-col items-center justify-center gap-4 select-none relative overflow-hidden transition-all duration-[400ms] hover:scale-[1.03]"
               data-testid={`card-placeholder-${idx}`}
             >
-              <div className="w-14 h-14 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center">
+              <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id={`dots-${idx}`} x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+                    <circle cx="2" cy="2" r="1" fill="currentColor" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill={`url(#dots-${idx})`} />
+              </svg>
+              <div className="w-14 h-14 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center relative z-10">
                 <NexWatermark />
               </div>
-              <span className="text-xs font-display font-bold text-zinc-700 uppercase tracking-widest">
+              <span className="text-xs font-display font-bold text-zinc-700 uppercase tracking-widest relative z-10">
                 Future Creator
               </span>
             </motion.div>
