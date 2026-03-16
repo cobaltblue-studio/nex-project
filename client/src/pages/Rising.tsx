@@ -28,7 +28,7 @@ export function Rising() {
           <TrendingUp className="w-5 h-5 text-primary" />
           <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">Battle Charts</h1>
         </div>
-        <h2 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-green">
+        <h2 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green">
           RISING
         </h2>
         <p className="text-zinc-500 text-sm mt-2">

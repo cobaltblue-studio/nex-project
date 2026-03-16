@@ -17,7 +17,6 @@ import { ProfileMe } from "@/pages/ProfileMe";
 import { ProfileDetail } from "@/pages/ProfileDetail";
 import { TrackDetail } from "@/pages/WorkDetail";
 import { MVDetail } from "@/pages/MVDetail";
-import { Submit } from "@/pages/Submit";
 import { UploadTrack } from "@/pages/UploadTrack";
 import { MyTracks } from "@/pages/MyTracks";
 import { Battle } from "@/pages/Battle";
@@ -40,7 +39,7 @@ function Router() {
         <Route path="/music" component={Music} />
         <Route path="/music-video" component={MusicVideo} />
         <Route path="/creators" component={CreatorList} />
-        <Route path="/submit" component={Submit} />
+        <Route path="/submit" component={SubmitTrack} />
         <Route path="/upload" component={UploadTrack} />
         <Route path="/my-tracks" component={MyTracks} />
         <Route path="/profile" component={CreatorList} />

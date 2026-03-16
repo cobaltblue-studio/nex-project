@@ -180,7 +180,7 @@ function LiveVotingWidget() {
         >
           <defs>
             <linearGradient id="votingGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00FF80" stopOpacity="0.25" />
+              <stop offset="0%" stopColor="#00FF80" stopOpacity="0.1" />
               <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
             </linearGradient>
           </defs>
@@ -264,6 +264,8 @@ export function Home() {
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
               filter: "drop-shadow(0 0 15px rgba(0, 255, 128, 0.7)) drop-shadow(0 0 40px rgba(0, 255, 128, 0.3))",
+              animation: "nex-breathe 7s ease-in-out infinite",
+              display: "inline-block",
             }}
           >
             NEX
@@ -283,21 +285,21 @@ export function Home() {
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-battle"
-              className="px-10 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
+              className="px-10 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
             >
               Start Battle
             </button>
             <button
               onClick={() => setLocation("/submit")}
               data-testid="button-submit-track"
-              className="px-10 py-4 glass-button-outline text-white text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary"
+              className="px-10 py-4 glass-button-outline text-white text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
             >
               Submit Track
             </button>
             <button
               onClick={() => setLocation("/radio")}
               data-testid="button-radio"
-              className="px-10 py-4 glass-button-outline text-white flex items-center gap-2 text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary"
+              className="px-10 py-4 glass-button-outline text-white flex items-center gap-2 text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
             >
               <Radio size={16} />
               Radio

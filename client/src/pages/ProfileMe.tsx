@@ -137,7 +137,7 @@ export function ProfileMe() {
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tighter uppercase">
+                <h1 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tighter uppercase neon-text-strong neon-text-green">
                   {creatorName.toUpperCase()}
                 </h1>
                 {creatorProfile?.role === "nex" && (

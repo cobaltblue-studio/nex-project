@@ -144,8 +144,8 @@ export default function SubmitTrack() {
         <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
           NEX Platform
         </p>
-        <h1 className="text-2xl font-black uppercase tracking-[0.15em] text-white neon-text-green">
-          Submit Track
+        <h1 className="text-2xl font-black uppercase tracking-[0.15em] text-white neon-text-strong neon-text-green">
+          Submit Your AI Track
         </h1>
         <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-1">
           AI-generated music · Verified through Battle

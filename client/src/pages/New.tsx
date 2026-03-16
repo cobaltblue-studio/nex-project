@@ -35,7 +35,7 @@ export function New() {
           </h1>
         </div>
         <h2
-          className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-green"
+          className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
           data-testid="text-new-title"
         >
           NEW ON NEX

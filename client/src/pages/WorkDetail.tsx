@@ -256,7 +256,7 @@ export function TrackDetail() {
                 transition={{ duration: 0.2 }}
                 className="space-y-2"
               >
-                <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none">
+                <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none neon-text-strong neon-text-green">
                   {track.title}
                 </h1>
                 <Link href={`/profile/${track.creatorName.toLowerCase()}`}>
