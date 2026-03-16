@@ -1,0 +1,248 @@
+# NEX Platform Update Instructions
+
+This document defines the next system updates for the NEX AI Music Platform.
+
+--------------------------------
+1. HOME PAGE FIX
+--------------------------------
+
+Problem:
+The explanatory section about the platform has disappeared.
+
+Add the following section above the footer.
+
+Section Title:
+ABOUT NEX
+
+Text:
+
+NEX is an AI music ranking platform where creators submit AI-generated music and compete through listener voting battles.
+
+Tracks rise through real audience engagement and enter the official NEX Top 100 chart.
+
+Battle. Rise. Chart.
+
+Add button:
+
+LEARN HOW NEX WORKS
+
+Purpose:
+Investor / government presentation clarity.
+
+
+--------------------------------
+2. CHART COLOR IMPROVEMENT
+--------------------------------
+
+Current:
+Legend Zone = Gold
+Elite Zone = Grey
+Rising Zone = Green
+
+Issue:
+Elite Zone color is visually weak.
+
+Change colors to:
+
+Legend Zone
+#FFD700
+
+Elite Zone
+#00D1FF
+
+Rising Zone
+#00FF9C
+
+Purpose:
+Improve visual hierarchy.
+
+
+--------------------------------
+3. BATTLE RESULT SCREEN FIX
+--------------------------------
+
+Current:
+Result shows only vote counts.
+
+Example:
+Track A 0
+Track B 1
+
+Required:
+
+Show percentage + total votes.
+
+Correct layout:
+
+Track A 63%
+Track B 37%
+
+Total Votes: 1284
+
+Display duration:
+7 seconds
+
+Add countdown text:
+
+Next Battle in 3...2...1
+
+
+--------------------------------
+4. BATTLE FLASH EFFECT
+--------------------------------
+
+Add a visual event between vote and result screen.
+
+Flow:
+
+Vote Click
+→ 0.25 second flash effect
+→ Result screen
+
+Flash style:
+
+Color:
+#FFD400 (neon yellow)
+
+Animation:
+
+scale 110%
+flash
+fade
+
+Purpose:
+Create tension and excitement.
+
+
+--------------------------------
+5. BATTLE VS VISUAL
+--------------------------------
+
+Improve battle screen layout.
+
+Current:
+Tracks appear without emphasis.
+
+Add central VS visual.
+
+Layout:
+
+TRACK A
+
+⚡ VS ⚡
+
+TRACK B
+
+Purpose:
+Improve battle identity.
+
+
+--------------------------------
+6. CHART PLAYBACK BUG FIX
+--------------------------------
+
+Current issue:
+
+Chart tracks play only the battle preview.
+
+Battle preview length:
+20 seconds
+
+Required fix:
+
+Battle mode
+→ 20 second preview only
+
+Chart / Track page
+→ full track playback
+
+Purpose:
+Users must listen to full tracks in charts.
+
+
+--------------------------------
+7. SUBMIT TRACK FORM UPDATE
+--------------------------------
+
+Problem:
+System cannot distinguish audio tracks from music videos.
+
+Add new field:
+
+Track Type
+
+Options:
+
+Audio Track
+Music Video
+
+Example form layout:
+
+Track Title
+Creator Name
+Genre
+
+Track Type
+○ Audio Track
+○ Music Video
+
+Track Link
+
+
+--------------------------------
+8. TRACK ROUTING LOGIC
+--------------------------------
+
+Audio Track flow:
+
+SUBMIT
+→ NEW
+→ BATTLE
+→ MUSIC CHART
+
+Music Video flow:
+
+SUBMIT
+→ NEW
+→ MUSIC VIDEO PAGE
+
+
+--------------------------------
+9. BATTLE PREVIEW LENGTH
+--------------------------------
+
+Battle highlight preview:
+
+20 seconds
+
+Playback rules:
+
+Play Track A highlight
+Play Track B highlight
+
+No skipping allowed.
+
+
+--------------------------------
+10. CREATOR COUNTRY FIELD
+--------------------------------
+
+Add new field in creator profile.
+
+Country
+
+Example:
+
+COBALT
+South Korea
+
+Purpose:
+
+Future global ranking features
+Country leaderboards
+Regional statistics
+
+
+--------------------------------
+END OF UPDATE
+--------------------------------
