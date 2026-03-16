@@ -6,6 +6,11 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface MusicRowProps {
   track: any;
@@ -93,6 +98,14 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
             {track.aiTool}
           </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wider cursor-default" style={{ color: "#00FF80" }} data-testid={`badge-ai-dna-${track.id}`}>[AI_DNA]</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-[10px] font-mono">
+              [MODEL: NEX_LYRIA_V3 | SEED: 882934 | STYLE: CYBER_SYNTH]
+            </TooltipContent>
+          </Tooltip>
           {track.winStreak > 0 && (
             <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] border border-orange-500/20" data-testid={`text-streak-${track.id}`}>
               🔥 WIN STREAK: {track.winStreak}

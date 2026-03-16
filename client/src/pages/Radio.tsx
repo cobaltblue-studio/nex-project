@@ -125,16 +125,16 @@ export default function NexRadio() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto" style={{ height: "calc(100vh - 8rem)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {!radioStarted ? (
-        <div className="flex flex-col items-center justify-center px-8 text-center" style={{ minHeight: "calc(100vh - 8rem)" }}>
+        <div className="flex flex-col items-center justify-center px-8 text-center flex-1">
             <div className="w-16 h-16 rounded-full border border-primary/20 bg-primary/5 flex items-center justify-center mb-6">
               <Radio className="w-7 h-7 text-primary" strokeWidth={1.5} />
             </div>
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
               NEX Platform
             </p>
-            <h2 className="text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-strong neon-text-green">
+            <h2 className="text-xl font-black uppercase tracking-[0.15em] text-white mb-2" style={{ textShadow: "0 0 15px rgba(0, 255, 128, 0.7)" }}>
               NEX TOP 100 RADIO
             </h2>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-8 max-w-xs">
@@ -153,10 +153,10 @@ export default function NexRadio() {
             </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="text-center mb-10">
+        <div className="flex flex-col flex-1 overflow-hidden gap-2">
+          <div className="text-center shrink-0" style={{ minHeight: "10vh" }}>
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
-            <h1 data-testid="heading-radio" className="text-3xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-strong neon-text-green">
+            <h1 data-testid="heading-radio" className="text-3xl md:text-4xl font-black uppercase tracking-[0.15em] text-white" style={{ textShadow: "0 0 15px rgba(0, 255, 128, 0.7)" }}>
               <Radio className="w-6 h-6 text-primary inline mr-3" />
               NEX TOP 100 RADIO
             </h1>
@@ -179,9 +179,9 @@ export default function NexRadio() {
               </div>
             </div>
 
-            <div className="border border-white/5 rounded-sm overflow-hidden bg-black relative">
+            <div className="border border-white/5 rounded-sm overflow-hidden bg-black relative shrink-0" style={{ maxHeight: "45vh" }}>
               {isLoading ? (
-                <div className="aspect-video flex items-center justify-center">
+                <div className="aspect-video flex items-center justify-center" style={{ maxHeight: "45vh" }}>
                   <Loader2 className="w-8 h-8 text-zinc-700 animate-spin" />
                 </div>
               ) : ytVideoId ? (
@@ -320,7 +320,7 @@ export default function NexRadio() {
               <button
                 onClick={() => setShowQueue((v) => !v)}
                 data-testid="button-toggle-queue"
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-zinc-300 border border-white/5 rounded-sm transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-zinc-300 border border-white/5 rounded-sm transition-all shrink-0"
               >
                 <List className="w-3 h-3" />
                 {showQueue ? "Hide Queue" : `Queue · ${playlist.length} tracks`}
@@ -333,9 +333,9 @@ export default function NexRadio() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="border border-white/5 rounded-sm overflow-hidden bg-black/20"
+                  className="border border-white/5 rounded-sm overflow-hidden bg-black/20 flex-1 min-h-0"
                 >
-                  <div className="max-h-64 overflow-y-auto">
+                  <div className="max-h-48 overflow-y-auto">
                     {playlist.slice(0, 20).map((t, i) => (
                       <button
                         key={t.id}

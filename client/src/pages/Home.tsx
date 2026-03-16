@@ -242,8 +242,8 @@ export function Home() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-40 pb-40">
 
       <section
-        className="relative min-h-screen text-center space-y-10 overflow-hidden flex flex-col"
-        style={{ paddingTop: "15vh", paddingBottom: "8vh" }}
+        className="relative text-center overflow-hidden flex flex-col"
+        style={{ height: "100vh", paddingTop: "10vh", paddingBottom: "0", gap: "1.5rem" }}
         data-testid="section-hero"
       >
         <div
@@ -342,7 +342,8 @@ export function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.5, duration: 1 }}
-          className="relative z-10 mt-auto flex flex-col items-center gap-3 pb-6"
+          className="flex flex-col items-center gap-3"
+          style={{ position: "absolute", bottom: "40px", left: "50%", transform: "translateX(-50%)", zIndex: 100 }}
           data-testid="scroll-guide"
         >
           <motion.div

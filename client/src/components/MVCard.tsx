@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Youtube, ChevronUp, Dna } from "lucide-react";
+import { Youtube, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -88,13 +88,12 @@ export function MVCard({ track, index }: MVCardProps) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="absolute top-2 right-2 z-30 flex items-center gap-0.5 px-1 py-0.5 bg-black/70 border border-primary/20 rounded-sm text-[7px] font-bold uppercase tracking-wider text-primary/80 cursor-default backdrop-blur-sm" data-testid={`badge-ai-dna-mv-${track.id}`}>
-                  <Dna className="w-2.5 h-2.5" />
-                  AI DNA
+                <span className="absolute top-2 right-2 z-30 px-1 py-0.5 bg-black/70 border border-primary/20 rounded-sm text-[7px] font-mono font-bold uppercase tracking-wider cursor-default backdrop-blur-sm" style={{ color: "#00FF80" }} data-testid={`badge-ai-dna-mv-${track.id}`}>
+                  [AI_DNA]
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-[10px] font-mono">
-                [PROMPT: SYNTH_WAVE_1988] [MODEL: SUNO_V4]
+                [MODEL: NEX_LYRIA_V3 | SEED: 882934 | STYLE: CYBER_SYNTH]
               </TooltipContent>
             </Tooltip>
             <Youtube className="w-8 h-8 text-red-600/40 group-hover:text-red-600 group-hover:scale-110 transition-all z-20" />

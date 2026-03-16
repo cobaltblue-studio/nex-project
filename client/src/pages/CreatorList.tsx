@@ -143,19 +143,20 @@ export function CreatorList() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-5" style={{ gridAutoRows: "minmax(120px, auto)" }}>
         {Array.from({ length: 20 }).map((_, idx) => {
           const creator = creators[idx];
 
           if (creator) {
+            const isFeatured = idx < 3;
             return (
-              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={idx < 3 ? "col-span-1 sm:col-span-2" : ""}>
+              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={isFeatured ? "col-span-1 sm:col-span-2 row-span-2" : "col-span-1"}>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="premium-card p-8 cursor-pointer group"
-                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out" }}
+                  className="premium-card p-8 cursor-pointer group h-full"
+                  style={{ backdropFilter: "blur(12px)", border: isFeatured ? "1px solid rgba(0, 255, 128, 0.3)" : "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out", boxShadow: isFeatured ? "0 0 10px rgba(0, 255, 128, 0.3)" : "none" }}
                   whileHover={{ scale: 1.03 }}
                   data-testid={`card-creator-${idx}`}
                 >
