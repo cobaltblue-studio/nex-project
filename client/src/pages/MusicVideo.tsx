@@ -102,6 +102,7 @@ export function MusicVideo() {
                   >
                     {track.creatorName}
                   </span>
+                  <span className="block text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</span>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">

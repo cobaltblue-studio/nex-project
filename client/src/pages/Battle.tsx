@@ -11,6 +11,10 @@ import {
   Music2,
   Zap,
   Headphones,
+  Vote,
+  BarChart3,
+  ListMusic,
+  Plus,
 } from "lucide-react";
 import {
   YoutubePlayer,
@@ -176,6 +180,16 @@ export function Battle() {
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
     queryKey: ["/api/battles/daily-count"],
     enabled: isAuthenticated,
+  });
+
+  const { data: todayStats } = useQuery<{
+    totalVotesToday: number;
+    battlesPlayedToday: number;
+    tracksInPool: number;
+    newTracksToday: number;
+  }>({
+    queryKey: ["/api/stats/today"],
+    refetchInterval: 60000,
   });
 
   const dailyMax = dailyCount?.dailyMax ?? 3;
@@ -355,6 +369,36 @@ export function Battle() {
             </span>
           </div>
         )}
+      </div>
+
+      <div className="mb-10 border border-white/10 rounded-sm bg-black/30 p-5" data-testid="panel-today-stats">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-orange-400">
+            🔥 TODAY BATTLE STATS
+          </span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center" data-testid="stat-votes-today">
+            <Vote className="w-4 h-4 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.totalVotesToday ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">Votes Today</p>
+          </div>
+          <div className="text-center" data-testid="stat-battles-today">
+            <BarChart3 className="w-4 h-4 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">Battles Played</p>
+          </div>
+          <div className="text-center" data-testid="stat-tracks-pool">
+            <ListMusic className="w-4 h-4 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">Battle Pool</p>
+          </div>
+          <div className="text-center" data-testid="stat-new-tracks">
+            <Plus className="w-4 h-4 text-primary mx-auto mb-1" />
+            <p className="text-lg font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">New Tracks</p>
+          </div>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -599,13 +643,18 @@ export function Battle() {
                 <p className="text-zinc-500 text-[10px] uppercase tracking-widest">
                   by {winnerTrack.creatorName}
                 </p>
+                <p className="text-[8px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
               </div>
             )}
 
             <div className="space-y-4 max-w-md mx-auto text-left">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackA.title}</span>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackA.title}</span>
+                    <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{battle.trackA.creatorName}</p>
+                    <p className="text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
+                  </div>
                   <span className="text-sm font-bold text-white" data-testid="text-result-pct-a">{pctA}%</span>
                 </div>
                 <div className="w-full h-3 bg-white/5 rounded-sm overflow-hidden">
@@ -620,7 +669,11 @@ export function Battle() {
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackB.title}</span>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackB.title}</span>
+                    <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{battle.trackB.creatorName}</p>
+                    <p className="text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
+                  </div>
                   <span className="text-sm font-bold text-white" data-testid="text-result-pct-b">{pctB}%</span>
                 </div>
                 <div className="w-full h-3 bg-white/5 rounded-sm overflow-hidden">
@@ -643,20 +696,17 @@ export function Battle() {
               {countdown > 0 && (
                 <div className="flex flex-col items-center gap-2" data-testid="text-next-battle-countdown">
                   <AnimatePresence mode="wait">
-                    <motion.span
+                    <motion.p
                       key={countdown}
-                      initial={{ opacity: 0, scale: 1.8 }}
+                      initial={{ opacity: 0, scale: 1.3 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.5 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
                       transition={{ duration: 0.4, ease: "easeOut" }}
-                      className="text-5xl font-display font-bold text-primary"
+                      className="text-2xl font-display font-bold text-primary"
                     >
-                      {countdown}
-                    </motion.span>
+                      Next battle in {countdown}
+                    </motion.p>
                   </AnimatePresence>
-                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                    Next battle starting…
-                  </p>
                 </div>
               )}
               <button

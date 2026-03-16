@@ -358,6 +358,12 @@ export async function registerRoutes(
     }
   });
 
+  // Live stats for today
+  app.get("/api/stats/today", async (_req, res) => {
+    const stats = await storage.getTodayStats();
+    res.json(stats);
+  });
+
   // Admin: lightweight check — returns isAdmin based purely on email, no profile required
   app.get("/api/admin/check", isAuthenticated, async (req: any, res) => {
     const admin = isAdminEmail(req);

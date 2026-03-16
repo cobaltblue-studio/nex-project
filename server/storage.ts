@@ -63,6 +63,7 @@ export interface IStorage {
   getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>>;
   getDailyBattleVoteCount(userId: string): Promise<number>;
   getRecentBattle(): Promise<any | null>;
+  getTodayStats(): Promise<{ totalVotesToday: number; battlesPlayedToday: number; tracksInPool: number; newTracksToday: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -560,6 +561,38 @@ export class DatabaseStorage implements IStorage {
       .from(battleVotes)
       .where(and(eq(battleVotes.userId, userId), gte(battleVotes.votedAt, startOfDayUTC)));
     return r?.count || 0;
+  }
+
+  async getTodayStats(): Promise<{ totalVotesToday: number; battlesPlayedToday: number; tracksInPool: number; newTracksToday: number }> {
+    const now = new Date();
+    const startOfDayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+    const [votesResult] = await db
+      .select({ count: count() })
+      .from(battleVotes)
+      .where(gte(battleVotes.votedAt, startOfDayUTC));
+
+    const [battlesResult] = await db
+      .select({ count: count() })
+      .from(battles)
+      .where(gte(battles.createdAt, startOfDayUTC));
+
+    const [poolResult] = await db
+      .select({ count: count() })
+      .from(tracks)
+      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`);
+
+    const [newTracksResult] = await db
+      .select({ count: count() })
+      .from(tracks)
+      .where(gte(tracks.createdAt, startOfDayUTC));
+
+    return {
+      totalVotesToday: votesResult?.count || 0,
+      battlesPlayedToday: battlesResult?.count || 0,
+      tracksInPool: poolResult?.count || 0,
+      newTracksToday: newTracksResult?.count || 0,
+    };
   }
 
   async getRecentBattle(): Promise<any | null> {
