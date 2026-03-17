@@ -243,7 +243,7 @@ export function Home() {
 
       <section
         className="relative text-center overflow-hidden flex flex-col hero-section-responsive"
-        style={{ minHeight: "100svh", height: "auto", paddingTop: "5vh", paddingBottom: "1rem", gap: "1rem" }}
+        style={{ minHeight: "100svh", height: "auto", paddingTop: "2vh", paddingBottom: "1rem", gap: "0.5rem" }}
         data-testid="section-hero"
       >
         <div
@@ -317,7 +317,7 @@ export function Home() {
           </div>
         </motion.div>
 
-        <div className="relative z-10 flex items-center justify-center gap-8 w-full" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "1.5rem" }}>
+        <div className="relative z-10 flex items-center justify-center gap-8 w-full" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "0.75rem" }}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -344,7 +344,7 @@ export function Home() {
             </motion.div>
           </motion.div>
 
-          <div className="hidden md:block" style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
+          <div style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
             <LiveVotingWidget />
           </div>
         </div>
