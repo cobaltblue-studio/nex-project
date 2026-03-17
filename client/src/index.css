@@ -183,31 +183,92 @@
     overflow-wrap: break-word;
     word-break: break-word;
   }
+
+  .mobile-bottom-nav {
+    height: 65px !important;
+    display: flex !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+  .mobile-bottom-nav svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  .mobile-bottom-nav span {
+    font-size: 10px !important;
+  }
+
+  [data-testid="section-hero"] {
+    height: 100vh !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  [data-testid="scroll-guide"] {
+    position: absolute !important;
+    bottom: 70px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 9999 !important;
+    display: block !important;
+  }
+
   .mobile-discover-fixed {
-    position: fixed !important;
-    bottom: 20px !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 10000 !important;
+    position: static !important;
   }
-  .neon-text-green {
-    text-shadow: 0 0 8px rgba(0, 255, 128, 0.7) !important;
-  }
+
+  .neon-text-green,
   .neon-text-strong {
-    text-shadow: 0 0 8px hsla(189, 100%, 50%, 0.7) !important;
+    font-size: 24px !important;
+    text-shadow: 0 0 10px rgba(0, 255, 128, 0.7) !important;
   }
-  .battle-player-container {
+
+  .mobile-subtext,
+  .battle-page-container .text-sm,
+  .battle-stats-panel .text-sm,
+  .radio-player-container ~ * .text-sm,
+  .creators-grid .text-sm {
+    font-size: 13px !important;
+  }
+
+  .battle-player-container,
+  .radio-player-container {
     max-height: 25vh !important;
+    width: 90% !important;
+    margin: 0 auto !important;
   }
+
+  .battle-page-container h1,
+  .battle-page-container h2,
+  [data-testid="heading-radio"] {
+    font-size: 20px !important;
+    margin: 10px 0 !important;
+  }
+
+  [data-testid="button-vote-track-a"],
+  [data-testid="button-vote-track-b"],
+  [data-testid="button-start-radio"],
+  [data-testid="button-radio-play-inline"] {
+    height: 45px !important;
+    margin: 5px 0 !important;
+  }
+
+  [data-testid="section-trending-today"],
+  [data-testid="widget-live-voting"] {
+    transform: scale(0.6);
+    margin-top: -20px;
+  }
+
   .battle-stats-panel {
     padding: 0.25rem !important;
     margin-bottom: 0.25rem !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
   }
   .battle-stats-panel .grid {
     gap: 0.25rem !important;
-  }
-  .battle-stats-panel .text-sm {
-    font-size: 0.7rem !important;
   }
   .battle-stats-panel .text-\[10px\] {
     font-size: 8px !important;
@@ -233,6 +294,19 @@
   .battle-page-container .mb-3 {
     margin-bottom: 0.25rem !important;
   }
+
+  .creators-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .creators-grid [data-testid^="card-creator"],
+  .creators-grid [data-testid^="card-placeholder"] {
+    min-height: 200px;
+    padding: 1.5rem !important;
+  }
+  .creators-grid .col-span-1 {
+    grid-column: span 1 !important;
+  }
+
   .submit-track-form input,
   .submit-track-form textarea {
     padding: 12px !important;

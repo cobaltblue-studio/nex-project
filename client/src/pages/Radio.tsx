@@ -191,7 +191,7 @@ export default function NexRadio() {
               </div>
             </div>
 
-            <div className="border border-white/5 rounded-sm overflow-hidden bg-black relative shrink-0" style={{ maxHeight: "45vh" }}>
+            <div className="radio-player-container border border-white/5 rounded-sm overflow-hidden bg-black relative shrink-0" style={{ maxHeight: "45vh" }}>
               {isLoading ? (
                 <div className="aspect-video flex items-center justify-center" style={{ maxHeight: "45vh" }}>
                   <Loader2 className="w-8 h-8 text-zinc-700 animate-spin" />

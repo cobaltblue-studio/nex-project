@@ -235,7 +235,7 @@ export function Layout({ children }: LayoutProps) {
       </footer>
 
       {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-4">
+      <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-4">
         {navItems.map((item) => {
           const isActive = location === item.path;
           return (

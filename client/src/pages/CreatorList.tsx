@@ -143,7 +143,7 @@ export function CreatorList() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mt-5" style={{ gridAutoRows: "minmax(120px, auto)" }}>
+      <div className="creators-grid grid grid-cols-2 lg:grid-cols-4 gap-8 mt-5" style={{ gridAutoRows: "minmax(120px, auto)" }}>
         {Array.from({ length: 20 }).map((_, idx) => {
           const creator = creators[idx];
 
