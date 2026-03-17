@@ -267,7 +267,7 @@ export function Home() {
             The Future of AI Music
           </p>
           <h1
-            className="text-[9rem] md:text-[24rem] font-display font-black leading-none neon-text-strong neon-text-green"
+            className="text-[9rem] md:text-[5.625rem] font-display font-black leading-none neon-text-strong neon-text-green"
             style={{
               background: "linear-gradient(180deg, #ffffff 0%, #c0c0c0 40%, #ffffff 60%, #a0a0a0 100%)",
               WebkitBackgroundClip: "text",
