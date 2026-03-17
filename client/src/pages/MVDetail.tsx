@@ -99,7 +99,7 @@ export function MVDetail() {
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 bg-[#0A0A0A] p-8 border border-white/5 rounded-sm">
           <div className="space-y-6 flex-1">
             <div className="space-y-2">
-              <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tighter uppercase neon-text-green">
+              <h1 className="text-2xl md:text-3xl font-display font-bold text-white tracking-tighter uppercase neon-text-green">
                 {track.title}
               </h1>
               <div className="flex items-center gap-4">
@@ -115,16 +115,12 @@ export function MVDetail() {
             </div>
 
             {/* TRACK INFORMATION BLOCK */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
+            <div className="grid grid-cols-3 gap-4 py-6 border-t border-white/5 text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-700">RANK</div>
                 <div className="text-white">
                   {rank ? `NEX #${String(rank).padStart(3, "0")}` : (areTracksLoading ? '...' : '-')}
                 </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-zinc-700">TITLE</div>
-                <div className="text-white">{track.title}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-zinc-700">ARTIST</div>
