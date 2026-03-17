@@ -157,7 +157,7 @@ export function Music() {
                     </div>
 
                     <div className="flex items-center gap-5 shrink-0">
-                      <div className="text-center min-w-[56px]">
+                      <div className="hidden md:block text-center min-w-[56px]">
                         <p
                           className="text-sm font-bold text-zinc-300"
                           data-testid={`text-chart-plays-${track.id}`}
@@ -168,7 +168,7 @@ export function Music() {
                       </div>
 
                       {track.winRate != null && (
-                        <div className="text-center min-w-[56px]">
+                        <div className="hidden md:block text-center min-w-[56px]">
                           <p
                             className="text-lg font-display font-bold text-primary"
                             data-testid={`text-chart-winrate-${track.id}`}

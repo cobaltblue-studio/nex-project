@@ -119,7 +119,7 @@ export function Rising() {
               {/* Battle stats */}
               <div className="flex items-center gap-5 shrink-0">
                 {/* Win Rate */}
-                <div className="text-center min-w-[56px]">
+                <div className="hidden md:block text-center min-w-[56px]">
                   <p
                     className="text-lg font-display font-bold text-primary"
                     data-testid={`text-rising-winrate-${track.id}`}
@@ -130,7 +130,7 @@ export function Rising() {
                 </div>
 
                 {/* Total Battles */}
-                <div className="text-center min-w-[48px]">
+                <div className="hidden md:block text-center min-w-[48px]">
                   <p
                     className="text-sm font-bold text-zinc-300"
                     data-testid={`text-rising-battles-${track.id}`}
