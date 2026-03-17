@@ -97,6 +97,11 @@ export function TrackDetail() {
     return sortedTracks[(rankIndex + 1) % sortedTracks.length];
   }, [sortedTracks, rankIndex]);
 
+  const prevTrack = useMemo(() => {
+    if (sortedTracks.length === 0 || rankIndex === -1) return null;
+    return rankIndex > 0 ? sortedTracks[rankIndex - 1] : null;
+  }, [sortedTracks, rankIndex]);
+
   // Navigate to next track (smooth — only updates state + URL, no full reload)
   const goToNext = useCallback(() => {
     if (!nextTrack || isTransitioning) return;
@@ -106,6 +111,15 @@ export function TrackDetail() {
     setLocation(`/track/${nextTrack.id}`, { replace: false });
     setTimeout(() => setIsTransitioning(false), 400);
   }, [nextTrack, isTransitioning, setLocation]);
+
+  const goToPrev = useCallback(() => {
+    if (!prevTrack || isTransitioning) return;
+    setIsTransitioning(true);
+    playerKey.current += 1;
+    setCurrentTrackId(prevTrack.id);
+    setLocation(`/track/${prevTrack.id}`, { replace: false });
+    setTimeout(() => setIsTransitioning(false), 400);
+  }, [prevTrack, isTransitioning, setLocation]);
 
   // onEnded is wired directly through YoutubePlayer's onEnded prop — no postMessage needed
 
@@ -220,19 +234,25 @@ export function TrackDetail() {
 
               {/* Prev / Next triangle buttons */}
               <div className="flex items-center gap-2">
-                <span
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={goToPrev}
+                  disabled={!prevTrack || isTransitioning}
                   data-testid="button-prev-track"
-                  className="text-zinc-700 opacity-30 text-base leading-none cursor-not-allowed select-none"
+                  className="text-zinc-400 hover:text-primary transition-all disabled:opacity-30 text-base leading-none"
+                  style={prevTrack ? { textShadow: "0 0 8px rgba(0,240,255,0.7)" } : undefined}
                 >
                   ◀
-                </span>
+                </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={goToNext}
                   disabled={!nextTrack || isTransitioning}
                   data-testid="button-next-track"
-                  className="text-zinc-400 hover:text-white transition-all disabled:opacity-30 text-base leading-none"
+                  className="text-zinc-400 hover:text-primary transition-all disabled:opacity-30 text-base leading-none"
+                  style={nextTrack ? { textShadow: "0 0 8px rgba(0,240,255,0.7)" } : undefined}
                 >
                   ▶
                 </motion.button>
