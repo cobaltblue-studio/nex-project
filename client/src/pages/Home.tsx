@@ -267,7 +267,7 @@ export function Home() {
             The Future of AI Music
           </p>
           <h1
-            className="text-7xl md:text-9xl font-display font-black leading-none neon-text-strong neon-text-green"
+            className="text-5xl md:text-9xl font-display font-black leading-none neon-text-strong neon-text-green"
             style={{
               background: "linear-gradient(180deg, #ffffff 0%, #c0c0c0 40%, #ffffff 60%, #a0a0a0 100%)",
               WebkitBackgroundClip: "text",
@@ -317,7 +317,7 @@ export function Home() {
           </div>
         </motion.div>
 
-        <div className="flex items-center justify-center gap-8 w-full" data-testid="hero-inline-row">
+        <div className="flex items-center justify-center gap-8 w-full mobile-discover-fixed" data-testid="hero-inline-row">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -344,7 +344,7 @@ export function Home() {
             </motion.div>
           </motion.div>
 
-          <div style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
+          <div className="hidden md:block" style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
             <LiveVotingWidget />
           </div>
         </div>
@@ -353,7 +353,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-platform-concept" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">What is NEX</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             The Billboard for AI Music
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -394,7 +394,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-battle-system" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">The Engine</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Battle-Driven Rankings
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -488,7 +488,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-creator-ecosystem" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">For Creators</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Creator Ecosystem
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -547,7 +547,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-trending-today" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Live Rankings</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Trending Today
           </h2>
           <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">
@@ -578,7 +578,7 @@ export function Home() {
       <motion.section className="text-center space-y-10 pt-12 px-6" data-testid="section-cta" {...fadeUp}>
         <div className="space-y-5">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Join NEX</p>
-          <h2 className="text-3xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Shape the Future of AI Music
           </h2>
           <p className="text-zinc-400 text-sm md:text-base max-w-xl mx-auto leading-relaxed normal-case font-light">

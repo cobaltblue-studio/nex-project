@@ -114,7 +114,7 @@ function BattleTrackPlayer({
           {PREVIEW_DURATION}s preview
         </span>
       </div>
-      <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "40vh" }}>
+      <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium battle-player-container ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "40vh" }}>
         {ytId ? (
           <YoutubePlayer
             videoId={ytId}
@@ -351,7 +351,7 @@ export function Battle() {
 
   return (
     <div className="fixed inset-0 z-40 bg-black overflow-hidden flex items-center justify-center pt-20">
-    <div className="max-w-3xl w-full mx-auto px-6 md:px-12 h-full overflow-hidden">
+    <div className="max-w-3xl w-full mx-auto px-6 md:px-12 h-full overflow-hidden battle-page-container">
       <AnimatePresence>
         {showFlash && (
           <motion.div
@@ -366,13 +366,13 @@ export function Battle() {
         )}
       </AnimatePresence>
       <div className="mb-3 text-center pt-2">
-        <div className="flex items-center justify-center gap-3 mb-1">
+        <div className="flex items-center justify-center gap-3 mb-1 mt-[10px] md:mt-0">
           <Swords className="w-4 h-4 text-primary" />
           <h1 className="text-[10px] font-bold tracking-[0.4em] uppercase text-primary">
             NEX Battle Arena
           </h1>
         </div>
-        <h2 className="text-xl md:text-2xl font-display font-black text-white tracking-tight neon-text-green">
+        <h2 className="text-sm md:text-2xl font-display font-black text-white tracking-tight neon-text-green">
           GLOBAL AI MUSIC BATTLE
         </h2>
         {selectedGenre && phase !== "genre-select" && (
@@ -390,7 +390,7 @@ export function Battle() {
         )}
       </div>
 
-      <div className="mb-3 premium-card p-3" data-testid="panel-today-stats">
+      <div className="mb-3 premium-card p-3 battle-stats-panel" data-testid="panel-today-stats">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400">
             🔥 TODAY BATTLE STATS
@@ -490,9 +490,9 @@ export function Battle() {
         )}
 
         {phase === "vote" && (
-          <div className="flex justify-center items-center my-3">
+          <div className="flex justify-center items-center my-1 md:my-3">
             <div
-              className="text-3xl font-display font-black italic text-primary tracking-wider cursor-default select-none vs-glitch"
+              className="text-xl md:text-3xl font-display font-black italic text-primary tracking-wider cursor-default select-none vs-glitch"
               data-testid="text-vs-label"
             >
               ⚡ VS ⚡
@@ -566,10 +566,10 @@ export function Battle() {
               </p>
             )}
 
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-1 md:mb-3">
               Which track wins the {selectedGenre} battle?
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 battle-vote-grid">
               <div
                 className={`premium-card p-4 flex flex-col gap-3 transition-premium ${listenedA && listenedB ? "" : "opacity-60"}`}
               >

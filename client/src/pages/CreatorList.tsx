@@ -133,7 +133,7 @@ export function CreatorList() {
     <div className="max-w-6xl mx-auto space-y-16 pb-24">
       <div className="text-center space-y-5">
         <h1
-          className="text-5xl md:text-7xl font-display font-black text-white tracking-tight uppercase leading-none neon-text-strong neon-text-green"
+          className="text-3xl md:text-7xl font-display font-black text-white tracking-tight uppercase leading-none neon-text-strong neon-text-green"
           data-testid="text-creators-title"
         >
           NEX CREATORS
@@ -150,7 +150,7 @@ export function CreatorList() {
           if (creator) {
             const isFeatured = idx < 2;
             return (
-              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={isFeatured ? "col-span-2 row-span-2" : "col-span-1"}>
+              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={isFeatured ? "col-span-1 row-span-1 md:col-span-2 md:row-span-2" : "col-span-1"}>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}

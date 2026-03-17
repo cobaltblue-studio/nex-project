@@ -134,8 +134,20 @@ export default function NexRadio() {
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
               NEX Platform
             </p>
-            <h2 className="text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-green">
-              NEX TOP 100 RADIO
+            <h2 className="text-sm md:text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-green relative">
+              NEX TOP 100 RADI
+              <span className="relative inline-block">
+                O
+                <button
+                  onClick={startRadio}
+                  data-testid="button-radio-play-inline"
+                  className="absolute inset-0 flex items-center justify-center md:hidden"
+                  style={{ animation: "radio-breathe 2s ease-in-out infinite", color: "rgb(0, 255, 128)" }}
+                  aria-label="Start Radio"
+                >
+                  <span className="text-lg font-bold">▷</span>
+                </button>
+              </span>
             </h2>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-8 max-w-xs">
               Continuous AI stream from the global chart. Click to start the vibe.
@@ -143,7 +155,7 @@ export default function NexRadio() {
             <button
               onClick={startRadio}
               data-testid="button-start-radio"
-              className="flex items-center gap-3 px-8 py-3 border border-primary/40 text-primary bg-primary/10 hover:bg-primary/25 rounded-sm text-[11px] font-black uppercase tracking-[0.3em] transition-all"
+              className="hidden md:flex items-center gap-3 px-8 py-3 border border-primary/40 text-primary bg-primary/10 hover:bg-primary/25 rounded-sm text-[11px] font-black uppercase tracking-[0.3em] transition-all"
             >
               <Play className="w-4 h-4" />
               Start Radio
@@ -156,7 +168,7 @@ export default function NexRadio() {
         <div className="flex flex-col flex-1 overflow-hidden gap-2">
           <div className="text-center shrink-0" style={{ minHeight: "10vh" }}>
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
-            <h1 data-testid="heading-radio" className="text-3xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-green">
+            <h1 data-testid="heading-radio" className="text-xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-green">
               <Radio className="w-6 h-6 text-primary inline mr-3" />
               NEX TOP 100 RADIO
             </h1>
