@@ -218,30 +218,25 @@ export function TrackDetail() {
                 <span className="hidden sm:block">{autoPlayNext ? "AUTO" : "MANUAL"}</span>
               </button>
 
-              {/* Up Next hint */}
-              {nextTrack && (
-                <div className="flex-1 text-center px-4">
-                  <p className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest truncate">
-                    <span className="text-zinc-600">UP NEXT</span>
-                    {" · "}
-                    <span className="text-zinc-500">{nextTrack.title}</span>
-                    {" — "}
-                    <span className="text-zinc-600">{nextTrack.creatorName}</span>
-                  </p>
-                </div>
-              )}
-
-              {/* NEXT Button */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={goToNext}
-                disabled={!nextTrack || isTransitioning}
-                data-testid="button-next-track"
-                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest border border-white/10 px-3 py-1.5 rounded-sm text-zinc-400 hover:text-white hover:border-white/30 transition-all disabled:opacity-30"
-              >
-                NEXT <SkipForward className="w-3.5 h-3.5" />
-              </motion.button>
+              {/* Prev / Next triangle buttons */}
+              <div className="flex items-center gap-2">
+                <span
+                  data-testid="button-prev-track"
+                  className="text-zinc-700 opacity-30 text-base leading-none cursor-not-allowed select-none"
+                >
+                  ◀
+                </span>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={goToNext}
+                  disabled={!nextTrack || isTransitioning}
+                  data-testid="button-next-track"
+                  className="text-zinc-400 hover:text-white transition-all disabled:opacity-30 text-base leading-none"
+                >
+                  ▶
+                </motion.button>
+              </div>
             </div>
           </div>
 
@@ -260,7 +255,7 @@ export function TrackDetail() {
                   {track.title}
                 </h1>
                 <Link href={`/profile/${track.creatorName.toLowerCase()}`}>
-                  <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs cursor-pointer hover:text-white transition-colors">
+                  <p className="text-primary font-bold uppercase tracking-[0.4em] cursor-pointer hover:text-white transition-colors mt-4" style={{ fontSize: "10px" }}>
                     BY {track.creatorName}
                   </p>
                 </Link>
