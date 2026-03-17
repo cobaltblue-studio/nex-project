@@ -1,0 +1,34 @@
+# [Final Emergency Instruction: Mobile UX Overhaul & Component Finishing]
+
+Act as a Senior Creative Developer. Your primary task is to fix the "broken" mobile user experience immediately. **Do NOT break any functional logic.**
+
+## 1. MOBILE RESPONSIVE Mandatory Rules (CSS Media Queries)
+- **Target Breakpoint:** Define `@media (max-width: 768px)` as the primary mobile breakpoint. 
+- **Font-Scaling:** Reduce ALL main page titles (`h1/h2` with Neon Green Glow) by **30%** on mobile to fit the screen width.
+
+## 2. HOME: Sticky Scroll Indicator (image_ba5759.jpg)
+- **Action:** Re-verify that the "DISCOVER MORE" arrow and text are **always visible** on the first screen (above the fold) on ALL mobile resolutions. Use `bottom: 20px; z-index: 10000;`.
+
+## 3. BATTLE (Mobile): Viewport Constraints (image_583d2c.jpg)
+- **Problem:** Buttons cut off, layout is chaotic.
+- **Action:** For mobile viewport (`<768px`):
+  - Reduce the top margin of "GLOBAL AI MUSIC BATTLE" to `10px`.
+  - Scale down the main YouTube Player size to `max-height: 25vh` or **30% smaller** than its current size.
+  - Group [Track A info], [VS logo], and [Track B info] closely.
+  - **Result:** The "VOTE" buttons MUST be **completely visible** on one screen without any scrolling.
+
+## 4. RADIO (Mobile): Minimalist Layout (009.jpg)
+- **Problem:** Giant `START RADIO` button obscures the title.
+- **Action:** - Remove the giant white `START RADIO` button on mobile.
+  - Replace it with a subtle, **pulsating Neon Green Play Icon** (`▷`) placed **exactly over the "O" of the "NEX TOP 100 RADIO" title**, blending with the text.
+  - Apply the "Breathing" animation to this Play Icon to indicate "Alive".
+
+## 5. CREATORS (Mobile): Grid Unification (image_584189.jpg)
+- **Action:** Change the grid to a **perfect 2-Column grid** (`grid-template-columns: repeat(2, 1fr)`).
+- **Style:** Every card must have **identical dimensions** and spacing.
+
+## 6. SUBMIT TRACK (Mobile): Readability
+- **Action:** Set h1 Neon Glow text-shadow to a milder `0 0 8px` to ensure the English text is sharp. 
+- **Inputs:** Apply `padding: 12px;` to all input fields for better mobile touch experience.
+
+**"Apply these specific CSS overrides immediately. The priority is to create a seamless, non-scrolling UX for Battle and Radio on all mobile devices."**
