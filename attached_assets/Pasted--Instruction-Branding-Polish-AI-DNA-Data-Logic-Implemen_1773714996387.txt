@@ -1,0 +1,31 @@
+# [Instruction: Branding Polish & AI DNA Data Logic Implementation]
+
+Act as a Senior Creative Director and Full-stack Engineer. 
+**Goal:** Clean up visual artifacts, unify breathing animations, and establish AI DNA data flow.
+
+## 1. HOME: Visual Cleanup & Layout Alignment
+- **Cleanup:** Remove the floating white numbers below the main "NEX" logo (`image_599b22.jpg`). These look like artifacts.
+- **Scroll Guide Alignment:** Move the "DISCOVER MORE" indicator upwards so it sits on the **same horizontal line as the Live Trends Graph** (`image_599a8b.jpg`). 
+- **Result:** Both the graph and the scroll guide must be clearly visible on the first screen (above the fold).
+
+## 2. HOME Hero: "Breathing" Focus
+- **Action:** Apply the "Breathing" scale/glow animation **ONLY to the "ENTER BATTLE ARENA" button** (`image_5996a9.jpg`).
+- **Style:** Slow, deep breathing effect (Scale 1.0 to 1.05). This makes the primary CTA look like the "heart" of the platform.
+
+## 3. AI DNA: Data Flow & Submit Page Integration
+- **Submit Page Update:** Add a new **textarea** field labeled "AI Prompt / Generation Info (Optional)".
+  - Users can paste their prompt or model info here when submitting a track.
+- **Display Logic (image_598ffa.jpg):** - The [AI_DNA] badge must now show the **actual prompt data** submitted by the user.
+  - If no data was provided, show a default system-generated tech string like: `[RAW_DATA_SYNCED | SEED: 7721]`.
+  - **Visual:** Use a high-contrast mono-spaced font inside the tooltip so it looks like "extracted data".
+
+## 4. RISING Page: Visual Strategy (`image_598b42.jpg`)
+- **Action:** Since this page shows "Tracks on the rise," implement a **"Heatmap" style list**.
+- **Style:** Tracks with the highest growth rate should have a subtle **Orange-to-Red gradient glow** on their left border, indicating they are "Hot".
+- **Empty State:** Keep the current "No Rising Tracks Yet" message but add a small, glowing "Check again in 24h" timer icon for professional vibe.
+
+## 5. Viewport & Scaling Fix
+- Re-verify: All page titles must have the Green Neon Glow.
+- Battle Result page must be a single-screen (100vh) experience as previously instructed.
+
+**"Apply these changes to finalize the 'Tech-Platform' authority. The AI DNA must feel like a core feature, not just a decorative badge."**
