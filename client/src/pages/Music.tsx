@@ -124,27 +124,24 @@ export function Music() {
 
                     <div className="flex-1 min-w-0">
                       <p
-                        className="text-xs font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight"
+                        className="text-[0.6rem] font-bold text-white uppercase tracking-wider truncate leading-tight"
                         data-testid={`text-chart-title-${track.id}`}
                       >
                         {track.title}
                       </p>
                       <span
-                        className="text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate"
+                        className="text-[9px] font-bold text-primary/70 uppercase tracking-widest truncate block"
                         data-testid={`text-chart-creator-${track.id}`}
                       >
                         {track.creatorName}
                       </span>
-                      <span className="block text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</span>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {track.winStreak > 0 && (
-                          <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid={`text-chart-streak-${track.id}`}>
-                            🔥 WIN STREAK: {track.winStreak}
-                          </span>
-                        )}
+                        <span className="text-[7px] text-zinc-700 uppercase tracking-[0.2em] border border-white/5 px-1 py-0.5 rounded-xs">
+                          {track.genre}
+                        </span>
                         <div className="relative group/dna shrink-0">
                           <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm flex items-center gap-1" data-testid={`icon-dna-${track.id}`}>
-                            <Dna className="w-3.5 h-3.5 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
+                            <Dna className="w-3 h-3 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
                             <span className="text-[7px] font-mono font-bold text-cyan-400 uppercase tracking-wider">[AI_DNA]</span>
                           </button>
                           <div className="absolute bottom-full left-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
@@ -154,11 +151,25 @@ export function Music() {
                             </div>
                           </div>
                         </div>
+                        {track.winStreak > 0 && (
+                          <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[7px] font-bold border border-orange-500/20" data-testid={`text-chart-streak-${track.id}`}>
+                            🔥 {track.winStreak}
+                          </span>
+                        )}
+                        <Link href={`/track/${track.id}`}>
+                          <button
+                            data-testid={`button-chart-listen-${track.id}`}
+                            className="flex items-center gap-1 px-2 py-0.5 border border-white/10 rounded-sm text-[8px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
+                          >
+                            <Headphones className="w-2.5 h-2.5" />
+                            Listen
+                          </button>
+                        </Link>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-5 shrink-0">
-                      <div className="hidden md:block text-center min-w-[56px]">
+                    <div className="hidden md:flex items-center gap-5 shrink-0">
+                      <div className="text-center min-w-[56px]">
                         <p
                           className="text-sm font-bold text-zinc-300"
                           data-testid={`text-chart-plays-${track.id}`}
@@ -169,9 +180,9 @@ export function Music() {
                       </div>
 
                       {track.winRate != null && (
-                        <div className="hidden md:block text-center min-w-[56px]">
+                        <div className="text-center min-w-[56px]">
                           <p
-                            className="text-lg font-display font-bold text-primary"
+                            className="text-sm font-display font-bold text-primary"
                             data-testid={`text-chart-winrate-${track.id}`}
                           >
                             {track.winRate}%
@@ -179,16 +190,6 @@ export function Music() {
                           <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Win Rate</p>
                         </div>
                       )}
-
-                      <Link href={`/track/${track.id}`}>
-                        <button
-                          data-testid={`button-chart-listen-${track.id}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                        >
-                          <Headphones className="w-3 h-3" />
-                          Listen
-                        </button>
-                      </Link>
                     </div>
                   </motion.div>
                 ) : (

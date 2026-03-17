@@ -200,29 +200,28 @@
   }
 
   [data-testid="section-hero"] {
-    min-height: 100svh !important;
-    height: auto !important;
+    min-height: calc(100svh - 192px) !important;
+    height: calc(100svh - 192px) !important;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    overflow: hidden;
   }
 
   [data-testid="scroll-guide"] {
-    position: absolute !important;
-    bottom: 70px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    z-index: 9999 !important;
-    display: block !important;
+    display: flex !important;
+    align-items: center !important;
   }
 
-  .mobile-discover-fixed {
+  [data-testid="hero-inline-row"] {
     position: static !important;
+    margin-top: auto !important;
+    padding-bottom: 1.5rem !important;
   }
 
-  h1.neon-text-strong, h1.neon-text-green, h1.font-display,
-  h2.neon-text-strong, h2.neon-text-green, h2.font-display {
-    font-size: clamp(1rem, 5vw, 1.5rem) !important;
+  h1.neon-text-strong, h1.neon-text-green, h1.neon-text, h1.font-display,
+  h2.neon-text-strong, h2.neon-text-green, h2.neon-text, h2.font-display {
+    font-size: 80% !important;
   }
 
   .neon-text-green,
@@ -260,10 +259,13 @@
     margin: 5px 0 !important;
   }
 
-  [data-testid="section-trending-today"],
-  [data-testid="widget-live-voting"] {
-    transform: scale(0.6);
-    margin-top: -20px;
+
+  .radio-page-container {
+    min-height: calc(100svh - 200px) !important;
+  }
+  .radio-pre-start {
+    flex: 1;
+    min-height: calc(100svh - 240px) !important;
   }
 
   .battle-stats-panel {

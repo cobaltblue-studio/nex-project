@@ -125,9 +125,9 @@ export default function NexRadio() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto" style={{ height: "calc(100vh - 8rem)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div className="max-w-4xl mx-auto radio-page-container" style={{ display: "flex", flexDirection: "column" }}>
       {!radioStarted ? (
-        <div className="flex flex-col items-center justify-center px-8 text-center flex-1 gap-0">
+        <div className="flex flex-col items-center justify-center px-8 text-center gap-0 radio-pre-start">
             <div className="w-16 h-16 rounded-full border border-primary/20 bg-primary/5 flex items-center justify-center mb-5">
               <Radio className="w-7 h-7 text-primary" strokeWidth={1.5} />
             </div>

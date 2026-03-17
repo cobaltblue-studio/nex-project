@@ -143,7 +143,7 @@ export function CreatorList() {
         </p>
       </div>
 
-      <div className="creators-grid grid grid-cols-2 lg:grid-cols-4 gap-8 mt-5" style={{ gridAutoRows: "minmax(120px, auto)" }}>
+      <div className="creators-grid grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5" style={{ gridAutoRows: "160px" }}>
         {Array.from({ length: 20 }).map((_, idx) => {
           const creator = creators[idx];
 
@@ -154,67 +154,58 @@ export function CreatorList() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="premium-card p-8 cursor-pointer group h-full"
-                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out" }}
+                  className="premium-card p-4 cursor-pointer group h-full flex flex-col items-center justify-between gap-3"
+                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out", minHeight: "160px" }}
                   whileHover={{ scale: 1.03 }}
                   data-testid={`card-creator-${idx}`}
                 >
-                  <div className="flex items-start gap-5">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 group-hover:bg-primary/20 transition-premium shrink-0">
-                      <span className="text-lg font-display font-bold" data-testid={`text-creator-initials-${idx}`}>
-                        {creator.initials}
-                      </span>
-                    </div>
-                    <div className="space-y-3 min-w-0 flex-1">
-                      <div>
-                        <h3
-                          className="text-lg font-display font-bold text-white uppercase truncate group-hover:text-primary transition-premium"
-                          data-testid={`text-creator-name-${idx}`}
-                        >
-                          {creator.name}
-                        </h3>
-                        {creator.country && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3 text-zinc-600" />
-                            <span
-                              className="text-[10px] text-zinc-500 uppercase tracking-widest"
-                              data-testid={`text-creator-country-${idx}`}
-                            >
-                              {creator.country}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 group-hover:bg-primary/20 transition-premium shrink-0 mt-1">
+                    <span className="text-lg font-display font-bold" data-testid={`text-creator-initials-${idx}`}>
+                      {creator.initials}
+                    </span>
+                  </div>
 
-                      <div className="flex items-center gap-1.5 text-[9px] text-zinc-500 uppercase tracking-widest">
-                        <Music className="w-3 h-3 text-primary/50" />
-                        <span className="truncate" data-testid={`text-creator-featured-${idx}`}>
-                          {creator.featuredTrack}
+                  <div className="text-center min-w-0 w-full">
+                    <h3
+                      className="text-sm font-display font-bold text-white uppercase truncate group-hover:text-primary transition-premium"
+                      data-testid={`text-creator-name-${idx}`}
+                    >
+                      {creator.name}
+                    </h3>
+                    {creator.country && (
+                      <div className="flex items-center justify-center gap-1 mt-0.5">
+                        <MapPin className="w-3 h-3 text-zinc-600" />
+                        <span
+                          className="text-[10px] text-zinc-500 uppercase tracking-widest"
+                          data-testid={`text-creator-country-${idx}`}
+                        >
+                          {creator.country}
                         </span>
                       </div>
+                    )}
+                  </div>
 
-                      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-white/5">
-                        <div className="text-center">
-                          <p className="text-sm font-bold text-white" data-testid={`text-creator-tracks-${idx}`}>
-                            {creator.totalTracks}
-                          </p>
-                          <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Tracks</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-bold text-white flex items-center justify-center gap-1" data-testid={`text-creator-plays-${idx}`}>
-                            <Headphones className="w-3 h-3 text-zinc-500" />
-                            {creator.totalPlays.toLocaleString()}
-                          </p>
-                          <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Plays</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-bold text-primary flex items-center justify-center gap-1" data-testid={`text-creator-winrate-${idx}`}>
-                            <Trophy className="w-3 h-3 text-primary/50" />
-                            {Math.round(creator.avgWinRate)}%
-                          </p>
-                          <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Win Rate</p>
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-3 gap-1 w-full pt-2 border-t border-white/5">
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-white flex items-center justify-center gap-0.5" data-testid={`text-creator-tracks-${idx}`}>
+                        <Music className="w-3 h-3 text-primary/50" />
+                        {creator.totalTracks}
+                      </p>
+                      <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Tracks</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-white flex items-center justify-center gap-0.5" data-testid={`text-creator-plays-${idx}`}>
+                        <Headphones className="w-3 h-3 text-zinc-500" />
+                        {creator.totalPlays.toLocaleString()}
+                      </p>
+                      <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Plays</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-primary flex items-center justify-center gap-0.5" data-testid={`text-creator-winrate-${idx}`}>
+                        <Trophy className="w-3 h-3 text-primary/50" />
+                        {Math.round(creator.avgWinRate)}%
+                      </p>
+                      <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Win Rate</p>
                     </div>
                   </div>
                 </motion.div>
@@ -228,8 +219,8 @@ export function CreatorList() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              className="premium-card border-dashed !border-white/[0.04] p-8 flex flex-col items-center justify-center gap-4 select-none relative overflow-hidden"
-              style={{ transition: "transform 0.3s ease-in-out" }}
+              className="premium-card border-dashed !border-white/[0.04] p-4 flex flex-col items-center justify-center gap-4 select-none relative overflow-hidden"
+              style={{ transition: "transform 0.3s ease-in-out", minHeight: "160px" }}
               whileHover={{ scale: 1.03 }}
               data-testid={`card-placeholder-${idx}`}
             >

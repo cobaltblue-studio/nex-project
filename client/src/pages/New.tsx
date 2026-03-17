@@ -80,12 +80,12 @@ export function New() {
 
               <div className="flex-1 min-w-0">
                 <p
-                  className="text-sm font-bold text-white uppercase tracking-wider truncate"
+                  className="text-[0.7rem] font-bold text-white uppercase tracking-wider truncate leading-tight"
                   data-testid={`text-new-track-title-${track.id}`}
                 >
                   {track.title}
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-0.5">
                   <span
                     className="text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate"
                     data-testid={`text-new-track-creator-${track.id}`}
@@ -95,6 +95,17 @@ export function New() {
                   <span className="text-[9px] text-zinc-600 uppercase tracking-widest">
                     {track.genre}
                   </span>
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Link href={`/track/${track.id}`}>
+                    <button
+                      data-testid={`button-new-listen-${track.id}`}
+                      className="flex items-center gap-1.5 px-3 py-1 border border-white/10 rounded-sm text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
+                    >
+                      <Headphones className="w-3 h-3" />
+                      Listen
+                    </button>
+                  </Link>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wider cursor-default" style={{ color: "#00FF80", textShadow: "0 0 6px rgba(0,255,128,0.4)" }} data-testid={`badge-ai-dna-${track.id}`}>[AI_DNA]</span>
@@ -104,18 +115,6 @@ export function New() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-5 shrink-0">
-                <Link href={`/track/${track.id}`}>
-                  <button
-                    data-testid={`button-new-listen-${track.id}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                  >
-                    <Headphones className="w-3 h-3" />
-                    Listen
-                  </button>
-                </Link>
               </div>
             </motion.div>
           ))}

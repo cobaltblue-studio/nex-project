@@ -242,8 +242,8 @@ export function Home() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-40 pb-40">
 
       <section
-        className="relative text-center overflow-hidden flex flex-col"
-        style={{ minHeight: "100svh", height: "auto", paddingTop: "8vh", paddingBottom: "4rem", gap: "1.5rem" }}
+        className="relative text-center overflow-hidden flex flex-col hero-section-responsive"
+        style={{ minHeight: "100svh", height: "auto", paddingTop: "5vh", paddingBottom: "1rem", gap: "1rem" }}
         data-testid="section-hero"
       >
         <div
@@ -263,7 +263,7 @@ export function Home() {
         </div>
 
         <motion.div {...fadeUp} className="relative z-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-3">
             The Future of AI Music
           </p>
           <h1
@@ -279,10 +279,10 @@ export function Home() {
           >
             NEX
           </h1>
-          <p className="text-primary font-bold tracking-[0.4em] text-sm uppercase mt-6">
+          <p className="text-primary font-bold tracking-[0.4em] text-sm uppercase mt-2 md:mt-6">
             AI Music Ranking Platform
           </p>
-          <p className="text-zinc-400 text-base md:text-lg max-w-2xl mx-auto mt-8 leading-relaxed normal-case font-light">
+          <p className="hidden md:block text-zinc-400 text-base md:text-lg max-w-2xl mx-auto mt-8 leading-relaxed normal-case font-light">
             The world's first competitive ranking platform for AI-generated music.
             Artists submit, battle, and rise through a transparent chart system
             powered by community voting.
@@ -290,7 +290,7 @@ export function Home() {
         </motion.div>
 
         <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.2 }} className="relative z-10">
-          <div className="flex flex-nowrap justify-center gap-3 pt-6">
+          <div className="flex flex-nowrap justify-center gap-3 pt-2 md:pt-6">
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-battle"
@@ -317,7 +317,7 @@ export function Home() {
           </div>
         </motion.div>
 
-        <div className="flex items-center justify-center gap-8 w-full mobile-discover-fixed" data-testid="hero-inline-row">
+        <div className="relative z-10 flex items-center justify-center gap-8 w-full" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "1.5rem" }}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -439,9 +439,9 @@ export function Home() {
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 text-center mb-8">
               Live Battle
             </p>
-            <div className="flex items-center justify-center gap-8">
-              <div className="flex-1 text-right">
-                <p className="text-sm font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-a">
+            <div className="flex md:flex-row flex-col items-center justify-center gap-4 md:gap-8">
+              <div className="flex-1 md:text-right text-center">
+                <p className="text-[0.7rem] font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-a">
                   {recentBattle.trackA?.title || "Track A"}
                 </p>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
@@ -451,8 +451,8 @@ export function Home() {
               <div className="shrink-0 self-center">
                 <span className="text-3xl font-display font-black italic text-primary neon-text" data-testid="text-battle-vs">VS</span>
               </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-b">
+              <div className="flex-1 md:text-left text-center">
+                <p className="text-[0.7rem] font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-b">
                   {recentBattle.trackB?.title || "Track B"}
                 </p>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
