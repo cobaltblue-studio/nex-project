@@ -92,8 +92,8 @@ export function MVCard({ track, index }: MVCardProps) {
                   [AI_DNA]
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="top" className="text-[10px] font-mono">
-                [MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]
+              <TooltipContent side="top" className="font-mono text-[10px] text-white" style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
+                {track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}
               </TooltipContent>
             </Tooltip>
             <Youtube className="w-8 h-8 text-red-600/40 group-hover:text-red-600 group-hover:scale-110 transition-all z-20" />

@@ -37,7 +37,7 @@ export function Submit() {
     return (
       <div className="text-center py-32 border border-white/5 bg-white/5 rounded-sm">
         <AlertCircle className="w-12 h-12 text-primary mx-auto mb-6 opacity-40" />
-        <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-4">NEX PROFILE REQUIRED</h2>
+        <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-4 neon-text-green">NEX PROFILE REQUIRED</h2>
         <p className="text-zinc-500 mb-10 text-xs uppercase tracking-[0.2em]">Initialize your presence before data transmission</p>
         <button onClick={() => navigate("/profile/me")} className="bg-primary text-black px-10 py-4 rounded-sm font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(0,240,255,0.3)]">
           Setup Profile

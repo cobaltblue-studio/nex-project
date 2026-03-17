@@ -99,7 +99,7 @@ export function MVDetail() {
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 bg-[#0A0A0A] p-8 border border-white/5 rounded-sm">
           <div className="space-y-6 flex-1">
             <div className="space-y-2">
-              <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tighter uppercase">
+              <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tighter uppercase neon-text-green">
                 {track.title}
               </h1>
               <div className="flex items-center gap-4">

@@ -273,8 +273,7 @@ export function Home() {
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
-              filter: "drop-shadow(0 0 15px rgba(0, 255, 128, 0.7)) drop-shadow(0 0 40px rgba(0, 255, 128, 0.3))",
-              animation: "nex-breathe 7s ease-in-out infinite",
+              filter: "drop-shadow(0 0 20px rgba(0, 255, 128, 0.8)) drop-shadow(0 0 50px rgba(0, 255, 128, 0.4))",
               display: "inline-block",
             }}
           >
@@ -295,7 +294,8 @@ export function Home() {
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-battle"
-              className="px-10 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              className="px-10 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              style={{ animation: "cta-breathe 4s ease-in-out infinite" }}
             >
               Start Battle
             </button>
@@ -317,55 +317,37 @@ export function Home() {
           </div>
         </motion.div>
 
-        <div style={{ transform: "scale(0.6)", transformOrigin: "top center", marginBottom: "-40%" }}>
-          <LiveVotingWidget />
-        </div>
-
-        {todayStats && (
-          <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.3 }} className="relative z-10">
-            <div className="flex flex-wrap justify-center gap-10 pt-4">
-              <div className="text-center" data-testid="stat-hero-battles">
-                <p className="text-3xl font-display font-bold text-white">{todayStats.battlesPlayedToday ?? 0}</p>
-                <p className="text-[8px] uppercase tracking-[0.3em] text-zinc-600 mt-1.5">Battles Today</p>
-              </div>
-              <div className="text-center" data-testid="stat-hero-votes">
-                <p className="text-3xl font-display font-bold text-white">{todayStats.totalVotesToday ?? 0}</p>
-                <p className="text-[8px] uppercase tracking-[0.3em] text-zinc-600 mt-1.5">Votes Cast</p>
-              </div>
-              <div className="text-center" data-testid="stat-hero-pool">
-                <p className="text-3xl font-display font-bold text-white">{todayStats.tracksInPool ?? 0}</p>
-                <p className="text-[8px] uppercase tracking-[0.3em] text-zinc-600 mt-1.5">Tracks in Pool</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.5, duration: 1 }}
-          className="flex flex-col items-center gap-3"
-          style={{ position: "absolute", bottom: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 200 }}
-          data-testid="scroll-guide"
-        >
+        <div className="flex items-center justify-center gap-8 w-full" data-testid="hero-inline-row">
           <motion.div
-            animate={{ y: [0, 6, 0] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            className="flex flex-col items-center gap-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.5, duration: 1 }}
+            className="relative z-10 flex items-center gap-2"
+            data-testid="scroll-guide"
           >
-            <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/80"
-              style={{ textShadow: "0 0 12px hsla(189,100%,50%,0.4)" }}
-            >
-              DISCOVER MORE
-            </span>
             <motion.div
-              animate={{ opacity: [0.5, 1, 0.5] }}
+              animate={{ y: [0, 6, 0] }}
               transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              className="flex items-center gap-2"
             >
-              <ChevronDown className="w-6 h-6 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))" }} />
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/80"
+                style={{ textShadow: "0 0 12px hsla(189,100%,50%,0.4)" }}
+              >
+                DISCOVER MORE
+              </span>
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ChevronDown className="w-6 h-6 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))" }} />
+              </motion.div>
             </motion.div>
           </motion.div>
-        </motion.div>
+
+          <div style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
+            <LiveVotingWidget />
+          </div>
+        </div>
       </section>
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-platform-concept" {...fadeUp}>

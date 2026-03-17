@@ -134,7 +134,7 @@ export default function NexRadio() {
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
               NEX Platform
             </p>
-            <h2 className="text-xl font-black uppercase tracking-[0.15em] text-white mb-2" style={{ textShadow: "0 0 15px rgba(0, 255, 128, 0.7)" }}>
+            <h2 className="text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-green">
               NEX TOP 100 RADIO
             </h2>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-8 max-w-xs">
@@ -156,7 +156,7 @@ export default function NexRadio() {
         <div className="flex flex-col flex-1 overflow-hidden gap-2">
           <div className="text-center shrink-0" style={{ minHeight: "10vh" }}>
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
-            <h1 data-testid="heading-radio" className="text-3xl md:text-4xl font-black uppercase tracking-[0.15em] text-white" style={{ textShadow: "0 0 15px rgba(0, 255, 128, 0.7)" }}>
+            <h1 data-testid="heading-radio" className="text-3xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-green">
               <Radio className="w-6 h-6 text-primary inline mr-3" />
               NEX TOP 100 RADIO
             </h1>

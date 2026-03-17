@@ -102,8 +102,8 @@ export function MusicRow({ track, rank }: MusicRowProps) {
             <TooltipTrigger asChild>
               <span className="px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wider cursor-default" style={{ color: "#00FF80" }} data-testid={`badge-ai-dna-${track.id}`}>[AI_DNA]</span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-[10px] font-mono">
-              [MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]
+            <TooltipContent side="top" className="font-mono text-[10px] text-white" style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
+              {track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}
             </TooltipContent>
           </Tooltip>
           {track.winStreak > 0 && (

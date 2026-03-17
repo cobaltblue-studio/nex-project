@@ -40,7 +40,7 @@ export default function ChartMethodology() {
     <div className="max-w-3xl mx-auto py-8 space-y-12">
       <div>
         <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">NEX Platform</p>
-        <h1 className="text-3xl md:text-4xl font-display font-bold uppercase tracking-[0.15em] text-white mb-4" data-testid="text-methodology-title">
+        <h1 className="text-3xl md:text-4xl font-display font-bold uppercase tracking-[0.15em] text-white mb-4 neon-text-green" data-testid="text-methodology-title">
           Chart Methodology
         </h1>
         <p className="text-zinc-400 text-[13px] leading-relaxed">

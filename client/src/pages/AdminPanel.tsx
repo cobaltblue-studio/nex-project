@@ -130,7 +130,7 @@ export default function AdminPanel() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
-          <h1 data-testid="heading-admin-panel" className="text-2xl font-black uppercase tracking-[0.15em] text-white">
+          <h1 data-testid="heading-admin-panel" className="text-2xl font-black uppercase tracking-[0.15em] text-white neon-text-green">
             Admin Panel
           </h1>
           <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-1">

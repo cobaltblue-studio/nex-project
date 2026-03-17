@@ -55,7 +55,7 @@ export function Join() {
         <div className="inline-block px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-[10px] font-bold uppercase tracking-[0.2em] mb-4">
           Authority Ranking Layer
         </div>
-        <h1 className="text-5xl md:text-8xl font-display font-bold text-white tracking-tighter leading-[0.9]">
+        <h1 className="text-5xl md:text-8xl font-display font-bold text-white tracking-tighter leading-[0.9] neon-text-green">
           THE <span className="text-primary neon-text">NEX</span><br />LEAGUE
         </h1>
         <p className="text-zinc-400 font-sans max-w-xl mx-auto text-base md:text-lg leading-relaxed">
@@ -106,7 +106,7 @@ export function Join() {
       </section>
 
       <section className="bg-white/5 border border-white/10 p-12 rounded-sm text-center space-y-6">
-        <h2 className="text-2xl font-display font-bold uppercase tracking-widest text-white">Verified Authority</h2>
+        <h2 className="text-2xl font-display font-bold uppercase tracking-widest text-white neon-text-green">Verified Authority</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
           {[
             "Prompt Authentication",

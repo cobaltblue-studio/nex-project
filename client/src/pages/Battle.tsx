@@ -350,7 +350,8 @@ export function Battle() {
       : null;
 
   return (
-    <div className="max-w-3xl mx-auto" style={{ height: "100vh", overflow: "hidden" }}>
+    <div className="fixed inset-0 z-40 bg-black overflow-hidden flex items-center justify-center pt-20">
+    <div className="max-w-3xl w-full mx-auto px-6 md:px-12 h-full overflow-hidden">
       <AnimatePresence>
         {showFlash && (
           <motion.div
@@ -371,7 +372,7 @@ export function Battle() {
             NEX Battle Arena
           </h1>
         </div>
-        <h2 className="text-xl md:text-2xl font-display font-black text-white tracking-tight" style={{ textShadow: "0 0 15px rgba(0, 255, 128, 0.7)" }}>
+        <h2 className="text-xl md:text-2xl font-display font-black text-white tracking-tight neon-text-green">
           GLOBAL AI MUSIC BATTLE
         </h2>
         {selectedGenre && phase !== "genre-select" && (
@@ -755,6 +756,7 @@ export function Battle() {
           );
         })()}
       </AnimatePresence>
+    </div>
     </div>
   );
 }

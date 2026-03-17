@@ -40,6 +40,7 @@ export const tracks = pgTable("tracks", {
   playCount: integer("play_count").default(0).notNull(),
   rankingScore: doublePrecision("ranking_score").default(0).notNull(),
   lastPlayedAt: timestamp("last_played_at"),
+  aiPrompt: text("ai_prompt"),
   winStreak: integer("win_streak").default(0).notNull(),
   isFeatured: boolean("is_featured").default(false).notNull(),
   releaseDate: timestamp("release_date").defaultNow().notNull(),

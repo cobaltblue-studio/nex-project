@@ -13,6 +13,7 @@ interface ChartTrack {
   playCount: number;
   rankingScore: number;
   winStreak: number;
+  aiPrompt?: string | null;
   totalBattles?: number;
   wins?: number;
   winRate?: number;
@@ -134,9 +135,9 @@ export function Music() {
                             <Dna className="w-3.5 h-3.5 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap"
-                              style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,200,0.4)", boxShadow: "0 0 12px rgba(0,255,200,0.15)" }}>
-                              <p className="text-cyan-300">[MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]</p>
+                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white"
+                              style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,128,0.4)", boxShadow: "0 0 12px rgba(0,255,128,0.15)" }}>
+                              <p>{track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}</p>
                             </div>
                           </div>
                         </div>

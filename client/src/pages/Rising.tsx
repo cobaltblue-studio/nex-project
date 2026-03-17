@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, Loader2, Headphones, Flame } from "lucide-react";
+import { TrendingUp, Loader2, Headphones, Flame, Clock } from "lucide-react";
 import { Link } from "wouter";
 
 interface RisingTrack {
@@ -63,6 +63,10 @@ export function Rising() {
             Tracks need at least 5 battles with a 60%+ win rate to appear here.
             Go to Battle and start competing!
           </p>
+          <div className="flex items-center gap-2 mt-2">
+            <Clock className="w-4 h-4 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))", animation: "neon-pulse 2s ease-in-out infinite" }} />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Check again in 24h</span>
+          </div>
           <Link href="/battle">
             <button className="mt-2 px-6 py-2.5 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all">
               Go to Battle
@@ -71,13 +75,23 @@ export function Rising() {
         </div>
       ) : (
         <div className="space-y-2">
-          {tracks.map((track, idx) => (
+          {tracks.map((track, idx) => {
+            const totalTracks = tracks.length;
+            const intensity = totalTracks > 1 ? 1 - (idx / (totalTracks - 1)) : 1;
+            const glowOpacity = 0.2 + intensity * 0.8;
+            const glowSpread = 4 + intensity * 12;
+            const hue = 30 - intensity * 30;
+            return (
             <motion.div
               key={track.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.04 }}
               className="flex items-center gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
+              style={{
+                borderLeft: `3px solid hsla(${hue}, 100%, 50%, ${glowOpacity})`,
+                boxShadow: `inset ${glowSpread}px 0 ${glowSpread * 2}px -${glowSpread}px hsla(${hue}, 100%, 50%, ${glowOpacity * 0.4})`,
+              }}
               data-testid={`row-rising-${track.id}`}
             >
               {/* Rank */}
@@ -138,7 +152,8 @@ export function Rising() {
                 </Link>
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

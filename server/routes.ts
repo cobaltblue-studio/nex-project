@@ -159,6 +159,7 @@ export async function registerRoutes(
       trackType: t.trackType,
       status: t.status,
       winStreak: t.winStreak,
+      aiPrompt: t.aiPrompt,
       createdAt: t.createdAt,
       ...(battleStats[t.id] ? {
         totalBattles: battleStats[t.id].totalBattles,
@@ -217,6 +218,7 @@ export async function registerRoutes(
       trackType: t.trackType,
       status: t.status,
       winStreak: t.winStreak,
+      aiPrompt: t.aiPrompt,
       createdAt: t.createdAt,
     }));
     res.json(formatted);
@@ -274,7 +276,7 @@ export async function registerRoutes(
     const p = await storage.getProfileByUserId(req.user.claims.sub);
     if (!p) return res.status(404).json({ message: "Profile not found" });
 
-    const { title, artistName, genre, trackLink, trackType, originalityConfirmed } = req.body;
+    const { title, artistName, genre, trackLink, trackType, aiPrompt, originalityConfirmed } = req.body;
     if (!title || !artistName || !genre || !trackLink) {
       return res.status(400).json({ message: "title, artistName, genre, and trackLink are required" });
     }
@@ -295,7 +297,7 @@ export async function registerRoutes(
 
     const resolvedTrackType = trackType === "video" ? "video" : "audio";
 
-    const t = await storage.submitTrack({ title, artistName, genre, trackLink, trackType: resolvedTrackType, creatorId: p.id });
+    const t = await storage.submitTrack({ title, artistName, genre, trackLink, trackType: resolvedTrackType, aiPrompt: aiPrompt || null, creatorId: p.id });
     res.status(201).json({ message: "Track submitted successfully", trackId: t.id, trackType: resolvedTrackType });
   });
 

@@ -71,7 +71,7 @@ export function MyTracks() {
       {/* Header */}
       <div className="flex items-end justify-between">
         <div className="space-y-1">
-          <h1 className="font-display text-4xl font-bold uppercase tracking-tighter text-white">My Tracks</h1>
+          <h1 className="font-display text-4xl font-bold uppercase tracking-tighter text-white neon-text-green">My Tracks</h1>
           <p className="text-zinc-600 text-[10px] font-mono uppercase tracking-widest">
             {tracks?.length || 0} track{tracks?.length !== 1 ? "s" : ""} uploaded
           </p>

@@ -38,7 +38,7 @@ export function ProfileDetail() {
           
           <div className="flex-1 text-center md:text-left">
             <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
-              <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-wider uppercase">
+              <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-wider uppercase neon-text-green">
                 {profile.username}
               </h1>
               <LeagueBadge league={profile.league} className="mx-auto md:mx-0" />
@@ -64,7 +64,7 @@ export function ProfileDetail() {
 
       <div>
         <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
-          <h2 className="text-2xl font-display font-bold uppercase tracking-widest">Portfolio</h2>
+          <h2 className="text-2xl font-display font-bold uppercase tracking-widest neon-text-green">Portfolio</h2>
           <span className="text-sm font-mono text-muted-foreground">[{works?.length || 0} Entries]</span>
         </div>
         

@@ -77,6 +77,7 @@ const schema = z.object({
       (url) => SUPPORTED_LINKS.some(({ pattern }) => pattern.test(url)),
       "Only YouTube, SoundCloud, or Suno links are accepted",
     ),
+  aiPrompt: z.string().max(2000, "Prompt too long").optional(),
   originalityConfirmed: z.boolean().refine((val) => val === true, {
     message: "You must confirm this track is original AI-generated content",
   }),
@@ -100,6 +101,7 @@ function SubmitTrackForm() {
       genre: undefined,
       trackType: "audio",
       trackLink: "",
+      aiPrompt: "",
       originalityConfirmed: false,
     },
   });
@@ -397,6 +399,25 @@ function SubmitTrackForm() {
                       A track with this URL has already been submitted
                     </p>
                   </div>
+                )}
+              </div>
+
+              {/* AI Prompt / Generation Info */}
+              <div>
+                <label className="block text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-2">
+                  AI Prompt / Generation Info (Optional)
+                </label>
+                <textarea
+                  {...form.register("aiPrompt")}
+                  placeholder="Describe the AI prompt or generation settings used to create this track…"
+                  data-testid="textarea-ai-prompt"
+                  rows={3}
+                  className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all resize-none font-mono"
+                />
+                {form.formState.errors.aiPrompt && (
+                  <p className="text-[10px] text-red-400 mt-1 uppercase tracking-widest">
+                    {form.formState.errors.aiPrompt.message}
+                  </p>
                 )}
               </div>
 
