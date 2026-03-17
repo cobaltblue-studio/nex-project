@@ -123,25 +123,12 @@ export function Music() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p
-                          className="text-sm font-bold text-white uppercase tracking-wider truncate"
-                          data-testid={`text-chart-title-${track.id}`}
-                        >
-                          {track.title}
-                        </p>
-                        <div className="relative group/dna shrink-0">
-                          <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm" data-testid={`icon-dna-${track.id}`}>
-                            <Dna className="w-3.5 h-3.5 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
-                          </button>
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white"
-                              style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,128,0.4)", boxShadow: "0 0 12px rgba(0,255,128,0.15)" }}>
-                              <p>{track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <p
+                        className="text-xs font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight"
+                        data-testid={`text-chart-title-${track.id}`}
+                      >
+                        {track.title}
+                      </p>
                       <span
                         className="text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate"
                         data-testid={`text-chart-creator-${track.id}`}
@@ -149,11 +136,25 @@ export function Music() {
                         {track.creatorName}
                       </span>
                       <span className="block text-[7px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</span>
-                      {track.winStreak > 0 && (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid={`text-chart-streak-${track.id}`}>
-                          🔥 WIN STREAK: {track.winStreak}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {track.winStreak > 0 && (
+                          <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid={`text-chart-streak-${track.id}`}>
+                            🔥 WIN STREAK: {track.winStreak}
+                          </span>
+                        )}
+                        <div className="relative group/dna shrink-0">
+                          <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm flex items-center gap-1" data-testid={`icon-dna-${track.id}`}>
+                            <Dna className="w-3.5 h-3.5 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
+                            <span className="text-[7px] font-mono font-bold text-cyan-400 uppercase tracking-wider">[AI_DNA]</span>
+                          </button>
+                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
+                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white"
+                              style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,128,0.4)", boxShadow: "0 0 12px rgba(0,255,128,0.15)" }}>
+                              <p>{track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-5 shrink-0">

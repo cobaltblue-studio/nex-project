@@ -127,27 +127,15 @@ export default function NexRadio() {
   return (
     <div className="max-w-4xl mx-auto" style={{ height: "calc(100vh - 8rem)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {!radioStarted ? (
-        <div className="flex flex-col items-center justify-center px-8 text-center flex-1">
-            <div className="w-16 h-16 rounded-full border border-primary/20 bg-primary/5 flex items-center justify-center mb-6">
+        <div className="flex flex-col items-center justify-center px-8 text-center flex-1 gap-0">
+            <div className="w-16 h-16 rounded-full border border-primary/20 bg-primary/5 flex items-center justify-center mb-5">
               <Radio className="w-7 h-7 text-primary" strokeWidth={1.5} />
             </div>
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
               NEX Platform
             </p>
-            <h2 className="text-sm md:text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-green relative">
-              NEX TOP 100 RADI
-              <span className="relative inline-block">
-                O
-                <button
-                  onClick={startRadio}
-                  data-testid="button-radio-play-inline"
-                  className="absolute inset-0 flex items-center justify-center md:hidden"
-                  style={{ animation: "radio-breathe 2s ease-in-out infinite", color: "rgb(0, 255, 128)" }}
-                  aria-label="Start Radio"
-                >
-                  <span className="text-lg font-bold">▷</span>
-                </button>
-              </span>
+            <h2 className="text-sm md:text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-green">
+              NEX TOP 100 RADIO
             </h2>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-8 max-w-xs">
               Continuous AI stream from the global chart. Click to start the vibe.
@@ -155,11 +143,18 @@ export default function NexRadio() {
             <button
               onClick={startRadio}
               data-testid="button-start-radio"
-              className="hidden md:flex items-center gap-3 px-8 py-3 border border-primary/40 text-primary bg-primary/10 hover:bg-primary/25 rounded-sm text-[11px] font-black uppercase tracking-[0.3em] transition-all"
+              className="flex items-center gap-3 px-8 py-3 border border-primary/40 text-primary bg-primary/10 hover:bg-primary/25 rounded-sm text-[11px] font-black uppercase tracking-[0.3em] transition-all mt-2"
+              aria-label="Start Radio"
             >
               <Play className="w-4 h-4" />
               Start Radio
             </button>
+            <button
+              onClick={startRadio}
+              data-testid="button-radio-play-inline"
+              className="sr-only"
+              aria-label="Start Radio"
+            />
             <p className="text-[8px] text-zinc-700 uppercase tracking-widest mt-4">
               {isLoading ? "Loading tracks..." : `${tracks.length} tracks available`}
             </p>

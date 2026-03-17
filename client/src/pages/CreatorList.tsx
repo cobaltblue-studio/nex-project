@@ -148,15 +148,14 @@ export function CreatorList() {
           const creator = creators[idx];
 
           if (creator) {
-            const isFeatured = idx < 2;
             return (
-              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={isFeatured ? "col-span-1 row-span-1 md:col-span-2 md:row-span-2" : "col-span-1"}>
+              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className="col-span-1">
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   className="premium-card p-8 cursor-pointer group h-full"
-                  style={{ backdropFilter: "blur(12px)", border: isFeatured ? "1px solid rgba(0, 255, 128, 0.3)" : "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out", boxShadow: isFeatured ? "0 0 10px rgba(0, 255, 128, 0.3)" : "none" }}
+                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out" }}
                   whileHover={{ scale: 1.03 }}
                   data-testid={`card-creator-${idx}`}
                 >

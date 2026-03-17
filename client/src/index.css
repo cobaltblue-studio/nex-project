@@ -200,10 +200,11 @@
   }
 
   [data-testid="section-hero"] {
-    height: 100vh !important;
+    min-height: 100svh !important;
+    height: auto !important;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   [data-testid="scroll-guide"] {
@@ -219,9 +220,13 @@
     position: static !important;
   }
 
+  h1.neon-text-strong, h1.neon-text-green, h1.font-display,
+  h2.neon-text-strong, h2.neon-text-green, h2.font-display {
+    font-size: clamp(1rem, 5vw, 1.5rem) !important;
+  }
+
   .neon-text-green,
   .neon-text-strong {
-    font-size: 24px !important;
     text-shadow: 0 0 10px rgba(0, 255, 128, 0.7) !important;
   }
 
@@ -296,15 +301,14 @@
   }
 
   .creators-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, 1fr) !important;
   }
   .creators-grid [data-testid^="card-creator"],
   .creators-grid [data-testid^="card-placeholder"] {
-    min-height: 200px;
-    padding: 1.5rem !important;
-  }
-  .creators-grid .col-span-1 {
+    min-height: 160px;
+    padding: 1rem !important;
     grid-column: span 1 !important;
+    grid-row: span 1 !important;
   }
 
   .submit-track-form input,
@@ -383,6 +387,6 @@
   .nav-item i { font-size: 18px !important; }
   .nav-item span { font-size: 8px !important; display: block !important; color: #fff !important; }
 
-  .creators-grid { display: flex !important; flex-direction: column !important; gap: 10px !important; }
+  .creators-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
   .creator-card { width: 100% !important; min-height: 160px !important; }
 }

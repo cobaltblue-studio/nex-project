@@ -243,7 +243,7 @@ export function Home() {
 
       <section
         className="relative text-center overflow-hidden flex flex-col"
-        style={{ height: "100vh", paddingTop: "10vh", paddingBottom: "0", gap: "1.5rem" }}
+        style={{ minHeight: "100svh", height: "auto", paddingTop: "8vh", paddingBottom: "4rem", gap: "1.5rem" }}
         data-testid="section-hero"
       >
         <div
@@ -290,11 +290,11 @@ export function Home() {
         </motion.div>
 
         <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.2 }} className="relative z-10">
-          <div className="flex flex-wrap justify-center gap-9 pt-6">
+          <div className="flex flex-nowrap justify-center gap-3 pt-6">
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-battle"
-              className="px-10 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              className="px-5 py-2.5 glass-button text-primary font-bold text-xs uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
               style={{ animation: "cta-breathe 4s ease-in-out infinite" }}
             >
               Start Battle
@@ -302,16 +302,16 @@ export function Home() {
             <button
               onClick={() => setLocation("/submit")}
               data-testid="button-submit-track"
-              className="px-10 py-4 glass-button-outline text-white text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              className="px-5 py-2.5 glass-button-outline text-white text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
             >
               Submit Track
             </button>
             <button
               onClick={() => setLocation("/radio")}
               data-testid="button-radio"
-              className="px-10 py-4 glass-button-outline text-white flex items-center gap-2 text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              className="px-5 py-2.5 glass-button-outline text-white flex items-center gap-1.5 text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
             >
-              <Radio size={16} />
+              <Radio size={13} />
               Radio
             </button>
           </div>
@@ -441,18 +441,18 @@ export function Home() {
             </p>
             <div className="flex items-center justify-center gap-8">
               <div className="flex-1 text-right">
-                <p className="text-sm font-bold text-white uppercase tracking-wider truncate" data-testid="text-battle-arena-track-a">
+                <p className="text-sm font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-a">
                   {recentBattle.trackA?.title || "Track A"}
                 </p>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
                   {recentBattle.trackA?.creatorName || "Creator"}
                 </p>
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 self-center">
                 <span className="text-3xl font-display font-black italic text-primary neon-text" data-testid="text-battle-vs">VS</span>
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-bold text-white uppercase tracking-wider truncate" data-testid="text-battle-arena-track-b">
+                <p className="text-sm font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-b">
                   {recentBattle.trackB?.title || "Track B"}
                 </p>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
@@ -547,7 +547,7 @@ export function Home() {
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-trending-today" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
           <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Live Rankings</p>
-          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <h2 className="text-base md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
             Trending Today
           </h2>
           <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">

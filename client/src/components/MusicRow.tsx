@@ -87,11 +87,11 @@ export function MusicRow({ track, rank }: MusicRowProps) {
 
       <div className="flex-1 min-w-0">
         <Link href={`/track/${track.id}`}>
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider truncate cursor-pointer hover:text-primary transition-colors">
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight cursor-pointer hover:text-primary transition-colors">
             {track.title}
           </h3>
         </Link>
-        <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+        <div className="hidden md:flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500 mt-1">
           <span className="text-primary/70">
             {track.creatorName || "NEX CREATOR"}
           </span>
@@ -108,6 +108,29 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           </Tooltip>
           {track.winStreak > 0 && (
             <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] border border-orange-500/20" data-testid={`text-streak-${track.id}`}>
+              🔥 WIN STREAK: {track.winStreak}
+            </span>
+          )}
+        </div>
+        <div className="flex md:hidden flex-col gap-0.5 mt-1">
+          <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+            <span className="text-primary/70">
+              {track.creatorName || "NEX CREATOR"}
+            </span>
+            <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
+              {track.aiTool}
+            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wider cursor-default" style={{ color: "#00FF80" }} data-testid={`badge-ai-dna-mobile-${track.id}`}>[AI_DNA]</span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="font-mono text-[10px] text-white" style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
+                {track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          {track.winStreak > 0 && (
+            <span className="self-start px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] border border-orange-500/20" data-testid={`text-streak-mobile-${track.id}`}>
               🔥 WIN STREAK: {track.winStreak}
             </span>
           )}
