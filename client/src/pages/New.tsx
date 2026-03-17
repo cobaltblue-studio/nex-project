@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Clock, Loader2, Headphones } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Link } from "wouter";
 
 interface NewTrack {
@@ -89,6 +94,14 @@ export function New() {
                   <span className="text-[9px] text-zinc-600 uppercase tracking-widest">
                     {track.genre}
                   </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wider cursor-default" style={{ color: "#00FF80", textShadow: "0 0 6px rgba(0,255,128,0.4)" }} data-testid={`badge-ai-dna-${track.id}`}>[AI_DNA]</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-[10px] font-mono">
+                      [MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
 

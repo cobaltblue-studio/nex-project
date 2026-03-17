@@ -317,11 +317,13 @@ export function Home() {
           </div>
         </motion.div>
 
-        <LiveVotingWidget />
+        <div style={{ transform: "scale(0.6)", transformOrigin: "top center", marginBottom: "-40%" }}>
+          <LiveVotingWidget />
+        </div>
 
         {todayStats && (
           <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.3 }} className="relative z-10">
-            <div className="flex flex-wrap justify-center gap-10 pt-8">
+            <div className="flex flex-wrap justify-center gap-10 pt-4">
               <div className="text-center" data-testid="stat-hero-battles">
                 <p className="text-3xl font-display font-bold text-white">{todayStats.battlesPlayedToday ?? 0}</p>
                 <p className="text-[8px] uppercase tracking-[0.3em] text-zinc-600 mt-1.5">Battles Today</p>
@@ -343,7 +345,7 @@ export function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.5, duration: 1 }}
           className="flex flex-col items-center gap-3"
-          style={{ position: "absolute", bottom: "40px", left: "50%", transform: "translateX(-50%)", zIndex: 100 }}
+          style={{ position: "absolute", bottom: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 200 }}
           data-testid="scroll-guide"
         >
           <motion.div

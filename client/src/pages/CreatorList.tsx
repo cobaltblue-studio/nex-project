@@ -143,14 +143,14 @@ export function CreatorList() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-5" style={{ gridAutoRows: "minmax(120px, auto)" }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mt-5" style={{ gridAutoRows: "minmax(120px, auto)" }}>
         {Array.from({ length: 20 }).map((_, idx) => {
           const creator = creators[idx];
 
           if (creator) {
-            const isFeatured = idx < 3;
+            const isFeatured = idx < 2;
             return (
-              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={isFeatured ? "col-span-1 sm:col-span-2 row-span-2" : "col-span-1"}>
+              <Link key={idx} href={`/profile/${creator.name.toLowerCase()}`} className={isFeatured ? "col-span-2 row-span-2" : "col-span-1"}>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}

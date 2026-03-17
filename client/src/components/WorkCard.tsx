@@ -33,7 +33,7 @@ export function WorkCard({ work, index }: WorkCardProps) {
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-[10px] font-mono">
-                [PROMPT: SYNTH_WAVE_1988] [MODEL: SUNO_V4]
+                [MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]
               </TooltipContent>
             </Tooltip>
           </div>

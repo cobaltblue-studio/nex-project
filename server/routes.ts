@@ -342,7 +342,7 @@ export async function registerRoutes(
   app.get("/api/battles/daily-count", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     const count = await storage.getDailyBattleVoteCount(userId);
-    res.json({ count, dailyMax: 3 });
+    res.json({ count, dailyMax: 5 });
   });
 
   // Create a new battle for a given genre

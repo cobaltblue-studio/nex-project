@@ -103,7 +103,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
               <span className="px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wider cursor-default" style={{ color: "#00FF80" }} data-testid={`badge-ai-dna-${track.id}`}>[AI_DNA]</span>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-[10px] font-mono">
-              [MODEL: NEX_LYRIA_V3 | SEED: 882934 | STYLE: CYBER_SYNTH]
+              [MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]
             </TooltipContent>
           </Tooltip>
           {track.winStreak > 0 && (

@@ -93,7 +93,7 @@ export function MVCard({ track, index }: MVCardProps) {
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-[10px] font-mono">
-                [MODEL: NEX_LYRIA_V3 | SEED: 882934 | STYLE: CYBER_SYNTH]
+                [MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]
               </TooltipContent>
             </Tooltip>
             <Youtube className="w-8 h-8 text-red-600/40 group-hover:text-red-600 group-hover:scale-110 transition-all z-20" />

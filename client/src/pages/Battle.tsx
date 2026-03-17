@@ -104,8 +104,8 @@ function BattleTrackPlayer({
   const isDirectAudio = !ytId && rawUrl && (rawUrl.endsWith(".mp3") || rawUrl.endsWith(".wav") || rawUrl.endsWith(".ogg") || rawUrl.endsWith(".m4a") || rawUrl.endsWith(".webm"));
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 mb-1">
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
         <span className="text-[9px] font-bold tracking-[0.3em] text-primary/60 uppercase">
           {label}
         </span>
@@ -114,7 +114,7 @@ function BattleTrackPlayer({
           {PREVIEW_DURATION}s preview
         </span>
       </div>
-      <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`}>
+      <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "40vh" }}>
         {ytId ? (
           <YoutubePlayer
             videoId={ytId}
@@ -123,7 +123,7 @@ function BattleTrackPlayer({
             onEnded={onEnded}
           />
         ) : isDirectAudio ? (
-          <div className="w-full aspect-video flex items-center justify-center bg-black/60">
+          <div className="w-full aspect-video flex items-center justify-center bg-black/60" style={{ maxHeight: "40vh" }}>
             <audio
               ref={(el) => {
                 audioRef.current = el;
@@ -142,7 +142,7 @@ function BattleTrackPlayer({
             <Music2 className="w-8 h-8 text-primary animate-pulse" />
           </div>
         ) : rawUrl ? (
-          <div className="aspect-video">
+          <div className="aspect-video" style={{ maxHeight: "40vh" }}>
             <iframe
               src={buildIframeEmbedUrl(rawUrl, autoplay)}
               className="w-full h-full"
@@ -152,7 +152,7 @@ function BattleTrackPlayer({
             />
           </div>
         ) : (
-          <div className="w-full aspect-video flex items-center justify-center text-zinc-600">
+          <div className="w-full aspect-video flex items-center justify-center text-zinc-600" style={{ maxHeight: "40vh" }}>
             <Music2 className="w-8 h-8" />
           </div>
         )}
@@ -210,7 +210,7 @@ export function Battle() {
     refetchInterval: 60000,
   });
 
-  const dailyMax = dailyCount?.dailyMax ?? 3;
+  const dailyMax = dailyCount?.dailyMax ?? 5;
   const displayCount = dailyCount ? Math.min(dailyCount.count, dailyMax) : 0;
   const limitReached = dailyCount ? dailyCount.count >= dailyMax : false;
   const limitReachedRef = useRef(limitReached);
@@ -350,7 +350,7 @@ export function Battle() {
       : null;
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto" style={{ height: "100vh", overflow: "hidden" }}>
       <AnimatePresence>
         {showFlash && (
           <motion.div
@@ -364,24 +364,24 @@ export function Battle() {
           />
         )}
       </AnimatePresence>
-      <div className="mb-6 text-center">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <Swords className="w-5 h-5 text-primary" />
-          <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">
+      <div className="mb-3 text-center pt-2">
+        <div className="flex items-center justify-center gap-3 mb-1">
+          <Swords className="w-4 h-4 text-primary" />
+          <h1 className="text-[10px] font-bold tracking-[0.4em] uppercase text-primary">
             NEX Battle Arena
           </h1>
         </div>
-        <h2 className="text-2xl md:text-4xl font-display font-black text-white tracking-tight" style={{ textShadow: "0 0 15px rgba(0, 255, 128, 0.7)" }}>
+        <h2 className="text-xl md:text-2xl font-display font-black text-white tracking-tight" style={{ textShadow: "0 0 15px rgba(0, 255, 128, 0.7)" }}>
           GLOBAL AI MUSIC BATTLE
         </h2>
         {selectedGenre && phase !== "genre-select" && (
-          <p className="text-zinc-500 text-xs mt-2 uppercase tracking-widest">
+          <p className="text-zinc-500 text-[10px] mt-1 uppercase tracking-widest">
             Any Genre Battle
           </p>
         )}
         {isAuthenticated && dailyCount && (
-          <div className="mt-2 flex items-center justify-center gap-2" data-testid="battle-progress-indicator">
-            <Headphones className="w-3.5 h-3.5 text-primary/60" />
+          <div className="mt-1 flex items-center justify-center gap-2" data-testid="battle-progress-indicator">
+            <Headphones className="w-3 h-3 text-primary/60" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
               Battle {displayCount} / {dailyMax} today
             </span>
@@ -389,32 +389,32 @@ export function Battle() {
         )}
       </div>
 
-      <div className="mb-6 premium-card p-4" data-testid="panel-today-stats">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-orange-400">
+      <div className="mb-3 premium-card p-3" data-testid="panel-today-stats">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400">
             🔥 TODAY BATTLE STATS
           </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div className="text-center" data-testid="stat-votes-today">
-            <Vote className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-display font-bold text-white">{todayStats?.totalVotesToday ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Votes Today</p>
+            <Vote className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <p className="text-sm font-display font-bold text-white">{todayStats?.totalVotesToday ?? 0}</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Votes Today</p>
           </div>
           <div className="text-center" data-testid="stat-battles-today">
-            <BarChart3 className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-display font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Battles Played</p>
+            <BarChart3 className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <p className="text-sm font-display font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Battles Played</p>
           </div>
           <div className="text-center" data-testid="stat-tracks-pool">
-            <ListMusic className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Battle Pool</p>
+            <ListMusic className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <p className="text-sm font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Battle Pool</p>
           </div>
           <div className="text-center" data-testid="stat-new-tracks">
-            <Plus className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">New Tracks</p>
+            <Plus className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <p className="text-sm font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">New Tracks</p>
           </div>
         </div>
       </div>
@@ -427,7 +427,7 @@ export function Battle() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
-            className="flex flex-col items-center justify-center py-16"
+            className="flex flex-col items-center justify-center py-8"
           >
             {limitReached ? (
               <p className="text-lg font-bold text-zinc-300 uppercase tracking-wider" data-testid="text-daily-limit-reached">
@@ -451,7 +451,7 @@ export function Battle() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center py-28 gap-5"
+            className="flex flex-col items-center justify-center py-12 gap-3"
           >
             <Zap className="w-8 h-8 text-primary animate-pulse" />
             <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">
@@ -468,11 +468,11 @@ export function Battle() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35 }}
           >
-            <div className="mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[11px] font-bold">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="w-7 h-7 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[10px] font-bold">
                 A
               </div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
                 Now Playing — Track A ({PREVIEW_DURATION}s Preview)
               </p>
             </div>
@@ -489,9 +489,9 @@ export function Battle() {
         )}
 
         {phase === "vote" && (
-          <div className="flex justify-center items-center my-8">
+          <div className="flex justify-center items-center my-3">
             <div
-              className="text-4xl font-display font-black italic text-primary tracking-wider cursor-default select-none vs-glitch"
+              className="text-3xl font-display font-black italic text-primary tracking-wider cursor-default select-none vs-glitch"
               data-testid="text-vs-label"
             >
               ⚡ VS ⚡
@@ -507,11 +507,11 @@ export function Battle() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35 }}
           >
-            <div className="mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[11px] font-bold">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[10px] font-bold">
                 B
               </div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
                 Now Playing — Track B ({PREVIEW_DURATION}s Preview)
               </p>
             </div>
@@ -535,7 +535,7 @@ export function Battle() {
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-3">
               <div
                 className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${listenedA ? "text-primary" : "text-zinc-600"}`}
               >
@@ -560,20 +560,20 @@ export function Battle() {
             </div>
 
             {(!listenedA || !listenedB) && (
-              <p className="text-[10px] text-zinc-600 uppercase tracking-widest text-center mb-5">
+              <p className="text-[10px] text-zinc-600 uppercase tracking-widest text-center mb-2">
                 Listen to both tracks before voting
               </p>
             )}
 
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6">
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-3">
               Which track wins the {selectedGenre} battle?
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div
-                className={`premium-card p-6 flex flex-col gap-5 transition-premium ${listenedA && listenedB ? "" : "opacity-60"}`}
+                className={`premium-card p-4 flex flex-col gap-3 transition-premium ${listenedA && listenedB ? "" : "opacity-60"}`}
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[10px] font-bold">
+                  <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[9px] font-bold">
                     A
                   </div>
                   <span className="text-[9px] uppercase tracking-widest text-zinc-500">
@@ -595,17 +595,17 @@ export function Battle() {
                   onClick={() => castVote(battle.trackAId)}
                   disabled={voteMutation.isPending || showFlash || !listenedA || !listenedB}
                   data-testid="button-vote-track-a"
-                  className={`w-full py-3.5 glass-button text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed ${votedId === battle.trackAId ? "animate-vote-pulse brightness-150 ring-2 ring-primary/60" : ""}`}
+                  className={`w-full py-2.5 glass-button text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed ${votedId === battle.trackAId ? "animate-vote-pulse brightness-150 ring-2 ring-primary/60" : ""}`}
                 >
                   Vote Track A
                 </button>
               </div>
 
               <div
-                className={`premium-card p-6 flex flex-col gap-5 transition-premium ${listenedA && listenedB ? "" : "opacity-60"}`}
+                className={`premium-card p-4 flex flex-col gap-3 transition-premium ${listenedA && listenedB ? "" : "opacity-60"}`}
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[10px] font-bold">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[9px] font-bold">
                     B
                   </div>
                   <span className="text-[9px] uppercase tracking-widest text-zinc-500">
@@ -627,7 +627,7 @@ export function Battle() {
                   onClick={() => castVote(battle.trackBId)}
                   disabled={voteMutation.isPending || showFlash || !listenedA || !listenedB}
                   data-testid="button-vote-track-b"
-                  className={`w-full py-3.5 rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] ${votedId === battle.trackBId ? "animate-vote-pulse brightness-150 ring-2 ring-blue-400/60" : ""}`}
+                  className={`w-full py-2.5 rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] ${votedId === battle.trackBId ? "animate-vote-pulse brightness-150 ring-2 ring-blue-400/60" : ""}`}
                   style={{ background: "hsla(220, 100%, 60%, 0.08)", backdropFilter: "blur(12px)", border: "1px solid hsla(220, 100%, 60%, 0.25)" }}
                 >
                   Vote Track B
@@ -648,18 +648,18 @@ export function Battle() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className="text-center space-y-10"
+            className="text-center space-y-4"
           >
-            <div className="space-y-4">
-              <Trophy className="w-12 h-12 text-primary mx-auto" />
-              <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-primary">
+            <div className="space-y-2">
+              <Trophy className="w-8 h-8 text-primary mx-auto" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-primary">
                 Battle Result
               </p>
             </div>
 
             {winnerTrack && (
-              <div className="space-y-3">
-                <p className="text-4xl font-display font-black text-white uppercase tracking-tight">
+              <div className="space-y-1">
+                <p className="text-2xl font-display font-black text-white uppercase tracking-tight">
                   {winnerTrack.title}
                 </p>
                 <p className="text-zinc-500 text-[10px] uppercase tracking-widest">
@@ -669,7 +669,7 @@ export function Battle() {
               </div>
             )}
 
-            <div className="space-y-5 max-w-md mx-auto text-left">
+            <div className="space-y-3 max-w-md mx-auto text-left">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
@@ -726,9 +726,9 @@ export function Battle() {
               Total Votes: {totalVotes}
             </p>
 
-            <div className="space-y-4">
+            <div className="space-y-2">
               {countdown > 0 && (
-                <div className="flex flex-col items-center gap-2" data-testid="text-next-battle-countdown">
+                <div className="flex flex-col items-center gap-1" data-testid="text-next-battle-countdown">
                   <AnimatePresence mode="wait">
                     <motion.p
                       key={countdown}
@@ -736,7 +736,7 @@ export function Battle() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
                       transition={{ duration: 0.4, ease: "easeOut" }}
-                      className="text-2xl font-display font-bold text-primary"
+                      className="text-lg font-display font-bold text-primary"
                     >
                       Next battle in {countdown}
                     </motion.p>
@@ -746,7 +746,7 @@ export function Battle() {
               <button
                 onClick={nextBattle}
                 data-testid="button-next-battle"
-                className="px-10 py-4 glass-button text-primary font-bold text-[11px] uppercase tracking-[0.25em] rounded-xl transition-premium"
+                className="px-8 py-3 glass-button text-primary font-bold text-[11px] uppercase tracking-[0.25em] rounded-xl transition-premium"
               >
                 Next Battle <ChevronRight className="w-4 h-4 inline ml-1" />
               </button>
