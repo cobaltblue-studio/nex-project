@@ -351,7 +351,7 @@ export function Battle() {
       : null;
 
   return (
-    <div className="max-w-3xl mx-auto battle-page-container">
+    <div className="max-w-3xl mx-auto">
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <Zap className="w-5 h-5 text-primary" />
@@ -372,7 +372,8 @@ export function Battle() {
           Head-to-head track battles where the community decides the winner.
         </p>
       </div>
-      <AnimatePresence>
+      <div className="battle-page-container">
+        <AnimatePresence>
         {showFlash && (
           <motion.div
             key="vote-flash"
@@ -745,6 +746,7 @@ export function Battle() {
           );
         })()}
       </AnimatePresence>
+      </div>
     </div>
   );
 }
