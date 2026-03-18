@@ -368,11 +368,11 @@ export function Battle() {
       <div className="mb-3 text-center pt-2">
         <div className="flex items-center justify-center gap-3 mb-1 mt-[10px] md:mt-0">
           <Swords className="w-4 h-4 text-primary" />
-          <h1 className="text-[10px] font-bold tracking-[0.4em] uppercase text-primary">
-            NEX Battle Arena
+          <h1 className="text-[10px] font-bold tracking-[0.4em] uppercase text-primary text-center" data-testid="heading-battle-arena">
+            NEX BATTLE ARENA
           </h1>
         </div>
-        <h2 className="text-sm md:text-2xl font-display font-black text-white tracking-tight neon-text-green">
+        <h2 className="text-sm md:text-2xl font-display font-black text-white tracking-tight neon-text-green text-center">
           GLOBAL AI MUSIC BATTLE
         </h2>
         {selectedGenre && phase !== "genre-select" && (
