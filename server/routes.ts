@@ -378,6 +378,26 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/vote — shorthand endpoint for battle voting (battleId + trackId in body)
+  app.post("/api/vote", isAuthenticated, async (req: any, res) => {
+    const { battleId, trackId } = req.body;
+    if (!battleId || !trackId) return res.status(400).json({ message: "battleId and trackId are required" });
+    try {
+      const result = await storage.recordBattleVote(Number(battleId), req.user.claims.sub, Number(trackId));
+      res.json(result);
+    } catch (err: any) {
+      if (err?.message === "ALREADY_VOTED") return res.status(409).json({ message: "Already voted in this battle" });
+      if (err?.message === "BATTLE_NOT_FOUND") return res.status(404).json({ message: "Battle not found" });
+      throw err;
+    }
+  });
+
+  // GET /api/creators — returns profiles with role "nex" or "founder"
+  app.get("/api/creators", async (_req, res) => {
+    const creators = await storage.getCreators();
+    res.json(creators);
+  });
+
   // Live stats for today
   app.get("/api/stats/today", async (_req, res) => {
     const stats = await storage.getTodayStats();

@@ -65,6 +65,7 @@ export interface IStorage {
   getRecentBattle(): Promise<any | null>;
   getTodayStats(): Promise<{ totalVotesToday: number; battlesPlayedToday: number; tracksInPool: number; newTracksToday: number }>;
   trackUrlExists(url: string): Promise<boolean>;
+  getCreators(): Promise<Profile[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -620,6 +621,10 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     if (!battle) return null;
     return this.getBattle(battle.id);
+  }
+
+  async getCreators(): Promise<Profile[]> {
+    return db.select().from(profiles).where(or(eq(profiles.role, "nex"), eq(profiles.role, "founder")));
   }
 }
 

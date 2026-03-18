@@ -96,6 +96,14 @@ export const battleVotes = pgTable("battle_votes", {
   votedAt: timestamp("voted_at").defaultNow().notNull(),
 });
 
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  trackId: integer("track_id").references(() => tracks.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const battlesRelations = relations(battles, ({ one, many }) => ({
   trackA: one(tracks, { fields: [battles.trackAId], references: [tracks.id] }),
   trackB: one(tracks, { fields: [battles.trackBId], references: [tracks.id] }),
@@ -131,9 +139,12 @@ export const trackPlaysRelations = relations(trackPlays, ({ one }) => ({
 export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, userId: true, totalScore: true, createdAt: true });
 export const insertTrackSchema = createInsertSchema(tracks).omit({ id: true, creatorId: true, status: true, aiCraftScore: true, listenerVotes: true, neoScore: true, playCount: true, rankingScore: true, lastPlayedAt: true, winStreak: true, isFeatured: true, releaseDate: true, createdAt: true });
 
+export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, createdAt: true });
+
 export type Profile = typeof profiles.$inferSelect;
 export type Track = typeof tracks.$inferSelect;
 export type Follow = typeof follows.$inferSelect;
 export type TrackPlay = typeof trackPlays.$inferSelect;
 export type Battle = typeof battles.$inferSelect;
 export type BattleVote = typeof battleVotes.$inferSelect;
+export type Comment = typeof comments.$inferSelect;

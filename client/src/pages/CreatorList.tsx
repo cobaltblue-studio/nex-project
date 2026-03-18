@@ -131,14 +131,23 @@ export function CreatorList() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-16 pb-24">
-      <div className="text-center space-y-5">
-        <h1
-          className="text-3xl md:text-7xl font-display font-black text-white tracking-tight uppercase leading-none neon-text-strong neon-text-green"
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-2">
+          <User className="w-5 h-5 text-primary" />
+          <h1
+            className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
+            data-testid="text-creators-label"
+          >
+            Creators
+          </h1>
+        </div>
+        <h2
+          className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
           data-testid="text-creators-title"
         >
           NEX CREATORS
-        </h1>
-        <p className="text-primary font-bold uppercase tracking-[0.4em] text-xs">
+        </h2>
+        <p className="text-zinc-500 text-sm mt-2">
           Top AI Music Creators on NEX
         </p>
       </div>
