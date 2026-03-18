@@ -43,12 +43,12 @@ class SubmitTrackErrorBoundary extends Component<{ children: ReactNode }, { hasE
 }
 
 const GENRES = [
-  "Electronic",
+  "Pop",
   "Synth Pop",
   "Rock",
-  "Hip Hop",
-  "Ambient",
-  "Other",
+  "Hip-Hop/R&B",
+  "EDM",
+  "Funk/Lo-Fi",
 ] as const;
 
 const SUPPORTED_LINKS = [
@@ -68,7 +68,10 @@ const schema = z.object({
     .string()
     .min(1, "Creator name is required")
     .max(80, "Name too long"),
-  genre: z.enum(GENRES).optional(),
+  genre: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.enum(GENRES, { required_error: "Genre is required" }),
+  ),
   trackType: z.enum(TRACK_TYPES),
   trackLink: z
     .string()
@@ -98,7 +101,6 @@ function SubmitTrackForm() {
     defaultValues: {
       title: "",
       artistName: "",
-      genre: undefined,
       trackType: "audio",
       trackLink: "",
       aiPrompt: "",
@@ -327,6 +329,37 @@ function SubmitTrackForm() {
                 {form.formState.errors.artistName && (
                   <p className="text-[10px] text-red-400 mt-1 uppercase tracking-widest">
                     {form.formState.errors.artistName.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Genre */}
+              <div>
+                <label className="block text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-2">
+                  <Tag className="inline w-3 h-3 mr-1 -mt-0.5" />
+                  Genre
+                </label>
+                <div className="relative">
+                  <select
+                    {...form.register("genre")}
+                    data-testid="select-genre"
+                    className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 pr-10 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all appearance-none"
+                    defaultValue=""
+                  >
+                    <option value="" disabled className="bg-zinc-900 text-zinc-500">
+                      Select a genre
+                    </option>
+                    {GENRES.map((g) => (
+                      <option key={g} value={g} className="bg-zinc-900 text-white">
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                </div>
+                {form.formState.errors.genre && (
+                  <p className="text-[10px] text-red-400 mt-1 uppercase tracking-widest">
+                    {form.formState.errors.genre.message}
                   </p>
                 )}
               </div>

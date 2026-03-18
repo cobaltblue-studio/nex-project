@@ -278,7 +278,7 @@ export async function registerRoutes(
       return res.status(400).json({ message: "You must confirm this track is original AI-generated content" });
     }
 
-    const validGenres = ["Electronic", "Synth Pop", "Rock", "Hip Hop", "Ambient", "Other"];
+    const validGenres = ["Pop", "Synth Pop", "Rock", "Hip-Hop/R&B", "EDM", "Funk/Lo-Fi"];
     if (!validGenres.includes(genre)) {
       return res.status(400).json({ message: "Invalid genre" });
     }
