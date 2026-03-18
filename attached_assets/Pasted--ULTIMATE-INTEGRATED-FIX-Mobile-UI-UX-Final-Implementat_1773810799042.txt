@@ -1,0 +1,41 @@
+🚀 [ULTIMATE INTEGRATED FIX] Mobile UI & UX Final Implementation
+[CRITICAL: Target Mobile Viewport ONLY (max-width: 768px). Do NOT affect Desktop.]
+
+1. Home Page: Visual Balance (Ref: 홈.jpg)
+Header Logo (Top Left): Scale down the blue NEX logo image. It must match the visual height/scale of the "LOGIN" button text on the right.
+
+Main Center Logo: The current large green NEX is perfect. Keep this size.
+
+Bottom Content (Mandatory): * The DISCOVER MORE text/icon and the LIVE VOTING TRENDS graph must be horizontally CENTERED.
+
+Current state is skewed left; use margin: 0 auto; and display: flex; justify-content: center;.
+
+2. Battle Page: Layout Compression (Ref: 배틀 1.jpg)
+Track Label Fix: * Find the text (20s Preview) next to "TRACK A" and "TRACK B".
+
+Action: Force a line break to move this text below the track title.
+
+Style: Reduce its font-size by 25% to make it a subtle sub-label.
+
+Single Screen Optimization:
+
+Action: Completely display: none !important; the footer (© 2026 NEX, ABOUT NEX) on mobile battle pages.
+
+Action: Reduce the central music artwork/video preview height by 35%.
+
+Goal: Ensure Track A and Track B voting buttons are visible on a single mobile screen without scrolling after the track finishes.
+
+3. Login & Signup: Country Selection (Ref: 로그인.jpg)
+Feature Addition (Method B): * We need to collect the user's country for ranking statistics.
+
+Implementation: After a successful Social Login (Google), show a mandatory "Select Your Country" dropdown or popup before entering the main service.
+
+UI Style: Use a clean, dark-themed dropdown that matches the NEX design aesthetic. Save this selection to the user's profile database.
+
+4. Creators Page: Text Clipping (Previous Ref)
+Action: Reduce internal font sizes in the creator cards by 15%.
+
+Action: Add 25px bottom padding to each card to prevent text from being cut off at the bottom.
+
+[Final Command for Replit]
+"Replit, this is the final consolidated instruction. Implement the centering on the Home page, the vertical compression on the Battle page (including the sub-label line break), and add the 'Method B' Country Selection flow after login. Execute all mobile CSS within the 768px media query. Do not change the Desktop layout."
