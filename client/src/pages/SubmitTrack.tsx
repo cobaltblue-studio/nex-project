@@ -44,11 +44,11 @@ class SubmitTrackErrorBoundary extends Component<{ children: ReactNode }, { hasE
 
 const GENRES = [
   "Pop",
-  "Synth Pop",
+  "Dance",
   "Rock",
-  "Hip-Hop/R&B",
-  "EDM",
-  "Funk/Lo-Fi",
+  "Hip-Hop & Rap",
+  "Funk",
+  "Lo-Fi & Chill",
 ] as const;
 
 const SUPPORTED_LINKS = [
