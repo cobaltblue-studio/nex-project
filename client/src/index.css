@@ -189,12 +189,12 @@
   }
 
   .main-logo-icon {
-    width: 1.25rem !important;
-    height: 1.25rem !important;
+    width: 0.75rem !important;
+    height: 0.75rem !important;
   }
 
   .main-logo-text {
-    font-size: 1.1rem !important;
+    font-size: 0.625rem !important;
   }
 
   .mobile-bottom-nav {
@@ -270,7 +270,7 @@
 
   .battle-player-container,
   .radio-player-container {
-    max-height: 16vh !important;
+    max-height: 26vh !important;
     width: 90% !important;
     margin: 0 auto !important;
   }
@@ -344,7 +344,7 @@
   .creators-grid [data-testid^="card-placeholder"] {
     min-height: 160px;
     padding: 0.75rem !important;
-    padding-bottom: 20px !important;
+    padding-bottom: 25px !important;
     grid-column: span 1 !important;
     grid-row: span 1 !important;
     overflow: visible !important;
@@ -356,15 +356,27 @@
 
   .creators-grid [data-testid^="card-creator"] .text-xs,
   .creators-grid [data-testid^="card-creator"] .text-sm {
-    font-size: 7.5px !important;
+    font-size: 6.4px !important;
   }
 
   .creators-grid [data-testid^="card-creator"] .text-\[8px\] {
-    font-size: 6px !important;
+    font-size: 5.1px !important;
   }
 
   .creators-grid [data-testid^="card-creator"] .text-\[10px\] {
-    font-size: 6.5px !important;
+    font-size: 5.5px !important;
+  }
+
+  .creators-grid [data-testid^="card-creator"] .text-lg {
+    font-size: 0.83rem !important;
+  }
+
+  .battle-preview-label {
+    font-size: 6.75px !important;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    display: block;
+    margin-top: -4px;
   }
 
   .submit-track-form input,

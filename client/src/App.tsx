@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 // Components
 import { Layout } from "@/components/Layout";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { CountrySelectModal } from "@/components/CountrySelectModal";
 
 // Pages
 import { Home } from "@/pages/Home";
@@ -57,6 +58,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
       <OnboardingModal />
+      <CountrySelectModal />
     </Layout>
   );
 }

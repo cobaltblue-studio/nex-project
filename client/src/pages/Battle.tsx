@@ -114,6 +114,9 @@ function BattleTrackPlayer({
           {PREVIEW_DURATION}s preview
         </span>
       </div>
+      <span className="battle-preview-label md:hidden text-zinc-600 uppercase">
+        ({PREVIEW_DURATION}s Preview)
+      </span>
       <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium battle-player-container ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "40vh" }}>
         {ytId ? (
           <YoutubePlayer
