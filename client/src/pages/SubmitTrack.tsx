@@ -166,13 +166,16 @@ function SubmitTrackForm() {
     <div className="max-w-xl mx-auto px-4 py-12 submit-track-form">
       {/* Header */}
       <div className="mb-10">
-        <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
-          NEX Platform
-        </p>
-        <h1 className="text-lg md:text-2xl font-black uppercase tracking-[0.15em] text-white neon-text-strong neon-text-green">
-          Submit Your AI Track
+        <div className="flex items-center gap-3 mb-2">
+          <Send className="w-5 h-5 text-primary" />
+          <p className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">
+            NEX Platform
+          </p>
+        </div>
+        <h1 className="text-3xl md:text-4xl font-display font-bold uppercase tracking-tight text-white neon-text-strong neon-text-green">
+          SUBMIT TRACK
         </h1>
-        <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-1">
+        <p className="text-zinc-500 text-sm mt-2">
           AI-generated music · Verified through Battle
         </p>
       </div>
