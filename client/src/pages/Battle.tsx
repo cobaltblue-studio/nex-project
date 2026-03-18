@@ -110,7 +110,7 @@ function BattleTrackPlayer({
           {label}
         </span>
         <div className="h-px flex-1 bg-primary/10" />
-        <span className="text-[9px] font-bold tracking-[0.3em] text-zinc-600 uppercase">
+        <span className="hidden md:inline text-[9px] font-bold tracking-[0.3em] text-zinc-600 uppercase">
           {PREVIEW_DURATION}s preview
         </span>
       </div>

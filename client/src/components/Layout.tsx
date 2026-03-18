@@ -62,8 +62,8 @@ export function Layout({ children }: LayoutProps) {
 
       <header className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50 flex items-center justify-between px-8 md:px-12">
         <Link href="/" className="flex items-center gap-2 text-primary neon-text font-display font-bold tracking-tighter group">
-          <Disc3 className="w-7 h-7 md:w-8 md:h-8 main-logo-icon animate-[spin_8s_linear_infinite] group-hover:drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]" />
-          <span className="text-[1.75rem] md:text-[1.5rem] main-logo-text">NEX</span>
+          <Disc3 className="w-5 h-5 md:w-8 md:h-8 main-logo-icon animate-[spin_8s_linear_infinite] group-hover:drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]" />
+          <span className="text-[1.1rem] md:text-[1.5rem] main-logo-text">NEX</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-12">
@@ -199,7 +199,7 @@ export function Layout({ children }: LayoutProps) {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 mt-20 mb-20 md:mb-0 border-t border-white/5 bg-black/30 backdrop-blur-sm px-8 md:px-12 py-8">
+      <footer className={`relative z-10 mt-20 mb-20 md:mb-0 border-t border-white/5 bg-black/30 backdrop-blur-sm px-8 md:px-12 py-8${location === "/battle" ? " battle-page-footer" : ""}`}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white">© 2026 NEX</p>

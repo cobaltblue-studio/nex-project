@@ -189,12 +189,12 @@
   }
 
   .main-logo-icon {
-    width: 3.15rem !important;
-    height: 3.15rem !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
   }
 
   .main-logo-text {
-    font-size: 3.15rem !important;
+    font-size: 1.1rem !important;
   }
 
   .mobile-bottom-nav {
@@ -248,6 +248,11 @@
   h1.neon-text-strong, h1.neon-text-green, h1.neon-text, h1.font-display,
   h2.neon-text-strong, h2.neon-text-green, h2.neon-text, h2.font-display {
     font-size: 80% !important;
+  }
+
+  /* Home hero NEX text – 1.8× larger on mobile */
+  [data-testid="section-hero"] h1.neon-text-green {
+    font-size: 7rem !important;
   }
 
   .neon-text-green,
@@ -389,6 +394,18 @@
   [data-testid="button-vote-track-b"] {
     position: relative !important;
     z-index: 35 !important;
+  }
+
+  /* Battle page – hide site footer on mobile */
+  .battle-page-footer {
+    display: none !important;
+  }
+
+  /* Home page – center DISCOVER MORE and live voting widget on mobile */
+  .hero-bottom-row {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
   }
 }
 

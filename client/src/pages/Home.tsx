@@ -317,7 +317,7 @@ export function Home() {
           </div>
         </motion.div>
 
-        <div className="relative z-10 flex items-center justify-center gap-8 w-full" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "0.75rem" }}>
+        <div className="relative z-10 flex items-center justify-center gap-8 w-full hero-bottom-row" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "0.75rem" }}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
