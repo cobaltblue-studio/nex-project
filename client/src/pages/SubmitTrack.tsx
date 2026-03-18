@@ -163,7 +163,7 @@ function SubmitTrackForm() {
   })();
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-12 submit-track-form">
+    <div className="max-w-3xl mx-auto submit-track-form">
       {/* Header */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">

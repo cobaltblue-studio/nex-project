@@ -129,13 +129,6 @@ export async function registerRoutes(
 
     let ts = await storage.getTracks(trackFilter);
 
-    const isFilteredQuery = !!(trackFilter.trackType || trackFilter.genre || trackFilter.status);
-    if (ts.length === 0 && !isFilteredQuery) {
-      console.log("No tracks found in production, triggering auto-seed...");
-      await seed();
-      ts = await storage.getTracks(trackFilter);
-    }
-
     const trackIds = ts.map((t) => t.id);
     const battleStats = await storage.getBattleStatsForTracks(trackIds);
 

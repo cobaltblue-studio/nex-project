@@ -66,6 +66,7 @@ export interface IStorage {
   getTodayStats(): Promise<{ totalVotesToday: number; battlesPlayedToday: number; tracksInPool: number; newTracksToday: number }>;
   trackUrlExists(url: string): Promise<boolean>;
   getCreators(): Promise<Profile[]>;
+  clearAllData(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -625,6 +626,15 @@ export class DatabaseStorage implements IStorage {
 
   async getCreators(): Promise<Profile[]> {
     return db.select().from(profiles).where(or(eq(profiles.role, "nex"), eq(profiles.role, "founder")));
+  }
+
+  async clearAllData(): Promise<void> {
+    await db.delete(battleVotes);
+    await db.delete(battles);
+    await db.delete(trackPlays);
+    await db.delete(votes);
+    await db.delete(likes);
+    await db.delete(tracks);
   }
 }
 

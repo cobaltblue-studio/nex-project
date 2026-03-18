@@ -1,6 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { seed } from "./seed";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
@@ -61,9 +60,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await seed();
-  // Recalculate ranking scores for all tracks on startup
   const { storage } = await import("./storage");
+  await storage.clearAllData();
+  console.log("All tracks and battles cleared on startup.");
+  // Recalculate ranking scores for all tracks on startup
   await storage.recalculateAllRankingScores();
   console.log("Ranking scores recalculated.");
   await registerRoutes(httpServer, app);

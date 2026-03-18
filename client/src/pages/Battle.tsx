@@ -351,8 +351,7 @@ export function Battle() {
       : null;
 
   return (
-    <div className="fixed inset-0 z-40 bg-black overflow-hidden flex items-center justify-center pt-20 battle-outer-wrapper">
-    <div className="max-w-3xl w-full mx-auto px-6 md:px-12 h-full overflow-hidden battle-page-container">
+    <div className="max-w-3xl mx-auto battle-page-container">
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <Zap className="w-5 h-5 text-primary" />
@@ -743,7 +742,6 @@ export function Battle() {
           );
         })()}
       </AnimatePresence>
-    </div>
     </div>
   );
 }
