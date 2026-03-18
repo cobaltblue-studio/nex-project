@@ -154,8 +154,8 @@ export function CreatorList() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="premium-card p-4 cursor-pointer group h-full flex flex-col items-center justify-center text-center gap-3"
-                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out", minHeight: "160px", overflow: "hidden", boxSizing: "border-box" }}
+                  className="premium-card p-4 cursor-pointer group h-full flex flex-col items-center justify-center text-center gap-3 creator-card-overflow"
+                  style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out", minHeight: "160px", boxSizing: "border-box" }}
                   whileHover={{ scale: 1.03 }}
                   data-testid={`card-creator-${idx}`}
                 >
