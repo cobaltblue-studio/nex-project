@@ -368,6 +368,9 @@ export function Battle() {
         >
           BATTLE ARENA
         </h2>
+        <p className="text-zinc-500 text-sm mt-2">
+          Head-to-head track battles where the community decides the winner.
+        </p>
       </div>
       <AnimatePresence>
         {showFlash && (
