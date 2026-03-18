@@ -23,6 +23,7 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { isAuthenticated, logout, isLoading } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [activeMode, setActiveMode] = useState<"LISTENER" | "CREATOR">("LISTENER");
 
   const { data: adminCheck } = useQuery<AdminCheck>({
     queryKey: ["/api/admin/check"],
@@ -38,8 +39,6 @@ export function Layout({ children }: LayoutProps) {
 
   const isAdmin = adminCheck?.isAdmin === true;
   const roleLabel = isAdmin ? "ADMIN" : "LISTENER";
-  const country = profile?.country?.toUpperCase() ?? null;
-  const roleDisplay = country ? `${roleLabel} · ${country}` : roleLabel;
 
   const navItems = [
     { path: "/", icon: Home, label: "HOME" },
@@ -98,28 +97,31 @@ export function Layout({ children }: LayoutProps) {
           )}
 
           {isAuthenticated && (
-            <div className="relative">
+            <div className="relative flex items-center gap-3">
+              {!isLoading && (
+                <div className="flex items-center rounded-full border border-white/10 bg-white/5 p-0.5" data-testid="toggle-mode">
+                  {(["LISTENER", "CREATOR"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setActiveMode(mode)}
+                      data-testid={`button-mode-${mode.toLowerCase()}`}
+                      className={clsx(
+                        "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.2em] transition-all",
+                        activeMode === mode
+                          ? "bg-primary text-black shadow-[0_0_10px_rgba(0,240,255,0.5)]"
+                          : "text-zinc-500 hover:text-white"
+                      )}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button
                 onClick={() => setUserMenuOpen(v => !v)}
                 data-testid="button-user-menu"
-                className="flex items-center gap-2.5 group"
+                className="flex items-center gap-2 group"
               >
-                <div className="text-right">
-                  <p
-                    data-testid="text-role-display"
-                    className={clsx(
-                      "text-[10px] font-black uppercase tracking-[0.25em] leading-none",
-                      isAdmin ? "text-primary" : "text-white"
-                    )}
-                  >
-                    {isLoading ? "—" : roleDisplay}
-                  </p>
-                  {isAdmin && (
-                    <p className="text-[8px] font-bold text-primary/40 uppercase tracking-widest mt-0.5 leading-none">
-                      Platform Admin
-                    </p>
-                  )}
-                </div>
                 {isAdmin && (
                   <ShieldCheck className="w-4 h-4 text-primary/60 shrink-0" strokeWidth={2} />
                 )}
@@ -148,9 +150,6 @@ export function Layout({ children }: LayoutProps) {
                           {roleLabel}
                         </p>
                       </div>
-                      <p className="text-[9px] text-zinc-500 uppercase tracking-widest mt-1">
-                        {country ?? "No country set"}
-                      </p>
                       {profile?.username && (
                         <p className="text-[9px] text-zinc-600 mt-0.5 lowercase tracking-wider">
                           @{profile.username}

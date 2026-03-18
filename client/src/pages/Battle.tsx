@@ -5,12 +5,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Swords,
   ChevronRight,
   Trophy,
   Music2,
   Zap,
-  Headphones,
   Vote,
   BarChart3,
   ListMusic,
@@ -369,28 +367,13 @@ export function Battle() {
         )}
       </AnimatePresence>
       <div className="mb-3 text-center pt-2">
-        <div className="flex items-center justify-center gap-3 mb-1 mt-[10px] md:mt-0">
-          <Swords className="w-4 h-4 text-primary" />
-          <h1 className="text-[10px] font-bold tracking-[0.4em] uppercase text-primary text-center" data-testid="heading-battle-arena">
-            NEX BATTLE ARENA
-          </h1>
-        </div>
-        <h2 className="text-sm md:text-2xl font-display font-black text-white tracking-tight neon-text-green text-center">
-          GLOBAL AI MUSIC BATTLE
-        </h2>
-        {selectedGenre && phase !== "genre-select" && (
-          <p className="text-zinc-500 text-[10px] mt-1 uppercase tracking-widest">
-            Any Genre Battle
-          </p>
-        )}
-        {isAuthenticated && dailyCount && (
-          <div className="mt-1 flex items-center justify-center gap-2" data-testid="battle-progress-indicator">
-            <Headphones className="w-3 h-3 text-primary/60" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
-              Battle {displayCount} / {dailyMax} today
-            </span>
-          </div>
-        )}
+        <p
+          className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-[10px] md:mt-0"
+          data-testid="battle-progress-indicator"
+          style={{ letterSpacing: "0.35em" }}
+        >
+          {`BATTLE ROUND ${displayCount} / ${dailyMax}`}
+        </p>
       </div>
 
       <div className="mb-3 premium-card p-3 battle-stats-panel" data-testid="panel-today-stats">
@@ -472,14 +455,6 @@ export function Battle() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35 }}
           >
-            <div className="mb-3 flex items-center gap-3">
-              <div className="w-7 h-7 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[10px] font-bold">
-                A
-              </div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-                Now Playing — Track A ({PREVIEW_DURATION}s Preview)
-              </p>
-            </div>
             <BattleTrackPlayer
               track={battle.trackA}
               label="Track A"
@@ -511,14 +486,6 @@ export function Battle() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35 }}
           >
-            <div className="mb-3 flex items-center gap-3">
-              <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[10px] font-bold">
-                B
-              </div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-                Now Playing — Track B ({PREVIEW_DURATION}s Preview)
-              </p>
-            </div>
             <BattleTrackPlayer
               track={battle.trackB}
               label="Track B"
@@ -673,8 +640,8 @@ export function Battle() {
               </div>
             )}
 
-            <div className="space-y-3 max-w-md mx-auto text-left">
-              <div className="space-y-2">
+            <div className="space-y-3 max-w-md mx-auto w-full flex flex-col items-center">
+              <div className="space-y-2 w-full">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackA.title}</span>
@@ -699,7 +666,7 @@ export function Battle() {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 w-full">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{battle.trackB.title}</span>

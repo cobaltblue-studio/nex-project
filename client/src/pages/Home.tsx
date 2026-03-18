@@ -317,18 +317,18 @@ export function Home() {
           </div>
         </motion.div>
 
-        <div className="relative z-10 flex items-center justify-center gap-8 w-full hero-bottom-row" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "0.75rem" }}>
+        <div className="relative z-10 flex flex-col items-center justify-center w-full hero-bottom-row" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "0.75rem" }}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.5, duration: 1 }}
-            className="relative z-10 flex items-center gap-2"
+            className="relative z-10 flex flex-col items-center justify-center w-full"
             data-testid="scroll-guide"
           >
             <motion.div
               animate={{ y: [0, 6, 0] }}
               transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2"
             >
               <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/80"
                 style={{ textShadow: "0 0 12px hsla(189,100%,50%,0.4)" }}
@@ -338,13 +338,14 @@ export function Home() {
               <motion.div
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                className="flex items-center justify-center"
               >
                 <ChevronDown className="w-6 h-6 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))" }} />
               </motion.div>
             </motion.div>
           </motion.div>
 
-          <div style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
+          <div className="hidden md:block" style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
             <LiveVotingWidget />
           </div>
         </div>
