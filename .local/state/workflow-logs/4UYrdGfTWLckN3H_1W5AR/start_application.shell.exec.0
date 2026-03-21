@@ -1,0 +1,9 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0KChecking NEO database for existing data...
+Seeding NEO database with sample tracks...
+Seeding complete!
+Ranking scores recalculated.
+11:45:13 PM [express] serving on port 5000
