@@ -36,6 +36,8 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/join" component={Join} />
+<Route path="/api/login" component={Join} />
         <Route path="/new" component={New} />
         <Route path="/music" component={Music} />
         <Route path="/music-video" component={MusicVideo} />
