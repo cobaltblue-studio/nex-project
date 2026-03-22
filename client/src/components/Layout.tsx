@@ -87,8 +87,7 @@ export function Layout({ children }: LayoutProps) {
 
         <div className="flex items-center">
           {!isLoading && !isAuthenticated && (
-            <a
-              <a href="/join"
+            <a href="/join"
               data-testid="button-login"
               className="text-[10px] font-bold uppercase tracking-widest border border-primary/30 text-primary px-5 py-2 rounded-sm bg-primary/5 hover:bg-primary/20 transition-all"
             >
