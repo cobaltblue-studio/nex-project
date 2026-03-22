@@ -1,7 +1,5 @@
 {
     "version": 2,
-    "public": true,
-    "name": "nex-project",
     "rewrites": [
       { "source": "/api/(.*)", "destination": "/api" },
       { "source": "/((?!api).*)", "destination": "/index.html" }
