@@ -64,3 +64,15 @@ No hostname is hard-required in application logic beyond env configuration above
 |----------|---------|
 | `VITE_SITE_URL` | Public origin, e.g. `https://nexmusic.ai` (exposed to client). |
 | `NEXT_PUBLIC_SITE_URL` | Same value if you prefer Next-style naming; Vite is configured to expose both prefixes. |
+
+## Vercel (static SPA) + Express on Railway (or similar)
+
+If the browser loads **`https://nexmusic.ai`** from Vercel but API runs on another host, relative `/api/...` calls hit Vercel only — there is no Express there, so charts and login break (SPA 404 on `/api/auth/login`).
+
+1. Run the **same** Express app on Railway (or Fly, Render, etc.) with a public HTTPS URL, e.g. `https://nex-project-production.up.railway.app`.
+2. In **Vercel → Project → Settings → Environment Variables (Production)** add:
+   - **`NEX_API_PROXY_ORIGIN`** = that base URL **without** a trailing slash (e.g. `https://nex-project-production.up.railway.app`).
+3. Redeploy Vercel. `vercel.ts` rewrites `/api/*` to `${NEX_API_PROXY_ORIGIN}/api/*`, so the browser still talks to `nexmusic.ai` (cookies and OAuth redirects stay on one site).
+4. On the **API host**, set `GOOGLE_CALLBACK_URL` to the **public nexmusic.ai** callback (e.g. `https://nexmusic.ai/api/auth/google/callback`), not the Railway hostname, so Google redirects through Vercel → proxy → Express.
+
+**Alternative:** Do not split hosts — deploy `npm run start` (Express + built static) on one platform and point `nexmusic.ai` only there; then no proxy variable is needed.
