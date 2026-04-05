@@ -6,6 +6,13 @@ import { Loader2, Target, ExternalLink } from "lucide-react";
 import { LeagueBadge } from "@/components/LeagueBadge";
 import { WorkCard } from "@/components/WorkCard";
 
+function leagueFromTotalScore(totalScore: number): string {
+  if (totalScore >= 85) return "Ascendant";
+  if (totalScore >= 75) return "Core";
+  if (totalScore >= 65) return "Spark";
+  return "Spark";
+}
+
 export function ProfileDetail() {
   const [, params] = useRoute("/profile/:id");
   const profileId = params?.id;
@@ -18,6 +25,7 @@ export function ProfileDetail() {
   if (!profile) {
     return <div className="p-20 text-center text-xl font-display uppercase">Profile Not Found</div>;
   }
+  const league = leagueFromTotalScore(profile.totalScore);
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
@@ -41,7 +49,7 @@ export function ProfileDetail() {
               <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-wider uppercase neon-text-green">
                 {profile.username}
               </h1>
-              <LeagueBadge league={profile.league} className="mx-auto md:mx-0" />
+              <LeagueBadge league={league} className="mx-auto md:mx-0" />
             </div>
             <p className="text-muted-foreground text-lg mb-6 max-w-2xl mx-auto md:mx-0">
               {profile.bio || "No bio established."}
@@ -50,12 +58,12 @@ export function ProfileDetail() {
             <div className="flex flex-wrap justify-center md:justify-start gap-8">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Global Rank</p>
-                <p className="text-3xl font-display font-bold text-white">{profile.rank ? `#${profile.rank}` : "TBD"}</p>
+                <p className="text-3xl font-display font-bold text-white">TBD</p>
               </div>
               <div className="w-px h-12 bg-white/10 hidden md:block" />
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Avg Craft Score</p>
-                <p className="text-3xl font-display font-bold text-white neon-text">{profile.aiCraftScore}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Total Score</p>
+                <p className="text-3xl font-display font-bold text-white neon-text">{Math.round(profile.totalScore)}</p>
               </div>
             </div>
           </div>

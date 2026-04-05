@@ -1,0 +1,57 @@
+/** Max battle votes per listener per UTC day (each completed battle = one vote). */
+export const MAX_BATTLE_ROUNDS = 5;
+/** Max simultaneously active (non-archived) tracks per creator. */
+export const MAX_ACTIVE_TRACKS_PER_CREATOR = 2;
+/** Minimum lifetime before a creator can archive/replace a track. */
+export const MIN_ACTIVE_HOURS = 48;
+/** Cooldown after archiving before submitting a new active track. */
+export const ROTATION_COOLDOWN_HOURS = 24;
+
+/** Min trimmed length for creator track submission “artistic intent & prompt” (anti-spam). */
+export const MIN_TRACK_ARTISTIC_INTENT_CHARS = 50;
+/** Max length for the same field (matches DB / UI). */
+export const MAX_TRACK_ARTISTIC_INTENT_CHARS = 2000;
+
+/** After initial submit, a creator may change artistic intent / prompt at most this many times. */
+export const MAX_CREATOR_AI_PROMPT_EDITS = 2;
+/** Hours that must pass after the previous creator edit before the next aiPrompt change is allowed (edits 2+). */
+export const HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS = 48;
+
+/** Canonical NEX founder account (Google OAuth email). Override on server with NEX_FOUNDER_ADMIN_EMAIL. */
+export const NEX_FOUNDER_ADMIN_EMAIL = "d9ckoblack@gmail.com";
+
+export function normalizeAuthEmail(email: string | null | undefined): string {
+  return (email ?? "").trim().toLowerCase();
+}
+
+/** True when the authenticated user's email is the platform founder (sole admin in production). */
+export function isFounderAdminEmail(
+  email: string | null | undefined,
+  configured?: string | null,
+): boolean {
+  const expected = normalizeAuthEmail(configured ?? NEX_FOUNDER_ADMIN_EMAIL);
+  if (!expected) return false;
+  return normalizeAuthEmail(email) === expected;
+}
+
+/** Strict RBAC: only `creator` is creator-tier. */
+export function isCreatorProfileRole(role: string | null | undefined): boolean {
+  return role === "creator";
+}
+
+/** Strict RBAC studio access: `creator` or `admin` only. */
+export function isCreatorStudioRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "creator";
+}
+
+/** Same query shape for Music chart, Radio, and any “NEX TOP 100” style list (audio chart). */
+export function publicAudioChartSearchParams(limit: number, extra?: Record<string, string>): string {
+  const p = new URLSearchParams();
+  p.set("sortBy", "rankingScore");
+  p.set("limit", String(limit));
+  p.set("trackType", "audio");
+  if (extra) {
+    for (const [k, v] of Object.entries(extra)) p.set(k, v);
+  }
+  return p.toString();
+}

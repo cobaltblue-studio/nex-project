@@ -1,12 +1,27 @@
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
-import { useWorks } from "@/hooks/use-works";
-import { Loader2, Music, Users, Trophy, TrendingUp, Star, MapPin, Edit3, Check, X } from "lucide-react";
+import { Loader2, Music, Trophy, TrendingUp, MapPin, Edit3, Check, X, Heart, ImagePlus, Users, Zap } from "lucide-react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo, type ChangeEvent } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { publicAudioChartSearchParams, isCreatorProfileRole } from "@shared/constants";
+import { GuestCheerModal } from "@/components/GuestCheerModal";
+
+type BattleSummary = {
+  trackId: number;
+  trackTitle: string;
+  trackCoverImageUrl: string | null;
+  battleId: number;
+  opponentTrackId: number;
+  opponentTitle: string;
+  opponentCoverImageUrl: string | null;
+  myVotes: number;
+  opponentVotes: number;
+  iWon: boolean;
+  createdAt: string;
+};
 
 const COUNTRY_OPTIONS = [
   "United States", "United Kingdom", "Canada", "Australia", "Germany",
@@ -21,17 +36,57 @@ const COUNTRY_OPTIONS = [
 ];
 
 export function ProfileMe() {
-  const [, params] = useRoute("/profile/:name");
-  const { user: authUser, isAuthenticated } = useAuth();
-  const { data: tracks, isLoading: tracksLoading } = useWorks();
+  const [matchMeRoute] = useRoute("/profile/me");
+  const [, nameParams] = useRoute("/profile/:name");
+  const { isAuthenticated } = useAuth();
+
+  const chartQuery = publicAudioChartSearchParams(500);
+  const { data: chartTracks, isLoading: chartLoading } = useQuery<any[]>({
+    queryKey: ["/api/tracks", "rankingScore", 500, "audio", "profile-chart-ranks"],
+    queryFn: async () => {
+      const res = await fetch(`/api/tracks?${chartQuery}`);
+      if (!res.ok) throw new Error("Failed to load chart");
+      return res.json();
+    },
+  });
   const { toast } = useToast();
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editUsername, setEditUsername] = useState("");
   const [editCountry, setEditCountry] = useState("");
   const [editBio, setEditBio] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pendingAvatarDataUrl, setPendingAvatarDataUrl] = useState<string | null>(null);
+  const [guestCheerOpen, setGuestCheerOpen] = useState(false);
 
-  const creatorName = params?.name || authUser?.username || "";
+  const { data: myProfile, isLoading: myProfileLoading } = useQuery({
+    queryKey: ["/api/profiles/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/profiles/me", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const { data: battleSummaries = [] } = useQuery<BattleSummary[]>({
+    queryKey: ["/api/tracks/my/battle-summaries"],
+    queryFn: async () => {
+      const res = await fetch("/api/tracks/my/battle-summaries", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!matchMeRoute && isAuthenticated && isCreatorProfileRole((myProfile as { role?: string } | null)?.role),
+    retry: false,
+  });
+
+  const creatorName = matchMeRoute
+    ? (myProfile?.username ?? "")
+    : (nameParams?.name ?? "");
+
+  const waitingForMyUsername =
+    matchMeRoute && isAuthenticated && !(myProfile?.username ?? "") && myProfileLoading;
 
   const { data: creatorProfile, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/profiles/by-username", creatorName],
@@ -42,6 +97,17 @@ export function ProfileMe() {
       return res.json();
     },
     enabled: !!creatorName,
+    retry: false,
+  });
+
+  const { data: profileTracks, isLoading: creatorTracksLoading } = useQuery<any[]>({
+    queryKey: ["/api/profiles", creatorProfile?.id, "tracks"],
+    queryFn: async () => {
+      const res = await fetch(`/api/profiles/${creatorProfile!.id}/tracks`);
+      if (!res.ok) throw new Error("Failed to load creator tracks");
+      return res.json();
+    },
+    enabled: !!creatorProfile?.id,
     retry: false,
   });
 
@@ -57,23 +123,40 @@ export function ProfileMe() {
     retry: false,
   });
 
-  const isLoading = tracksLoading || profileLoading;
+  const creatorTracks = profileTracks ?? [];
+  const artistAlias = ((creatorTracks.find((t: any) => typeof t?.creatorName === "string" && t.creatorName.trim()) as { creatorName?: string } | undefined)?.creatorName ?? "").trim();
+  const displayName = artistAlias || creatorName;
+
+  const sortedTracks = useMemo(
+    () => [...(chartTracks || [])].sort((a: any, b: any) => (b.votes || 0) - (a.votes || 0)),
+    [chartTracks],
+  );
+
+  const isLoading =
+    waitingForMyUsername ||
+    profileLoading ||
+    chartLoading ||
+    (!!creatorProfile?.id && creatorTracksLoading);
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
 
-  const creatorTracks = tracks?.filter(t => t.creatorName?.toLowerCase() === creatorName.toLowerCase()) || [];
   const totalVotes = creatorTracks.reduce((acc, t) => acc + (t.votes || 0), 0);
-  const sortedTracks = [...(tracks || [])].sort((a, b) => (b.votes || 0) - (a.votes || 0));
-  const bestRank = creatorTracks.length > 0
-    ? Math.min(...creatorTracks.map(ct => sortedTracks.findIndex(st => st.id === ct.id) + 1))
-    : null;
+  // Phase 4: creator profile cards should no longer surface historic Music Chart rank.
+  const bestRank: number | null = null;
 
   const followerCount = creatorProfile?.followerCount || 0;
-  const isOwnProfile = authUser?.username?.toLowerCase() === creatorName.toLowerCase();
+  const visibleBio = (() => {
+    const raw = (creatorProfile?.bio ?? "").trim();
+    if (!raw) return "";
+    // Hide legacy auto-generated placeholders; only show creator-written intro.
+    if (/^Auto-created from artistName:/i.test(raw)) return "";
+    return raw;
+  })();
+  const isOwnProfile = myProfile?.username?.toLowerCase() === creatorName.toLowerCase();
   const isFollowing = followStatus?.isFollowing || false;
 
   const handleFollow = async () => {
     if (!isAuthenticated) {
-      window.location.href = "/api/login";
+      setGuestCheerOpen(true);
       return;
     }
     if (!creatorProfile?.id) return;
@@ -86,9 +169,10 @@ export function ProfileMe() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/follow-status", creatorProfile.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/by-username", creatorName] });
+      queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
       toast({
         title: isFollowing ? "UNFOLLOWED" : "FOLLOWING",
-        description: isFollowing ? `You unfollowed ${creatorName}.` : `You are now following ${creatorName}.`,
+        description: isFollowing ? `You unfollowed ${displayName}.` : `You are now following ${displayName}.`,
       });
     } catch {
       toast({ title: "ERROR", description: "Failed to update follow status.", variant: "destructive" });
@@ -98,9 +182,30 @@ export function ProfileMe() {
   };
 
   const startEditing = () => {
+    setEditUsername(creatorProfile?.username || "");
     setEditCountry(creatorProfile?.country || "");
     setEditBio(creatorProfile?.bio || "");
+    setPendingAvatarDataUrl(null);
     setIsEditingProfile(true);
+  };
+
+  const AVATAR_MAX = 500 * 1024;
+
+  const onAvatarFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Choose an image file.", variant: "destructive" });
+      return;
+    }
+    if (f.size > AVATAR_MAX) {
+      toast({ title: "Too large", description: "Profile image must be 500KB or less.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPendingAvatarDataUrl(String(reader.result));
+    reader.readAsDataURL(f);
+    e.target.value = "";
   };
 
   const cancelEditing = () => {
@@ -111,10 +216,14 @@ export function ProfileMe() {
     setSaving(true);
     try {
       await apiRequest("PATCH", "/api/profiles/me", {
+        username: editUsername || creatorProfile?.username || "",
         country: editCountry || null,
         bio: editBio || null,
+        ...(pendingAvatarDataUrl != null ? { avatarUrl: pendingAvatarDataUrl } : {}),
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/by-username", creatorName] });
+      queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
       toast({ title: "PROFILE UPDATED", description: "Your profile has been saved." });
       setIsEditingProfile(false);
     } catch {
@@ -126,22 +235,45 @@ export function ProfileMe() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-20">
+      <GuestCheerModal open={guestCheerOpen} onOpenChange={setGuestCheerOpen} />
       {/* HEADER */}
       <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <span className="text-2xl font-display font-bold text-primary uppercase">
-                {creatorName?.[0] || "N"}
-              </span>
+            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden mt-3">
+              {creatorProfile?.avatarUrl ? (
+                <img src={creatorProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-display font-bold text-primary uppercase">
+                  {creatorName?.[0] || "N"}
+                </span>
+              )}
             </div>
-            <div>
-              <div className="flex items-center gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tighter uppercase neon-text-strong neon-text-green">
-                  {creatorName.toUpperCase()}
+                  {displayName.toUpperCase()}
                 </h1>
-                {creatorProfile?.role === "nex" && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest border border-primary/40 text-primary px-2 py-0.5 rounded-sm">NEX</span>
+                {isCreatorProfileRole(creatorProfile?.role) && (
+                  <span className="text-[9px] font-bold uppercase tracking-widest border border-primary/40 text-primary px-2 py-0.5 rounded-sm shrink-0">CREATOR</span>
+                )}
+                {!isOwnProfile && isCreatorProfileRole(creatorProfile?.role) && (
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleFollow}
+                    disabled={followLoading}
+                    data-testid="button-follow-inline"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-[9px] font-bold uppercase tracking-widest transition-all shrink-0 border ${
+                      isFollowing
+                        ? "bg-primary/10 border-primary/40 text-primary"
+                        : "bg-primary/15 border-primary/50 text-primary hover:bg-primary/25"
+                    }`}
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${isFollowing ? "fill-current" : ""}`} />
+                    {followLoading ? "…" : isFollowing ? "Following" : "Follow"}
+                  </motion.button>
                 )}
               </div>
               <div className="flex items-center gap-4 mt-1">
@@ -166,31 +298,24 @@ export function ProfileMe() {
               whileTap={{ scale: 0.98 }}
               onClick={startEditing}
               data-testid="button-edit-profile"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-bold uppercase tracking-widest border border-white/10 text-zinc-400 hover:text-primary hover:border-primary/40 transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-bold uppercase tracking-widest border border-white/10 text-zinc-400 hover:text-primary hover:border-primary/40 transition-all self-start mt-3"
             >
               <Edit3 className="w-3.5 h-3.5" />
               Edit Profile
             </motion.button>
           )}
-
-          {!isOwnProfile && creatorProfile?.role === "nex" && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleFollow}
-              disabled={followLoading}
-              data-testid="button-follow"
-              className={`flex items-center gap-2 px-6 py-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all ${
-                isFollowing
-                  ? "bg-primary/10 border border-primary/40 text-primary hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
-                  : "bg-primary text-black border border-primary hover:brightness-110"
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              {followLoading ? "..." : isFollowing ? "FOLLOWING" : "FOLLOW"}
-            </motion.button>
-          )}
         </div>
+      </div>
+
+      <div className="bg-[#0A0A0A] border border-white/5 p-5 rounded-sm space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+          Who am I
+        </p>
+        {visibleBio ? (
+          <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+            {visibleBio}
+          </p>
+        ) : null}
       </div>
 
       {/* EDIT PROFILE FORM */}
@@ -207,6 +332,40 @@ export function ProfileMe() {
           </h3>
 
           <div className="space-y-4">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 block">
+                Username
+              </label>
+              <input
+                value={editUsername}
+                onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/\s+/g, ""))}
+                data-testid="input-username"
+                placeholder="3-24 chars: a-z, 0-9, _"
+                className="w-full bg-black border border-white/10 rounded-sm px-3 py-2.5 text-sm text-white focus:border-primary/40 focus:outline-none transition-colors"
+              />
+              <p className="text-[9px] text-zinc-600 uppercase tracking-widest mt-1">
+                lowercase letters, numbers, underscore only
+              </p>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 block">
+                Profile image (max 500KB)
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full border border-white/10 overflow-hidden bg-black/40 flex items-center justify-center shrink-0">
+                  {(pendingAvatarDataUrl || creatorProfile?.avatarUrl) ? (
+                    <img src={pendingAvatarDataUrl || creatorProfile?.avatarUrl || ""} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImagePlus className="w-6 h-6 text-zinc-600" />
+                  )}
+                </div>
+                <label className="cursor-pointer text-[10px] font-bold uppercase tracking-widest px-4 py-2 border border-white/15 rounded-sm text-zinc-400 hover:text-primary hover:border-primary/40 transition-colors">
+                  Upload
+                  <input type="file" accept="image/*" className="hidden" onChange={onAvatarFile} data-testid="input-avatar" />
+                </label>
+              </div>
+            </div>
+
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 block">
                 Country
@@ -286,6 +445,91 @@ export function ProfileMe() {
           </p>
         </div>
       </div>
+
+      {/* Creator battle snapshot (own profile only) */}
+      {matchMeRoute && isCreatorProfileRole(myProfile?.role) && battleSummaries.length > 0 ? (
+        <div className="rounded-sm border border-primary/25 bg-gradient-to-br from-primary/[0.07] to-transparent p-5 sm:p-6 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2">
+                <Zap className="w-4 h-4" /> Battle pulse
+              </h3>
+              <p className="text-[11px] text-zinc-500 mt-1 max-w-xl">
+                Your latest arena matchups: vote bar shows listener battle votes for each side (updates as the community votes).
+              </p>
+            </div>
+            <Link
+              href="/battle"
+              className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/35 px-3 py-2 rounded-sm hover:bg-primary/10 transition-colors shrink-0"
+            >
+              Open arena →
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {battleSummaries.map((b) => {
+              const totalVotes = b.myVotes + b.opponentVotes;
+              const myPct = totalVotes > 0 ? Math.round((b.myVotes / totalVotes) * 100) : 50;
+              const leader = b.opponentVotes === b.myVotes ? "tie" : b.myVotes > b.opponentVotes ? "you" : "opp";
+              return (
+                <div
+                  key={`${b.battleId}-${b.trackId}`}
+                  className="border border-white/10 rounded-sm bg-black/50 p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+                      Match · battle #{b.battleId}
+                    </span>
+                    {leader === "you" ? (
+                      <span className="text-[9px] font-black uppercase text-primary">Leading</span>
+                    ) : leader === "opp" ? (
+                      <span className="text-[9px] font-black uppercase text-zinc-500">Trailing</span>
+                    ) : (
+                      <span className="text-[9px] font-black uppercase text-zinc-500">Tied</span>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="w-14 h-14 rounded-sm overflow-hidden bg-zinc-900 shrink-0 border border-primary/20">
+                      {b.trackCoverImageUrl ? (
+                        <img src={b.trackCoverImageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <Music className="w-6 h-6 text-zinc-700 m-auto mt-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/track/${b.trackId}`} className="text-sm font-bold text-white hover:text-primary line-clamp-2">
+                        {b.trackTitle}
+                      </Link>
+                      <p className="text-[10px] text-primary font-mono mt-1">{b.myVotes} votes</p>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-zinc-800 overflow-hidden flex border border-white/5">
+                    <div
+                      className="bg-primary h-full transition-all"
+                      style={{ width: `${myPct}%` }}
+                    />
+                    <div className="bg-zinc-600 h-full flex-1 min-w-0" />
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <div className="w-11 h-11 rounded-sm overflow-hidden bg-zinc-900 shrink-0 border border-white/10">
+                      {b.opponentCoverImageUrl ? (
+                        <img src={b.opponentCoverImageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <Music className="w-5 h-5 text-zinc-700 m-auto mt-3" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/track/${b.opponentTrackId}`} className="text-xs font-semibold text-zinc-300 hover:text-white line-clamp-2">
+                        {b.opponentTitle}
+                      </Link>
+                      <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{b.opponentVotes} votes</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {/* TRACK LIST */}
       <div className="space-y-6">

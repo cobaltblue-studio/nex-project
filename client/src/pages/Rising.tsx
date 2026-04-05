@@ -1,55 +1,107 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, Loader2, Headphones, Flame, Clock } from "lucide-react";
+import { TrendingUp, Loader2, Flame, Clock, Dna, Search } from "lucide-react";
 import { Link } from "wouter";
+import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
+import { TrackAdminActions } from "@/components/TrackAdminActions";
+import { TrackPlayModal } from "@/components/TrackPlayModal";
+import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
 
 interface RisingTrack {
   id: number;
+  creatorId?: number;
   title: string;
   creatorName: string;
   genre: string;
   audioUrl: string;
+  aiPrompt?: string | null;
+  aiPromptEditCount?: number;
+  aiPromptLastEditedAt?: string | null;
+  playCount?: number;
   rankingScore: number;
   totalBattles: number;
   wins: number;
   winRate: number;
+  coverImageUrl?: string | null;
+  musicVideoUrl?: string | null;
+  trackType?: string;
 }
 
 export function Rising() {
+  const [playId, setPlayId] = useState<number | null>(null);
+  const [feed, setFeed] = useState<{ track: TrackFeedSnapshot; focusComment: boolean } | null>(null);
+  const [search, setSearch] = useState("");
+
   const { data: tracks, isLoading } = useQuery<RisingTrack[]>({
-    queryKey: ["/api/tracks/rising"],
+    queryKey: ["/api/tracks/rising", search],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      const q = search.trim();
+      if (q) params.set("q", q);
+      const url = params.toString() ? `/api/tracks/rising?${params.toString()}` : "/api/tracks/rising";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch rising tracks");
+      return res.json();
+    },
   });
+
+  const playing = tracks?.find((t) => t.id === playId) ?? null;
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Header */}
+      <TrackPlayModal
+        open={playId != null && !!playing}
+        onOpenChange={(o) => !o && setPlayId(null)}
+        title={playing?.title ?? ""}
+        creatorName={playing?.creatorName ?? ""}
+        audioUrl={playing?.audioUrl}
+        mvUrl={playing?.musicVideoUrl}
+        trackType={playing?.trackType}
+        aiPrompt={playing?.aiPrompt}
+      />
+      <TrackFeedModal
+        open={feed != null}
+        onOpenChange={(o) => !o && setFeed(null)}
+        track={feed?.track ?? null}
+        focusCommentOnOpen={feed?.focusComment ?? false}
+      />
+
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <TrendingUp className="w-5 h-5 text-primary" />
-          <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">Battle Charts</h1>
+          <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">Music Chart</h1>
         </div>
         <h2 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green">
           RISING
         </h2>
         <p className="text-zinc-500 text-sm mt-2">
-          Tracks climbing through battles — not yet in the top chart.
+          Tracks outside the top chart — surfaced by play momentum (views).
         </p>
 
-        {/* Criteria badges */}
         <div className="flex flex-wrap gap-2 mt-4">
           <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            5+ Battles
+            Audio only
           </span>
           <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            60%+ Win Rate
+            Not in top 100
           </span>
           <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            Outside Top 100
+            Plays ↓ sort
           </span>
+        </div>
+        <div className="mt-4 relative max-w-md">
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by title, creator, or genre"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
+            data-testid="input-search-rising"
+          />
         </div>
       </div>
 
-      {/* Track list */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -60,12 +112,11 @@ export function Rising() {
           <Flame className="w-10 h-10 text-zinc-700" />
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">No Rising Tracks Yet</p>
           <p className="text-zinc-700 text-[11px] max-w-sm">
-            Tracks need at least 5 battles with a 60%+ win rate to appear here.
-            Go to Battle and start competing!
+            When audio tracks pick up plays outside the top 100, they appear here.
           </p>
           <div className="flex items-center gap-2 mt-2">
             <Clock className="w-4 h-4 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))", animation: "neon-pulse 2s ease-in-out infinite" }} />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Check again in 24h</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Fuel the chart</span>
           </div>
           <Link href="/battle">
             <button className="mt-2 px-6 py-2.5 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all">
@@ -76,80 +127,105 @@ export function Rising() {
       ) : (
         <div className="space-y-2">
           {tracks.map((track, idx) => {
-            const totalTracks = tracks.length;
-            const intensity = totalTracks > 1 ? 1 - (idx / (totalTracks - 1)) : 1;
-            const glowOpacity = 0.2 + intensity * 0.8;
-            const glowSpread = 4 + intensity * 12;
-            const hue = 30 - intensity * 30;
+            const GenreIcon = getOfficialGenreIcon(track.genre);
             return (
             <motion.div
               key={track.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.04 }}
-              className="flex items-center gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
-              style={{
-                borderLeft: `3px solid hsla(${hue}, 100%, 50%, ${glowOpacity})`,
-                boxShadow: `inset ${glowSpread}px 0 ${glowSpread * 2}px -${glowSpread}px hsla(${hue}, 100%, 50%, ${glowOpacity * 0.4})`,
-              }}
+              transition={{ delay: Math.min(idx * 0.02, 1) }}
+              className="flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
               data-testid={`row-rising-${track.id}`}
             >
-              {/* Rank */}
-              <div className="w-8 text-center">
-                <span className="text-[10px] font-mono font-bold text-zinc-600">
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
-              </div>
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setPlayId(track.id)}
+                  className="shrink-0 w-10 h-10 rounded-md overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  aria-label={`Play ${track.title}`}
+                >
+                  {track.coverImageUrl ? (
+                    <img src={track.coverImageUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <GenreIcon className="w-4 h-4 text-zinc-600" strokeWidth={1.75} />
+                  )}
+                </button>
 
-              {/* Track info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white uppercase tracking-wider truncate" data-testid={`text-rising-title-${track.id}`}>
-                  {track.title}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate" data-testid={`text-rising-creator-${track.id}`}>
-                    {track.creatorName}
-                  </span>
-                  <span className="text-[8px] text-zinc-700 px-1.5 py-0.5 border border-white/5 rounded-sm">
-                    {track.genre}
-                  </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.65rem] sm:text-sm font-bold text-white uppercase tracking-wider truncate" data-testid={`text-rising-title-${track.id}`}>
+                    {track.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate" data-testid={`text-rising-creator-${track.id}`}>
+                      {track.creatorName}
+                    </span>
+                    <span className="text-[8px] text-zinc-700 px-1.5 py-0.5 border border-white/5 rounded-sm">
+                      {track.genre}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Battle stats */}
-              <div className="flex items-center gap-5 shrink-0">
-                {/* Win Rate */}
-                <div className="hidden md:block text-center min-w-[56px]">
-                  <p
-                    className="text-lg font-display font-bold text-primary"
-                    data-testid={`text-rising-winrate-${track.id}`}
-                  >
+              <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto">
+                <div className="hidden md:flex items-center gap-2">
+                  <div className="relative group/dna shrink-0">
+                    <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm flex items-center gap-1">
+                      <Dna className="w-3 h-3 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
+                    </button>
+                    <div className="absolute bottom-full right-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
+                      <div className="px-3 py-2.5 rounded-md font-mono text-[9px] text-white max-w-[240px]"
+                        style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
+                        {track.aiPrompt || "[AI_DNA]"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end text-right min-w-[52px]">
+                  <p className="text-xs sm:text-sm font-bold text-zinc-100" data-testid={`text-rising-plays-${track.id}`}>
+                    {(track.playCount ?? 0).toLocaleString()}
+                  </p>
+                  <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Plays</p>
+                </div>
+
+                <div className="hidden sm:flex flex-col items-end text-right min-w-[48px]">
+                  <p className="text-xs sm:text-lg font-display font-bold text-primary" data-testid={`text-rising-winrate-${track.id}`}>
                     {track.winRate}%
                   </p>
-                  <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Win Rate</p>
+                  <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Win</p>
                 </div>
 
-                {/* Total Battles */}
-                <div className="hidden md:block text-center min-w-[48px]">
-                  <p
-                    className="text-sm font-bold text-zinc-300"
-                    data-testid={`text-rising-battles-${track.id}`}
-                  >
-                    {track.totalBattles}
-                  </p>
-                  <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Battles</p>
-                </div>
-
-                {/* Listen button */}
-                <Link href={`/track/${track.id}`}>
-                  <button
-                    data-testid={`button-rising-listen-${track.id}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                  >
-                    <Headphones className="w-3 h-3" />
-                    Listen
-                  </button>
-                </Link>
+                <TrackAdminActions
+                  compact
+                  track={{
+                    id: track.id,
+                    creatorId: track.creatorId,
+                    title: track.title,
+                    creatorName: track.creatorName,
+                    genre: track.genre,
+                    coverImageUrl: track.coverImageUrl,
+                    audioUrl: track.audioUrl,
+                    mvUrl: track.musicVideoUrl ?? null,
+                    trackType: track.trackType,
+                    aiPrompt: track.aiPrompt,
+                    aiPromptEditCount: track.aiPromptEditCount,
+                    aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                  }}
+                  onCommentClick={() =>
+                    setFeed({
+                      track: {
+                        id: track.id,
+                        title: track.title,
+                        creatorName: track.creatorName,
+                        audioUrl: track.audioUrl,
+                        mvUrl: track.musicVideoUrl,
+                        trackType: track.trackType,
+                        aiPrompt: track.aiPrompt,
+                      },
+                      focusComment: true,
+                    })
+                  }
+                />
               </div>
             </motion.div>
             );

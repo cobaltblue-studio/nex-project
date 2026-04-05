@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -6,17 +6,49 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
-  Clock, RefreshCw, Loader2,
+  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 
-type AdminCheck = { isAdmin: boolean; email: string | null };
 type Submission = {
   id: number;
   title: string;
   creatorName: string;
   genre: string;
   trackLink: string;
+  portfolioLink?: string | null;
   status: "PENDING" | "BATTLE_POOL" | "REJECTED" | "CHART";
+  createdAt: string;
+};
+
+type CreatorApplication = {
+  profileId: number;
+  username: string;
+  email: string | null;
+  country: string | null;
+  aiToolUsed: string | null;
+  bio: string | null;
+  userId: string;
+};
+
+type TrackClaimRequest = {
+  id: number;
+  trackId: number;
+  trackTitle: string;
+  requesterProfileId: number;
+  requesterUsername: string;
+  createdAt: string;
+};
+
+type TrackEditRequest = {
+  commentId: number;
+  trackId: number;
+  trackTitle: string;
+  requesterUsername: string | null;
+  detail: string;
+  proposedLink: string | null;
   createdAt: string;
 };
 
@@ -43,32 +75,22 @@ function fmt(iso: string) {
 }
 
 export default function AdminPanel() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
+  const { toast } = useToast();
+  const { t } = useTranslation();
+  const [claimableTrackId, setClaimableTrackId] = useState("");
 
-  // --- Step 1: check admin status via email (no profile needed) ---
-  const {
-    data: adminCheck,
-    isLoading: checkLoading,
-    error: checkError,
-  } = useQuery<AdminCheck>({
-    queryKey: ["/api/admin/check"],
-    enabled: isAuthenticated,
-    retry: false,
-  });
+  const isAdmin = user?.role === "admin";
 
-  const isAdmin = adminCheck?.isAdmin === true;
-
-  // Redirect non-admins to home once we have a definitive answer
+  // Redirect guests and non-admin roles away from /admin
   useEffect(() => {
-    if (authLoading || checkLoading) return;
-    if (!isAuthenticated) { setLocation("/"); return; }
-    // checkError means 401 (should not happen if isAuthenticated) — treat as not admin
-    if (checkError || (adminCheck && !adminCheck.isAdmin)) {
+    if (authLoading) return;
+    if (!isAuthenticated || !user || user.role !== "admin") {
       setLocation("/");
     }
-  }, [isAuthenticated, authLoading, adminCheck, checkLoading, checkError, setLocation]);
+  }, [isAuthenticated, authLoading, user, setLocation]);
 
   // --- Step 2: load submissions only when confirmed admin ---
   const {
@@ -87,11 +109,107 @@ export default function AdminPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/submissions"] }),
   });
 
+  const {
+    data: creatorApplications,
+    isLoading: creatorAppsLoading,
+    refetch: refetchCreatorApps,
+  } = useQuery<CreatorApplication[]>({
+    queryKey: ["/api/admin/creator-applications"],
+    enabled: isAdmin,
+    retry: false,
+  });
+
+  const approveCreatorMutation = useMutation({
+    mutationFn: (profileId: number) =>
+      apiRequest("POST", `/api/admin/profiles/${profileId}/approve-creator`, {}).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/creator-applications"] });
+    },
+  });
+
+  const rejectCreatorMutation = useMutation({
+    mutationFn: (profileId: number) =>
+      apiRequest("POST", `/api/admin/profiles/${profileId}/reject-creator`, {}).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/creator-applications"] });
+    },
+  });
+
+  const {
+    data: trackClaimRequests,
+    isLoading: claimReqLoading,
+    refetch: refetchClaimReq,
+  } = useQuery<TrackClaimRequest[]>({
+    queryKey: ["/api/admin/track-claim-requests"],
+    enabled: isAdmin,
+    retry: false,
+  });
+
+  const {
+    data: trackEditRequests,
+    isLoading: editReqLoading,
+    refetch: refetchEditReq,
+  } = useQuery<TrackEditRequest[]>({
+    queryKey: ["/api/admin/track-edit-requests"],
+    enabled: isAdmin,
+    retry: false,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  const approveClaimMutation = useMutation({
+    mutationFn: (requestId: number) =>
+      apiRequest("POST", `/api/admin/track-claim-requests/${requestId}/approve`, {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["/api/admin/track-claim-requests"] });
+      toast({ title: "Ownership transfer approved" });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Approve failed", description: e.message, variant: "destructive" }),
+  });
+
+  const rejectClaimMutation = useMutation({
+    mutationFn: (requestId: number) =>
+      apiRequest("POST", `/api/admin/track-claim-requests/${requestId}/reject`, {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["/api/admin/track-claim-requests"] });
+      toast({ title: "Request rejected" });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Reject failed", description: e.message, variant: "destructive" }),
+  });
+
+  const dismissEditRequestMutation = useMutation({
+    mutationFn: (commentId: number) => apiRequest("DELETE", `/api/admin/track-edit-requests/${commentId}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["/api/admin/track-edit-requests"] });
+      toast({
+        title: i18n.t("admin.dismissOkTitle"),
+        description: i18n.t("admin.dismissOkDesc"),
+      });
+    },
+    onError: (e: Error) =>
+      toast({ title: i18n.t("admin.deleteFailTitle"), description: e.message, variant: "destructive" }),
+  });
+
+  const setClaimableMutation = useMutation({
+    mutationFn: (body: { trackId: number; claimable: boolean }) =>
+      apiRequest("PATCH", `/api/admin/tracks/${body.trackId}/claimable`, {
+        claimable: body.claimable,
+      }),
+    onSuccess: () => {
+      setClaimableTrackId("");
+      toast({ title: "Track updated", description: "Creators can now request ownership on that track page." });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+
   const pending   = submissions?.filter((s) => s.status === "PENDING")   ?? [];
   const processed = submissions?.filter((s) => s.status !== "PENDING")   ?? [];
 
   // ---- Render: loading ----
-  if (authLoading || checkLoading) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 text-zinc-600 animate-spin" />
@@ -107,8 +225,11 @@ export default function AdminPanel() {
         <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-600 mb-4">
           Login required
         </p>
-        <a href="/api/login" className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">
-          Login with Replit
+        <a
+          href={`/auth?returnTo=${encodeURIComponent("/admin")}`}
+          className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline"
+        >
+          Sign in
         </a>
       </div>
     );
@@ -134,17 +255,278 @@ export default function AdminPanel() {
             Admin Panel
           </h1>
           <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-1">
-            Track submission review · Approval queue
+            Track submission review · Creator applications
           </p>
         </div>
         <button
-          onClick={() => refetch()}
+          onClick={() => {
+            void refetch();
+            void refetchCreatorApps();
+            void refetchClaimReq();
+            void refetchEditReq();
+          }}
           data-testid="button-refresh"
           className="p-2 border border-white/10 rounded-sm text-zinc-500 hover:text-primary hover:border-primary/30 transition-all"
           title="Refresh"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Creator applications */}
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-4">
+          <UserPlus className="w-4 h-4 text-cyan-400" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">
+            Creator applications
+          </p>
+          {(creatorApplications?.length ?? 0) > 0 && (
+            <span className="text-[9px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-sm">
+              {creatorApplications!.length}
+            </span>
+          )}
+        </div>
+        {creatorAppsLoading ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : !creatorApplications?.length ? (
+          <div className="border border-white/5 rounded-sm p-8 text-center bg-black/10">
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending creator applications</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <AnimatePresence initial={false}>
+              {creatorApplications.map((row) => (
+                <motion.div
+                  key={row.profileId}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="border border-cyan-400/15 bg-black/30 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                  data-testid={`row-creator-app-${row.profileId}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white text-sm truncate">{row.username}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+                      {row.email ?? "—"}
+                      {row.country ? ` · ${row.country}` : ""}
+                      {row.aiToolUsed ? ` · ${row.aiToolUsed}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => approveCreatorMutation.mutate(row.profileId)}
+                      disabled={approveCreatorMutation.isPending || rejectCreatorMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      Approve creator
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rejectCreatorMutation.mutate(row.profileId)}
+                      disabled={approveCreatorMutation.isPending || rejectCreatorMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Reject
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* Track ownership claims */}
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-4">
+          <Handshake className="w-4 h-4 text-amber-400" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400">
+            Track ownership requests
+          </p>
+          {(trackClaimRequests?.length ?? 0) > 0 && (
+            <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-sm">
+              {trackClaimRequests!.length}
+            </span>
+          )}
+        </div>
+        {claimReqLoading ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : !trackClaimRequests?.length ? (
+          <div className="border border-white/5 rounded-sm p-6 text-center bg-black/10">
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending ownership requests</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <AnimatePresence initial={false}>
+              {trackClaimRequests.map((row) => (
+                <motion.div
+                  key={row.id}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="border border-amber-400/15 bg-black/30 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white text-sm truncate">{row.trackTitle}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+                      Track #{row.trackId} · Requested by @{row.requesterUsername}
+                    </p>
+                    <p className="text-[9px] text-zinc-600 mt-1">{fmt(row.createdAt)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={`/track/${row.trackId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-primary"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Open
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => approveClaimMutation.mutate(row.id)}
+                      disabled={approveClaimMutation.isPending || rejectClaimMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      Transfer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rejectClaimMutation.mutate(row.id)}
+                      disabled={approveClaimMutation.isPending || rejectClaimMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Deny
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+
+        <div className="mt-6 border border-white/5 rounded-sm p-4 bg-black/20 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+            Allow creator claims (seed track)
+          </p>
+          <p className="text-[11px] text-zinc-600 leading-relaxed">
+            Enter a track ID to mark it as claimable. The artist will see “Claim this track” on the track page and can request approval or use the instant code.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <input
+              type="number"
+              min={1}
+              placeholder="Track ID"
+              value={claimableTrackId}
+              onChange={(e) => setClaimableTrackId(e.target.value)}
+              className="flex-1 bg-black border border-white/10 rounded-sm px-3 py-2 text-sm text-white"
+            />
+            <button
+              type="button"
+              disabled={setClaimableMutation.isPending || !claimableTrackId.trim()}
+              onClick={() => {
+                const n = Number(claimableTrackId);
+                if (!Number.isFinite(n) || n < 1) return;
+                setClaimableMutation.mutate({ trackId: n, claimable: true });
+              }}
+              className="px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-40"
+            >
+              Mark claimable
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Track edit requests */}
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-4">
+          <Handshake className="w-4 h-4 text-emerald-400" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">
+            Track edit requests
+          </p>
+          {(trackEditRequests?.length ?? 0) > 0 && (
+            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-sm">
+              {trackEditRequests!.length}
+            </span>
+          )}
+        </div>
+        {editReqLoading ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : !trackEditRequests?.length ? (
+          <div className="border border-white/5 rounded-sm p-6 text-center bg-black/10">
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending edit requests</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <AnimatePresence initial={false}>
+              {trackEditRequests.map((row) => (
+                <motion.div
+                  key={row.commentId}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="border border-emerald-400/15 bg-black/30 rounded-sm p-4 flex flex-col gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white text-sm truncate">{row.trackTitle}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+                      Track #{row.trackId} · Requested by @{row.requesterUsername ?? "unknown"}
+                    </p>
+                    {row.detail ? (
+                      <p className="text-[11px] text-zinc-300 mt-2 whitespace-pre-wrap break-words">{row.detail}</p>
+                    ) : null}
+                    {row.proposedLink ? (
+                      <a
+                        href={row.proposedLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex mt-2 items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-emerald-300 hover:text-emerald-200"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Proposed link
+                      </a>
+                    ) : null}
+                    <p className="text-[9px] text-zinc-600 mt-1">{fmt(row.createdAt)}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <a
+                      href={`/track/${row.trackId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-primary"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Open track
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => dismissEditRequestMutation.mutate(row.commentId)}
+                      disabled={dismissEditRequestMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-zinc-400 border border-zinc-600/40 bg-zinc-900/40 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/35 rounded-sm transition-all disabled:opacity-40"
+                      title={t("admin.removeQueueTitle")}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Dismiss
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
       {/* Pipeline counters */}
@@ -226,6 +608,17 @@ export default function AdminPanel() {
                       </a>
                       <span className="text-[9px] text-zinc-700 uppercase tracking-widest">{fmt(track.createdAt)}</span>
                     </div>
+                    {track.portfolioLink ? (
+                      <a
+                        href={track.portfolioLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[9px] text-cyan-400/80 hover:text-cyan-300 flex items-center gap-1 uppercase tracking-widest transition-colors mt-2"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        Social / Portfolio
+                      </a>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">

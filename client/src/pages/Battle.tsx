@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import {
   ChevronRight,
   Trophy,
@@ -13,12 +14,17 @@ import {
   BarChart3,
   ListMusic,
   Plus,
+  CircleHelp,
+  Loader2,
 } from "lucide-react";
 import {
   YoutubePlayer,
   extractYoutubeId,
-  buildIframeEmbedUrl,
+  warmYoutubeIframeApi,
 } from "@/components/YoutubePlayer";
+import { classifyStreamingSource } from "@/lib/streamingEmbed";
+import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
+import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 
 type Phase =
   | "genre-select"
@@ -35,7 +41,7 @@ interface BattleTrack {
   genre: string;
   audioUrl: string;
   musicVideoUrl?: string;
-  coverImage?: string;
+  coverImageUrl?: string | null;
   rankingScore: number;
 }
 
@@ -52,6 +58,132 @@ interface BattleData {
 }
 
 const PREVIEW_DURATION = 20;
+
+function isDirectAudioUrl(rawUrl: string, ytId: string | null): boolean {
+  return (
+    !ytId &&
+    !!rawUrl &&
+    (rawUrl.endsWith(".mp3") ||
+      rawUrl.endsWith(".wav") ||
+      rawUrl.endsWith(".ogg") ||
+      rawUrl.endsWith(".m4a") ||
+      rawUrl.endsWith(".webm"))
+  );
+}
+
+function BattleBlindCard({
+  track,
+  badge,
+  accentClass,
+  buttonClassName,
+  canVote,
+  disabled,
+  isVoted,
+  isWinner,
+  isRevealed,
+  voteReady,
+  onVote,
+  dataTestIdPrefix,
+}: {
+  track: BattleTrack;
+  badge: string;
+  accentClass: string;
+  buttonClassName: string;
+  canVote: boolean;
+  disabled: boolean;
+  isVoted: boolean;
+  isWinner: boolean;
+  isRevealed: boolean;
+  voteReady: boolean;
+  onVote: () => void;
+  dataTestIdPrefix: string;
+}) {
+  const maskedLabel = "[ ????? ]  🤫 UNLOCK AFTER VOTE";
+  return (
+    <motion.div
+      className={[
+        "premium-card p-4 flex flex-col gap-3 transition-premium battle-blind-card",
+        canVote ? "" : "opacity-60",
+        isVoted && isWinner ? "battle-winner-focus" : "",
+        isVoted && !isWinner ? "battle-loser-dimmed" : "",
+      ].join(" ")}
+      animate={{
+        opacity: isVoted && !isWinner ? 0.3 : 1,
+        scale: isVoted && isWinner ? 1.02 : 1,
+      }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className={`w-6 h-6 rounded-lg border flex items-center justify-center text-[9px] font-bold ${accentClass}`}
+        >
+          {badge}
+        </div>
+        <span className="text-[9px] uppercase tracking-widest text-zinc-500">
+          Track {badge}
+        </span>
+      </div>
+      <div className="battle-cover-shell">
+        {track.coverImageUrl ? (
+          <img
+            src={track.coverImageUrl}
+            alt={`${track.title} cover`}
+            className={[
+              "battle-cover-image transition-premium",
+              isRevealed ? "battle-cover-revealed" : "battle-cover-hidden",
+            ].join(" ")}
+          />
+        ) : (
+          <div className="battle-cover-fallback">
+            <Music2 className="w-8 h-8 text-zinc-700" />
+          </div>
+        )}
+        {!isRevealed && (
+          <div className="battle-cover-overlay">
+            <CircleHelp className="w-7 h-7 text-primary/80" />
+          </div>
+        )}
+      </div>
+      <div>
+        {isRevealed ? (
+          <>
+            <p
+              className="font-bold text-white text-sm transition-premium battle-reveal-text"
+              data-testid={`text-${dataTestIdPrefix}-title`}
+            >
+              {track.title}
+            </p>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest mt-0.5 transition-premium battle-reveal-text">
+              {track.creatorName}
+            </p>
+          </>
+        ) : (
+          <p
+            className="font-bold text-white text-[11px] uppercase tracking-[0.14em] transition-premium whitespace-pre"
+            data-testid={`text-${dataTestIdPrefix}-title`}
+          >
+            {maskedLabel}
+          </p>
+        )}
+      </div>
+      <button
+        onClick={onVote}
+        disabled={disabled}
+        data-testid={`button-vote-${dataTestIdPrefix.replace("vote-", "")}`}
+        className={`${buttonClassName} relative overflow-hidden ${voteReady && !isVoted ? "battle-vote-ready-glow" : ""}`}
+      >
+        {!isVoted && <span className="battle-vote-lock-fill" style={{ width: `${voteReady ? 100 : 0}%` }} aria-hidden="true" />}
+        <span className="relative z-[1]">
+          {isVoted
+            ? `VOTED TRACK ${badge}`
+            : voteReady
+              ? `VOTE TRACK ${badge}`
+              : "LISTEN FIRST"}
+        </span>
+      </button>
+    </motion.div>
+  );
+}
 
 function PreviewProgressBar({ active }: { active: boolean }) {
   if (!active) return null;
@@ -99,23 +231,28 @@ function BattleTrackPlayer({
 
   const rawUrl = track.musicVideoUrl || track.audioUrl;
   const ytId = extractYoutubeId(rawUrl);
-  const isDirectAudio = !ytId && rawUrl && (rawUrl.endsWith(".mp3") || rawUrl.endsWith(".wav") || rawUrl.endsWith(".ogg") || rawUrl.endsWith(".m4a") || rawUrl.endsWith(".webm"));
+  const isDirectAudio = isDirectAudioUrl(rawUrl, ytId);
+  const iframeKind = rawUrl && !ytId ? classifyStreamingSource(rawUrl) : "other";
+  const { iframeSrc: battleIframeSrc, loading: battleStreamLoading } = usePlayableStreamingSrc(
+    rawUrl && !ytId && !isDirectAudio ? rawUrl : undefined,
+    { autoplay, enableJsApi: false },
+  );
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 battle-player-stage">
       <div className="flex items-center gap-2">
         <span className="text-[9px] font-bold tracking-[0.3em] text-primary/60 uppercase">
           {label}
         </span>
         <div className="h-px flex-1 bg-primary/10" />
         <span className="hidden md:inline text-[9px] font-bold tracking-[0.3em] text-zinc-600 uppercase">
-          {PREVIEW_DURATION}s preview
+          20S PREVIEW
         </span>
       </div>
       <span className="battle-preview-label md:hidden text-zinc-600 uppercase">
-        ({PREVIEW_DURATION}s Preview)
+        (20S PREVIEW)
       </span>
-      <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium battle-player-container ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "40vh" }}>
+      <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium battle-player-container ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "32vh" }}>
         {ytId ? (
           <YoutubePlayer
             videoId={ytId}
@@ -124,52 +261,53 @@ function BattleTrackPlayer({
             onEnded={onEnded}
           />
         ) : isDirectAudio ? (
-          <div className="w-full aspect-video flex items-center justify-center bg-black/60" style={{ maxHeight: "40vh" }}>
+          <div className="w-full aspect-[21/9] flex items-center justify-center bg-black/60" style={{ maxHeight: "32vh" }}>
             <audio
               ref={(el) => {
                 audioRef.current = el;
-                if (el && autoplay) {
-                  el.currentTime = Math.max(0, (el.duration || 60) * 0.5);
-                  el.play().catch(() => {});
-                }
               }}
               src={rawUrl}
+              preload="auto"
               className="hidden"
               onLoadedMetadata={(e) => {
                 const audio = e.currentTarget;
+                if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
                 audio.currentTime = Math.max(0, audio.duration * 0.5);
+                if (autoplay) audio.play().catch(() => {});
               }}
             />
             <Music2 className="w-8 h-8 text-primary animate-pulse" />
           </div>
         ) : rawUrl ? (
-          <div className="aspect-video" style={{ maxHeight: "40vh" }}>
-            <iframe
-              src={buildIframeEmbedUrl(rawUrl, autoplay)}
-              className="w-full h-full"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen"
-              allowFullScreen
-              title={track.title}
-            />
+          <div className="aspect-[21/9] flex items-center justify-center" style={{ maxHeight: "32vh" }}>
+            {battleStreamLoading && !battleIframeSrc ? (
+              <Loader2 className="w-8 h-8 text-primary/60 animate-spin" />
+            ) : battleIframeSrc ? (
+              <div className="relative w-full h-full min-h-[120px]">
+                <iframe
+                  key={battleIframeSrc}
+                  src={battleIframeSrc}
+                  className="w-full h-full min-h-[120px]"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  title={track.title}
+                  {...(iframeKind === "suno"
+                    ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
+                    : {})}
+                />
+                {iframeKind === "suno" ? <SunoEmbedOutboundShield /> : null}
+              </div>
+            ) : (
+              <Music2 className="w-8 h-8 text-zinc-600" />
+            )}
           </div>
         ) : (
-          <div className="w-full aspect-video flex items-center justify-center text-zinc-600" style={{ maxHeight: "40vh" }}>
+          <div className="w-full aspect-[21/9] flex items-center justify-center text-zinc-600" style={{ maxHeight: "32vh" }}>
             <Music2 className="w-8 h-8" />
           </div>
         )}
       </div>
       <PreviewProgressBar active={autoplay} />
-      <div>
-        <p
-          className="text-sm font-bold text-white truncate"
-          data-testid={`text-battle-title-${track.id}`}
-        >
-          {track.title}
-        </p>
-        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
-          {track.creatorName}
-        </p>
-      </div>
     </div>
   );
 }
@@ -190,11 +328,13 @@ export function Battle() {
   } | null>(null);
   const [listenedA, setListenedA] = useState(false);
   const [listenedB, setListenedB] = useState(false);
-  const [countdown, setCountdown] = useState<number>(0);
   const [showFlash, setShowFlash] = useState(false);
   const [votedId, setVotedId] = useState<number | null>(null);
-  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nextBattleRef = useRef<() => void>(() => {});
+  const [isVoted, setIsVoted] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [showSharePopup, setShowSharePopup] = useState(false);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resultPhaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
     queryKey: ["/api/battles/daily-count"],
@@ -246,17 +386,30 @@ export function Battle() {
     onSuccess: async (res: any) => {
       const data = await res.json();
       setVoteResult(data);
-      setPhase("result");
-      setVotedId(null);
-      setCountdown(7);
-      autoAdvanceRef.current = setTimeout(() => {
-        nextBattleRef.current();
-      }, 7000);
+      setIsVoted(true);
+      setIsRevealed(true);
+      setVotedId(data.winnerId);
+
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = setTimeout(() => {
+        setShowSharePopup(true);
+      }, 1000);
+
+      if (resultPhaseTimerRef.current) clearTimeout(resultPhaseTimerRef.current);
+      resultPhaseTimerRef.current = setTimeout(() => {
+        setShowSharePopup(false);
+        setPhase("result");
+        setVotedId(null);
+      }, 3200);
+
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
     },
     onError: (err: any) => {
       setVotedId(null);
+      setIsVoted(false);
+      setIsRevealed(false);
+      setShowSharePopup(false);
       if (err?.message?.includes("409") || err?.status === 409) {
         toast({
           title: "Already voted",
@@ -279,21 +432,30 @@ export function Battle() {
       setPhase("loading");
       setListenedA(false);
       setListenedB(false);
+      setIsVoted(false);
+      setIsRevealed(false);
+      setShowSharePopup(false);
       createBattleMutation.mutate(genre);
     },
     [createBattleMutation],
   );
 
   const nextBattle = useCallback(() => {
-    if (autoAdvanceRef.current) {
-      clearTimeout(autoAdvanceRef.current);
-      autoAdvanceRef.current = null;
-    }
-    setCountdown(0);
     setBattle(null);
     setVoteResult(null);
     setListenedA(false);
     setListenedB(false);
+    setIsVoted(false);
+    setIsRevealed(false);
+    setShowSharePopup(false);
+    if (revealTimerRef.current) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+    if (resultPhaseTimerRef.current) {
+      clearTimeout(resultPhaseTimerRef.current);
+      resultPhaseTimerRef.current = null;
+    }
     if (limitReachedRef.current) {
       setPhase("genre-select");
       return;
@@ -302,20 +464,40 @@ export function Battle() {
     createBattleMutation.mutate(selectedGenre);
   }, [selectedGenre, createBattleMutation]);
 
-  nextBattleRef.current = nextBattle;
+  useEffect(() => {
+    warmYoutubeIframeApi();
+  }, []);
 
   useEffect(() => {
-    if (phase !== "result" || countdown <= 0) return;
-    const interval = setInterval(() => {
-      setCountdown((prev) => (prev > 1 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [phase, countdown > 0]);
+    if (!battle) return;
+    const urls: string[] = [];
+    for (const t of [battle.trackA, battle.trackB]) {
+      const raw = t.musicVideoUrl || t.audioUrl;
+      const yid = extractYoutubeId(raw);
+      if (raw && isDirectAudioUrl(raw, yid)) urls.push(raw);
+    }
+    const players = urls.map((url) => {
+      const a = new Audio();
+      a.preload = "auto";
+      a.src = url;
+      a.load();
+      return a;
+    });
+    return () => {
+      for (const a of players) {
+        a.removeAttribute("src");
+        a.load();
+      }
+    };
+  }, [battle?.id]);
 
   useEffect(() => {
     return () => {
-      if (autoAdvanceRef.current) {
-        clearTimeout(autoAdvanceRef.current);
+      if (revealTimerRef.current) {
+        clearTimeout(revealTimerRef.current);
+      }
+      if (resultPhaseTimerRef.current) {
+        clearTimeout(resultPhaseTimerRef.current);
       }
     };
   }, []);
@@ -333,12 +515,10 @@ export function Battle() {
       if (!battle) return;
       setVotedId(trackId);
       setShowFlash(true);
-      setTimeout(() => {
-        voteMutation.mutate({ battleId: battle.id, trackId });
-      }, 300);
+      voteMutation.mutate({ battleId: battle.id, trackId });
       setTimeout(() => {
         setShowFlash(false);
-      }, 600);
+      }, 300);
     },
     [isAuthenticated, battle, voteMutation],
   );
@@ -349,6 +529,7 @@ export function Battle() {
         ? battle.trackA
         : battle.trackB
       : null;
+  const voteReady = listenedA && listenedB;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -392,7 +573,7 @@ export function Battle() {
           data-testid="battle-progress-indicator"
           style={{ letterSpacing: "0.35em" }}
         >
-          {`BATTLE ROUND ${displayCount} / ${dailyMax}`}
+          {`TODAY'S BATTLES ${displayCount} / ${dailyMax} (DAILY LIMIT ${dailyMax})`}
         </p>
       </div>
 
@@ -416,12 +597,12 @@ export function Battle() {
           <div className="text-center" data-testid="stat-tracks-pool">
             <ListMusic className="w-3 h-3 text-primary mx-auto mb-0.5" />
             <p className="text-sm font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Battle Pool</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Current Battle Pool</p>
           </div>
           <div className="text-center" data-testid="stat-new-tracks">
             <Plus className="w-3 h-3 text-primary mx-auto mb-0.5" />
             <p className="text-sm font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">New Tracks</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">New Today (Created)</p>
           </div>
         </div>
       </div>
@@ -438,7 +619,7 @@ export function Battle() {
           >
             {limitReached ? (
               <p className="text-lg font-bold text-zinc-300 uppercase tracking-wider" data-testid="text-daily-limit-reached">
-                Daily battle limit reached. Come back tomorrow.
+                Daily limit of {dailyMax} reached. Come back tomorrow.
               </p>
             ) : (
               <button
@@ -470,20 +651,43 @@ export function Battle() {
         {phase === "track-a" && battle && (
           <motion.div
             key="track-a"
+            className="relative"
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35 }}
           >
-            <BattleTrackPlayer
-              track={battle.trackA}
-              label="Track A"
-              autoplay={true}
-              onEnded={() => {
-                setListenedA(true);
-                setPhase("track-b");
-              }}
-            />
+            {(() => {
+              const prefetchId = extractYoutubeId(battle.trackB.musicVideoUrl || battle.trackB.audioUrl);
+              return prefetchId ? (
+                <div
+                  className="battle-yt-prefetch"
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    opacity: 0,
+                    pointerEvents: "none",
+                    overflow: "hidden",
+                    clipPath: "inset(50%)",
+                  }}
+                >
+                  <YoutubePlayer videoId={prefetchId} autoplay={false} battleMode={false} />
+                </div>
+              ) : null;
+            })()}
+            <div className="battle-stage-frame">
+              <BattleTrackPlayer
+                track={battle.trackA}
+                label="Track A"
+                autoplay={true}
+                onEnded={() => {
+                  setListenedA(true);
+                  setPhase("track-b");
+                }}
+              />
+            </div>
           </motion.div>
         )}
 
@@ -501,20 +705,23 @@ export function Battle() {
         {phase === "track-b" && battle && (
           <motion.div
             key="track-b"
+            className="relative"
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35 }}
           >
-            <BattleTrackPlayer
-              track={battle.trackB}
-              label="Track B"
-              autoplay={true}
-              onEnded={() => {
-                setListenedB(true);
-                setPhase("vote");
-              }}
-            />
+            <div className="battle-stage-frame">
+              <BattleTrackPlayer
+                track={battle.trackB}
+                label="Track B"
+                autoplay={true}
+                onEnded={() => {
+                  setListenedB(true);
+                  setPhase("vote");
+                }}
+              />
+            </div>
           </motion.div>
         )}
 
@@ -525,6 +732,7 @@ export function Battle() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.3 }}
+            className="battle-vote-stage"
           >
             <div className="flex items-center gap-3 mb-3">
               <div
@@ -555,76 +763,60 @@ export function Battle() {
                 Listen to both tracks before voting
               </p>
             )}
+            {voteReady && !isVoted && (
+              <p className="text-[10px] text-primary uppercase tracking-widest text-center mb-2 animate-pulse">
+                Voting unlocked. Choose your winner.
+              </p>
+            )}
 
             <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-1 md:mb-3">
               Which track wins the {selectedGenre} battle?
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 battle-vote-grid">
-              <div
-                className={`premium-card p-4 flex flex-col gap-3 transition-premium ${listenedA && listenedB ? "" : "opacity-60"}`}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-[9px] font-bold">
-                    A
-                  </div>
-                  <span className="text-[9px] uppercase tracking-widest text-zinc-500">
-                    Track A
-                  </span>
-                </div>
-                <div>
-                  <p
-                    className="font-bold text-white text-sm"
-                    data-testid="text-vote-track-a-title"
-                  >
-                    {battle.trackA.title}
-                  </p>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest mt-0.5">
-                    {battle.trackA.creatorName}
-                  </p>
-                </div>
-                <button
-                  onClick={() => castVote(battle.trackAId)}
-                  disabled={voteMutation.isPending || showFlash || !listenedA || !listenedB}
-                  data-testid="button-vote-track-a"
-                  className={`w-full py-2.5 glass-button text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed ${votedId === battle.trackAId ? "animate-vote-pulse brightness-150 ring-2 ring-primary/60" : ""}`}
-                >
-                  Vote Track A
-                </button>
-              </div>
+              <BattleBlindCard
+                track={battle.trackA}
+                badge="A"
+                accentClass="bg-primary/10 border-primary/30 text-primary"
+                canVote={listenedA && listenedB}
+                disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
+                isVoted={isVoted}
+                isWinner={voteResult?.winnerId === battle.trackAId}
+                isRevealed={isRevealed}
+                voteReady={voteReady}
+                onVote={() => castVote(battle.trackAId)}
+                dataTestIdPrefix="vote-track-a"
+                buttonClassName={`w-full py-2.5 glass-button text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed ${votedId === battle.trackAId ? "animate-vote-pulse brightness-150 ring-2 ring-primary/60" : ""}`}
+              />
 
-              <div
-                className={`premium-card p-4 flex flex-col gap-3 transition-premium ${listenedA && listenedB ? "" : "opacity-60"}`}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[9px] font-bold">
-                    B
-                  </div>
-                  <span className="text-[9px] uppercase tracking-widest text-zinc-500">
-                    Track B
-                  </span>
-                </div>
-                <div>
-                  <p
-                    className="font-bold text-white text-sm"
-                    data-testid="text-vote-track-b-title"
-                  >
-                    {battle.trackB.title}
-                  </p>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest mt-0.5">
-                    {battle.trackB.creatorName}
-                  </p>
-                </div>
-                <button
-                  onClick={() => castVote(battle.trackBId)}
-                  disabled={voteMutation.isPending || showFlash || !listenedA || !listenedB}
-                  data-testid="button-vote-track-b"
-                  className={`w-full py-2.5 rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] ${votedId === battle.trackBId ? "animate-vote-pulse brightness-150 ring-2 ring-blue-400/60" : ""}`}
-                  style={{ background: "hsla(220, 100%, 60%, 0.08)", backdropFilter: "blur(12px)", border: "1px solid hsla(220, 100%, 60%, 0.25)" }}
-                >
-                  Vote Track B
-                </button>
-              </div>
+              <BattleBlindCard
+                track={battle.trackB}
+                badge="B"
+                accentClass="bg-blue-500/10 border-blue-500/30 text-blue-400"
+                canVote={listenedA && listenedB}
+                disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
+                isVoted={isVoted}
+                isWinner={voteResult?.winnerId === battle.trackBId}
+                isRevealed={isRevealed}
+                voteReady={voteReady}
+                onVote={() => castVote(battle.trackBId)}
+                dataTestIdPrefix="vote-track-b"
+                buttonClassName={`w-full py-2.5 rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] battle-vote-button-b ${votedId === battle.trackBId ? "animate-vote-pulse brightness-150 ring-2 ring-blue-400/60" : ""}`}
+              />
             </div>
+            <AnimatePresence>
+              {showSharePopup && winnerTrack && (
+                <motion.div
+                  initial={{ opacity: 0, y: 14, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="battle-share-popup"
+                  data-testid="battle-share-popup"
+                >
+                  You can't fool my ears! I found {winnerTrack.creatorName}!
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 
@@ -657,6 +849,15 @@ export function Battle() {
                   by {winnerTrack.creatorName}
                 </p>
                 <p className="text-[8px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
+                <div className="pt-2 flex justify-center">
+                  <Link
+                    href={`/track/${winnerTrack.id}`}
+                    data-testid="button-view-winner-track-detail"
+                    className="inline-block text-[8px] font-bold uppercase tracking-[0.2em] text-primary/90 border border-primary/35 px-3 py-1.5 rounded-sm bg-primary/5 hover:bg-primary/15 transition-premium"
+                  >
+                    View Track Detail
+                  </Link>
+                </div>
               </div>
             )}
 
@@ -718,22 +919,6 @@ export function Battle() {
             </p>
 
             <div className="space-y-2">
-              {countdown > 0 && (
-                <div className="flex flex-col items-center gap-1" data-testid="text-next-battle-countdown">
-                  <AnimatePresence mode="wait">
-                    <motion.p
-                      key={countdown}
-                      initial={{ opacity: 0, scale: 1.3 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.4, ease: "easeOut" }}
-                      className="text-lg font-display font-bold text-primary"
-                    >
-                      Next battle in {countdown}
-                    </motion.p>
-                  </AnimatePresence>
-                </div>
-              )}
               <button
                 onClick={nextBattle}
                 data-testid="button-next-battle"

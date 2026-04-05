@@ -77,6 +77,7 @@ export function OnboardingModal() {
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setOpen(false);
       navigate("/");
       toast({
@@ -101,6 +102,7 @@ export function OnboardingModal() {
     try {
       await apiRequest("POST", "/api/profiles", { username, role: "listener" });
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setOpen(false);
       navigate("/");
     } catch {
@@ -121,14 +123,18 @@ export function OnboardingModal() {
     try {
       await apiRequest("POST", "/api/profiles", {
         username: artistName.trim(),
-        role: "nex",
+        role: "creator",
         country: country || null,
         aiToolUsed: aiTool || null,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setOpen(false);
       navigate("/");
-      toast({ title: "CREATOR PROFILE ACTIVATED", description: `Welcome to NEX, ${artistName}.` });
+      toast({
+        title: "CREATOR APPLICATION SENT",
+        description: "NEX will review your profile. You can upload after approval.",
+      });
     } catch (err: any) {
       const msg = err?.message || "Failed to create profile";
       toast({ title: "ERROR", description: msg, variant: "destructive" });
@@ -230,7 +236,7 @@ export function OnboardingModal() {
             <div className="p-8 space-y-5">
               <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-sm">
                 <Mic2 className="w-4 h-4 text-primary flex-shrink-0" />
-                <p className="text-[10px] text-primary font-bold uppercase tracking-widest">NEX Creator Account</p>
+                <p className="text-[10px] text-primary font-bold uppercase tracking-widest">NEX Creator application</p>
               </div>
 
               {/* Artist Name */}
@@ -309,7 +315,7 @@ export function OnboardingModal() {
                   className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-black text-[10px] font-bold uppercase tracking-widest rounded-sm hover:brightness-110 transition-all disabled:opacity-50"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                    <>ACTIVATE <ChevronRight className="w-4 h-4" /></>
+                    <>SUBMIT FOR REVIEW <ChevronRight className="w-4 h-4" /></>
                   )}
                 </motion.button>
               </div>

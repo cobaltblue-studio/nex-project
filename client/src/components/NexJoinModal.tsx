@@ -10,7 +10,8 @@ interface Props {
 export function NexJoinModal({ open, onClose }: Props) {
   const handleJoin = () => {
     sessionStorage.setItem("nex_join_intent", "nex");
-    window.location.href = "/api/login";
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    window.location.href = `/auth?returnTo=${encodeURIComponent(returnTo || "/")}`;
   };
 
   if (!open) return null;

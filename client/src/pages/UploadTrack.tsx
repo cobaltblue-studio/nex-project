@@ -2,10 +2,12 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { getLoginUrl } from "@/lib/loginRedirect";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Music, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { isCreatorStudioRole } from "@shared/constants";
 
 const AI_TOOLS = ["Suno", "Udio", "Stable Audio", "MusicGen", "Other"];
 const GENRES = ["Synthwave", "Pop", "EDM", "Ambient", "Experimental", "Hip-Hop", "Cinematic", "Lo-Fi", "Other"];
@@ -31,7 +33,7 @@ export function UploadTrack() {
   const [genre, setGenre] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [coverImage, setCoverImage] = useState("");
+  const [coverImageUrl, setCoverImageUrl] = useState("");
   const [description, setDescription] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -49,20 +51,35 @@ export function UploadTrack() {
     return (
       <div className="py-40 text-center space-y-6">
         <p className="font-display text-2xl uppercase tracking-widest text-zinc-500">Authentication Required</p>
-        <a href="/api/login" className="inline-block border border-primary/30 text-primary px-6 py-3 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-primary/10 transition-all">
+        <a href={getLoginUrl("/upload")} className="inline-block border border-primary/30 text-primary px-6 py-3 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-primary/10 transition-all">
           Login to Continue
         </a>
       </div>
     );
   }
 
-  if (profile?.role !== "nex") {
+  if (profile?.creatorApplicationStatus === "pending") {
+    return (
+      <div className="py-40 text-center space-y-6 px-4">
+        <div className="border border-yellow-400/20 border-dashed p-12 rounded-sm max-w-md mx-auto space-y-4">
+          <Music className="w-12 h-12 text-yellow-500/80 mx-auto" />
+          <p className="font-display text-xl uppercase tracking-widest text-yellow-400/90">Creator approval pending</p>
+          <p className="text-zinc-500 text-sm">Your application is under review. Upload opens after admin approval.</p>
+        </div>
+        <Link href="/" className="inline-block text-zinc-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors">
+          Return Home
+        </Link>
+      </div>
+    );
+  }
+
+  if (!isCreatorStudioRole(profile?.role)) {
     return (
       <div className="py-40 text-center space-y-6">
         <div className="border border-white/5 border-dashed p-16 rounded-sm max-w-md mx-auto space-y-4">
           <Music className="w-12 h-12 text-zinc-700 mx-auto" />
           <p className="font-display text-xl uppercase tracking-widest text-zinc-500">Creator Access Only</p>
-          <p className="text-zinc-600 text-sm">Only NEX Creator accounts can upload tracks.</p>
+          <p className="text-zinc-600 text-sm">Only approved creators and platform admins can upload tracks here.</p>
         </div>
         <Link href="/" className="inline-block text-zinc-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors">
           Return Home
@@ -86,7 +103,7 @@ export function UploadTrack() {
         genre,
         audioUrl: audioUrl.trim(),
         mvUrl: videoUrl.trim() || undefined,
-        coverImage: coverImage.trim() || undefined,
+        coverImageUrl: coverImageUrl.trim() || undefined,
         description: description.trim() || undefined,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
@@ -161,7 +178,11 @@ export function UploadTrack() {
         </Field>
 
         {/* Audio Source URL */}
-        <Field label="Audio Source URL" required hint="YouTube, Suno, Udio, SoundCloud, Vimeo, or any embeddable URL">
+        <Field
+          label="Audio Source URL"
+          required
+          hint="Suno: ⋯ → Copy link (song/UUID). Short suno.com/s/… OK. Also YouTube, Udio, SoundCloud, Vimeo."
+        >
           <input
             type="url"
             value={audioUrl}
@@ -188,15 +209,15 @@ export function UploadTrack() {
         <Field label="Cover Image URL" hint="Optional — link to a square image (e.g. from Imgur, Cloudinary)">
           <input
             type="url"
-            value={coverImage}
-            onChange={e => setCoverImage(e.target.value)}
+            value={coverImageUrl}
+            onChange={e => setCoverImageUrl(e.target.value)}
             placeholder="https://example.com/cover.jpg"
             data-testid="input-cover-image"
             className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-primary/50 placeholder:text-zinc-700 font-mono transition-colors"
           />
-          {coverImage && (
+          {coverImageUrl && (
             <div className="mt-2 w-20 h-20 rounded-sm overflow-hidden border border-white/10">
-              <img src={coverImage} alt="Cover preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              <img src={coverImageUrl} alt="Cover preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
             </div>
           )}
         </Field>

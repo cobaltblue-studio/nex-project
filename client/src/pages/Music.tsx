@@ -1,22 +1,31 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Music as MusicIcon, Loader2, Headphones, Crown, Star, TrendingUp, Dna } from "lucide-react";
-import { Link } from "wouter";
+import { Music as MusicIcon, Loader2, Crown, Star, TrendingUp, Dna, Search } from "lucide-react";
+import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
+import { TrackAdminActions } from "@/components/TrackAdminActions";
+import { TrackPlayModal } from "@/components/TrackPlayModal";
+import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
 
 interface ChartTrack {
   id: number;
+  creatorId?: number;
   title: string;
   creatorName: string;
   genre: string;
   audioUrl: string;
-  coverImage?: string;
+  coverImageUrl?: string | null;
   playCount: number;
   rankingScore: number;
   winStreak: number;
   aiPrompt?: string | null;
+  aiPromptEditCount?: number;
+  aiPromptLastEditedAt?: string | null;
   totalBattles?: number;
   wins?: number;
   winRate?: number;
+  musicVideoUrl?: string | null;
+  trackType?: string;
 }
 
 const TOTAL_SLOTS = 100;
@@ -29,22 +38,55 @@ function getZoneForRank(rank: number): { label: string; icon: typeof Crown; colo
 }
 
 export function Music() {
+  const [playId, setPlayId] = useState<number | null>(null);
+  const [feed, setFeed] = useState<{ track: TrackFeedSnapshot; focusComment: boolean } | null>(null);
+  const [search, setSearch] = useState("");
+
   const { data: tracks, isLoading, isError } = useQuery<ChartTrack[]>({
-    queryKey: ["/api/tracks", "rankingScore", 100, "audio"],
+    queryKey: ["/api/tracks", "rankingScore", 100, "audio", search ? "search-all-active" : "status-CHART", search],
     queryFn: async () => {
-      const res = await fetch("/api/tracks?sortBy=rankingScore&limit=100&trackType=audio");
+      const params = new URLSearchParams();
+      params.set("sortBy", "rankingScore");
+      params.set("limit", "100");
+      params.set("trackType", "audio");
+      const q = search.trim();
+      if (!q) params.set("status", "CHART");
+      if (q) params.set("q", q);
+      const res = await fetch(`/api/tracks?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch chart");
       return res.json();
     },
   });
+  const isSearching = search.trim().length > 0;
 
-  const slots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
-    const track = tracks?.[i] ?? null;
-    return { rank: i + 1, track };
-  });
+  const playing = tracks?.find((t) => t.id === playId) ?? null;
+
+  const slots = isSearching
+    ? (tracks ?? []).map((track, i) => ({ rank: i + 1, track }))
+    : Array.from({ length: TOTAL_SLOTS }, (_, i) => {
+        const track = tracks?.[i] ?? null;
+        return { rank: i + 1, track };
+      });
 
   return (
     <div className="max-w-3xl mx-auto">
+      <TrackPlayModal
+        open={playId != null && !!playing}
+        onOpenChange={(o) => !o && setPlayId(null)}
+        title={playing?.title ?? ""}
+        creatorName={playing?.creatorName ?? ""}
+        audioUrl={playing?.audioUrl}
+        mvUrl={playing?.musicVideoUrl}
+        trackType={playing?.trackType}
+        aiPrompt={playing?.aiPrompt}
+      />
+      <TrackFeedModal
+        open={feed != null}
+        onOpenChange={(o) => !o && setFeed(null)}
+        track={feed?.track ?? null}
+        focusCommentOnOpen={feed?.focusComment ?? false}
+      />
+
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <MusicIcon className="w-5 h-5 text-primary" />
@@ -64,6 +106,21 @@ export function Music() {
         <p className="text-zinc-500 text-sm mt-2">
           The definitive ranking of the top 100 tracks on NEX.
         </p>
+        <div className="mt-4 relative max-w-md">
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by title, creator, or genre"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
+            data-testid="input-search-music"
+          />
+        </div>
+        {isSearching && (
+          <p className="text-[10px] text-zinc-600 mt-2">
+            Searching across all active audio tracks.
+          </p>
+        )}
       </div>
 
       {isLoading ? (
@@ -79,10 +136,19 @@ export function Music() {
             Something went wrong while loading the chart. Please try again later.
           </p>
         </div>
+      ) : isSearching && (tracks?.length ?? 0) === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+          <Search className="w-8 h-8 text-zinc-700" />
+          <p className="text-sm font-bold uppercase tracking-widest text-zinc-400">
+            No results for "{search.trim()}"
+          </p>
+          <p className="text-[11px] text-zinc-600">Try title, creator, or genre keywords.</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {slots.map(({ rank, track }) => {
             const zone = getZoneForRank(rank);
+            const ChartGenreIcon = track ? getOfficialGenreIcon(track.genre) : MusicIcon;
             return (
               <div key={track ? track.id : `empty-${rank}`}>
                 {zone && (
@@ -105,37 +171,58 @@ export function Music() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(rank * 0.02, 1) }}
-                    className="flex items-center gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
+                    className="flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
                     data-testid={`row-chart-${track.id}`}
                   >
-                    <div className="w-10 text-center">
-                      <span className="text-sm font-mono font-bold text-zinc-500">
+                    <div className="w-8 sm:w-10 text-center shrink-0">
+                      <span className="text-xs sm:text-sm font-mono font-bold text-zinc-500">
                         {String(rank).padStart(2, "0")}
                       </span>
                     </div>
 
-                    <div className="w-10 h-10 rounded-sm overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center" data-testid={`img-chart-cover-${track.id}`}>
-                      {track.coverImage ? (
-                        <img src={track.coverImage} alt={track.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <MusicIcon className="w-4 h-4 text-zinc-600" />
-                      )}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setPlayId(track.id)}
+                        className="w-10 h-10 rounded-md overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                        data-testid={`img-chart-cover-${track.id}`}
+                        aria-label={`Play ${track.title}`}
+                      >
+                        {track.coverImageUrl ? (
+                          <img src={track.coverImageUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <ChartGenreIcon className="w-4 h-4 text-zinc-600" strokeWidth={1.75} aria-hidden />
+                        )}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="text-[0.6rem] sm:text-[0.65rem] font-bold text-white uppercase tracking-wider truncate leading-tight"
+                          data-testid={`text-chart-title-${track.id}`}
+                        >
+                          {track.title}
+                        </p>
+                        <span
+                          className="text-[9px] font-bold text-primary/70 uppercase tracking-widest truncate block"
+                          data-testid={`text-chart-creator-${track.id}`}
+                        >
+                          {track.creatorName}
+                        </span>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap md:hidden">
+                          <span className="text-[7px] text-zinc-700 uppercase tracking-[0.2em] border border-white/5 px-1 py-0.5 rounded-xs">
+                            {track.genre}
+                          </span>
+                          {track.winStreak > 0 && (
+                            <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[7px] font-bold border border-orange-500/20" data-testid={`text-chart-streak-${track.id}`}>
+                              🔥 {track.winStreak}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className="text-[0.6rem] font-bold text-white uppercase tracking-wider truncate leading-tight"
-                        data-testid={`text-chart-title-${track.id}`}
-                      >
-                        {track.title}
-                      </p>
-                      <span
-                        className="text-[9px] font-bold text-primary/70 uppercase tracking-widest truncate block"
-                        data-testid={`text-chart-creator-${track.id}`}
-                      >
-                        {track.creatorName}
-                      </span>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto">
+                      <div className="hidden md:flex items-center gap-2">
                         <span className="text-[7px] text-zinc-700 uppercase tracking-[0.2em] border border-white/5 px-1 py-0.5 rounded-xs">
                           {track.genre}
                         </span>
@@ -144,8 +231,8 @@ export function Music() {
                             <Dna className="w-3 h-3 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
                             <span className="text-[7px] font-mono font-bold text-cyan-400 uppercase tracking-wider">[AI_DNA]</span>
                           </button>
-                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white"
+                          <div className="absolute bottom-full right-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
+                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white max-w-[min(90vw,280px)]"
                               style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,128,0.4)", boxShadow: "0 0 12px rgba(0,255,128,0.15)" }}>
                               <p>{track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}</p>
                             </div>
@@ -156,22 +243,11 @@ export function Music() {
                             🔥 {track.winStreak}
                           </span>
                         )}
-                        <Link href={`/track/${track.id}`}>
-                          <button
-                            data-testid={`button-chart-listen-${track.id}`}
-                            className="flex items-center gap-1 px-2 py-0.5 border border-white/10 rounded-sm text-[8px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                          >
-                            <Headphones className="w-2.5 h-2.5" />
-                            Listen
-                          </button>
-                        </Link>
                       </div>
-                    </div>
 
-                    <div className="hidden md:flex items-center gap-5 shrink-0">
-                      <div className="text-center min-w-[56px]">
+                      <div className="hidden sm:flex flex-col items-end text-right min-w-[56px]">
                         <p
-                          className="text-sm font-bold text-zinc-300"
+                          className="text-xs sm:text-sm font-bold text-zinc-300"
                           data-testid={`text-chart-plays-${track.id}`}
                         >
                           {(track.playCount ?? 0).toLocaleString()}
@@ -180,7 +256,7 @@ export function Music() {
                       </div>
 
                       {track.winRate != null && (
-                        <div className="text-center min-w-[56px]">
+                        <div className="hidden md:flex flex-col items-end text-right min-w-[56px]">
                           <p
                             className="text-sm font-display font-bold text-primary"
                             data-testid={`text-chart-winrate-${track.id}`}
@@ -190,6 +266,38 @@ export function Music() {
                           <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Win Rate</p>
                         </div>
                       )}
+
+                      <TrackAdminActions
+                        compact
+                        track={{
+                          id: track.id,
+                          creatorId: track.creatorId,
+                          title: track.title,
+                          creatorName: track.creatorName,
+                          genre: track.genre,
+                          coverImageUrl: track.coverImageUrl,
+                          audioUrl: track.audioUrl,
+                          mvUrl: track.musicVideoUrl ?? null,
+                          trackType: track.trackType,
+                          aiPrompt: track.aiPrompt,
+                          aiPromptEditCount: track.aiPromptEditCount,
+                          aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                        }}
+                        onCommentClick={() =>
+                          setFeed({
+                            track: {
+                              id: track.id,
+                              title: track.title,
+                              creatorName: track.creatorName,
+                              audioUrl: track.audioUrl,
+                              mvUrl: track.musicVideoUrl,
+                              trackType: track.trackType,
+                              aiPrompt: track.aiPrompt,
+                            },
+                            focusComment: true,
+                          })
+                        }
+                      />
                     </div>
                   </motion.div>
                 ) : (

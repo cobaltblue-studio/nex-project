@@ -27,9 +27,11 @@ import { New } from "@/pages/New";
 import { MusicVideo } from "@/pages/MusicVideo";
 import SubmitTrack from "@/pages/SubmitTrack";
 import AdminPanel from "@/pages/AdminPanel";
+import AdminLogin from "@/pages/AdminLogin";
 import NexRadio from "@/pages/Radio";
 import About from "@/pages/About";
 import ChartMethodology from "@/pages/ChartMethodology";
+import Auth from "@/pages/Auth";
 
 function Router() {
   return (
@@ -37,7 +39,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/join" component={Join} />
-<Route path="/api/login" component={Join} />
+        <Route path="/auth" component={Auth} />
         <Route path="/new" component={New} />
         <Route path="/music" component={Music} />
         <Route path="/music-video" component={MusicVideo} />
@@ -53,6 +55,7 @@ function Router() {
         <Route path="/submit-track" component={SubmitTrack} />
         <Route path="/radio" component={NexRadio} />
         <Route path="/admin" component={AdminPanel} />
+        <Route path="/admin-login" component={AdminLogin} />
         <Route path="/about" component={About} />
         <Route path="/chart-methodology" component={ChartMethodology} />
         <Route path="/track/:id" component={TrackDetail} />

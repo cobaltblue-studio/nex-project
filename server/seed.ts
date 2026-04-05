@@ -17,7 +17,15 @@ export async function seed() {
 
     console.log("Seeding NEO database with sample tracks...");
 
-    const sampleData = [];
+    type SeedTrack = {
+      creator: string;
+      title: string;
+      audioUrl: string;
+      mvUrl?: string | null;
+      tool: string;
+      votes: number;
+    };
+    const sampleData: SeedTrack[] = [];
 
     const creators = Array.from(new Set(sampleData.map((d) => d.creator)));
     const creatorMap: Record<string, number> = {};
@@ -27,7 +35,7 @@ export async function seed() {
       const userId = `seed_user_${name.toLowerCase().replace(/\s+/g, "_")}`;
       await db
         .insert(users)
-        .values({ id: userId, email: `${userId}@neo.ai`, username: name })
+        .values({ id: userId, email: `${userId}@neo.ai`, firstName: name })
         .onConflictDoNothing();
       let [profile] = await db
         .select()

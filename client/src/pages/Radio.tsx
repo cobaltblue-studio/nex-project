@@ -10,7 +10,12 @@ import {
   Music2, Mic2, Zap, Waves, Bot, ChevronRight,
   Loader2, List
 } from "lucide-react";
-import { YoutubePlayer, extractYoutubeId, buildIframeEmbedUrl } from "@/components/YoutubePlayer";
+import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
+import { useTranslation } from "react-i18next";
+import { classifyStreamingSource } from "@/lib/streamingEmbed";
+import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
+import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { publicAudioChartSearchParams } from "@shared/constants";
 
 type Track = {
   id: number;
@@ -36,6 +41,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function NexRadio() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -52,27 +58,28 @@ export default function NexRadio() {
   useEffect(() => { playlistRef.current = playlist; }, [playlist]);
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
+  const radioQs = publicAudioChartSearchParams(100);
   const { data: tracks = [], isLoading } = useQuery<Track[]>({
-    queryKey: ["/api/tracks", "radio", "top100"],
+    queryKey: ["/api/tracks", "radio", "music-chart-sync", "rankingScore", "audio", 100],
     queryFn: async () => {
-      const params = new URLSearchParams({ limit: "100", sortBy: "neoScore" });
-      const res = await fetch(`/api/tracks?${params.toString()}`);
+      const res = await fetch(`/api/tracks?${radioQs}`);
+      if (!res.ok) throw new Error("Failed to load chart for radio");
       return res.json();
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
 
   useEffect(() => {
-    if (tracks.length > 0) {
-      const shuffled = shuffle(tracks);
-      setPlaylist(shuffled);
-      setCurrentIndex(0);
-      playerKey.current += 1;
-    }
-  }, [tracks.length]);
+    if (!tracks?.length) return;
+    const shuffled = shuffle(tracks);
+    setPlaylist(shuffled);
+    setCurrentIndex(0);
+    playerKey.current += 1;
+  }, [tracks]);
 
   const currentTrack = playlist[currentIndex] ?? null;
-  const neoRank = currentTrack
+  const musicChartRank = currentTrack
     ? tracks.findIndex((t) => t.id === currentTrack.id) + 1
     : null;
 
@@ -80,9 +87,13 @@ export default function NexRadio() {
     ? (currentTrack.musicVideoUrl || currentTrack.audioUrl)
     : null;
   const ytVideoId = activeUrl ? extractYoutubeId(activeUrl) : null;
-  const iframeUrl = (activeUrl && !ytVideoId)
-    ? buildIframeEmbedUrl(activeUrl, true)
-    : null;
+  const rawForIframe = activeUrl && !ytVideoId ? activeUrl : null;
+  const {
+    iframeSrc: iframeUrl,
+    loading: iframeLoading,
+    error: iframeError,
+  } = usePlayableStreamingSrc(rawForIframe, { autoplay: true, enableJsApi: false });
+  const iframeKind = activeUrl && !ytVideoId ? classifyStreamingSource(activeUrl) : "other";
 
   const advanceTrack = useCallback(() => {
     const len = Math.max(playlistRef.current.length, 1);
@@ -106,7 +117,11 @@ export default function NexRadio() {
     mutationFn: (id: number) =>
       apiRequest("POST", `/api/tracks/${id}/like`).then((r) => r.json()),
     onSuccess: (_, id) => {
-      setLiked((prev) => new Set([...prev, id]));
+      setLiked((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
       toast({ title: "Liked!", description: "Added to your liked tracks." });
     },
     onError: () =>
@@ -116,7 +131,11 @@ export default function NexRadio() {
   const handleLike = () => {
     if (!currentTrack) return;
     if (!isAuthenticated) {
-      toast({ title: "Login required", description: "Log in to like tracks.", variant: "destructive" });
+      toast({
+        title: "Login required",
+        description: "You need to log in to like tracks.",
+        variant: "destructive",
+      });
       return;
     }
     if (!liked.has(currentTrack.id)) {
@@ -198,25 +217,49 @@ export default function NexRadio() {
                   autoplay={true}
                   onEnded={advanceTrack}
                 />
+              ) : rawForIframe && iframeLoading && !iframeUrl ? (
+                <div
+                  className="aspect-video flex flex-col items-center justify-center gap-2"
+                  style={{ maxHeight: "45vh" }}
+                >
+                  <Loader2 className="w-8 h-8 text-primary/60 animate-spin" />
+                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest">{t("suno.resolving")}</p>
+                </div>
               ) : iframeUrl ? (
-                <div className="aspect-video">
+                <div
+                  className={
+                    iframeKind === "soundcloud"
+                      ? "relative min-h-[166px] h-[200px] sm:h-[220px]"
+                      : iframeKind === "suno"
+                        ? "relative min-h-[280px] h-[320px]"
+                        : "relative aspect-video"
+                  }
+                >
                   <iframe
-                    key={playerKey.current}
+                    key={`${playerKey.current}-${iframeUrl}`}
                     src={iframeUrl}
                     data-testid="iframe-radio-player"
                     className="w-full h-full"
-                    allow="autoplay; encrypted-media; fullscreen"
+                    allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
                     allowFullScreen
                     title={`Radio: ${currentTrack?.title ?? "Track"}`}
+                    {...(iframeKind === "suno"
+                      ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
+                      : {})}
                   />
+                  {iframeKind === "suno" ? <SunoEmbedOutboundShield /> : null}
                 </div>
               ) : (
-                <div className="aspect-video flex flex-col items-center justify-center gap-3">
+                <div className="aspect-video flex flex-col items-center justify-center gap-3 px-4">
                   <Music2 className="w-10 h-10 text-zinc-800" strokeWidth={1} />
-                  <p className="text-[10px] text-zinc-700 uppercase tracking-widest">
-                    {playlist.length === 0 ? "No tracks available" : "No playable link for this track"}
+                  <p className="text-[10px] text-zinc-700 uppercase tracking-widest text-center leading-relaxed">
+                    {iframeError
+                      ? iframeError
+                      : playlist.length === 0
+                        ? "No tracks available"
+                        : "No playable link for this track"}
                   </p>
-                  {playlist.length > 0 && (
+                  {playlist.length > 0 && !iframeError && (
                     <button onClick={handleNext} className="text-[9px] text-primary/70 hover:text-primary uppercase tracking-widest transition-colors">
                       Try next track →
                     </button>
@@ -238,11 +281,15 @@ export default function NexRadio() {
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        {neoRank && (
-                          <span className="text-[8px] font-black text-primary/60 border border-primary/20 px-1.5 py-0.5 rounded-sm">
-                            #{neoRank}
+                        {musicChartRank ? (
+                          <span
+                            className="text-[8px] font-black text-primary/60 border border-primary/20 px-1.5 py-0.5 rounded-sm"
+                            title="Position on NEX Music Chart (ranking score)"
+                            data-testid="text-radio-chart-rank"
+                          >
+                            CHART #{musicChartRank}
                           </span>
-                        )}
+                        ) : null}
                         <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest border border-white/5 px-1.5 py-0.5 rounded-sm">
                           {currentTrack.genre}
                         </span>

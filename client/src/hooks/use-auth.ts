@@ -1,7 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@shared/models/auth";
 
-async function fetchUser(): Promise<User | null> {
+/** Payload from GET /api/auth/user (OAuth session + merged profile.role when available). */
+export type SessionUser = {
+  /** Omitted from API JSON for privacy; session cookie still identifies the user. */
+  id?: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
+  username?: string;
+  role?: string;
+  creatorApplicationStatus?: string;
+};
+
+async function fetchUser(): Promise<SessionUser | null> {
   const response = await fetch("/api/auth/user", {
     credentials: "include",
   });
@@ -23,11 +35,16 @@ async function logout(): Promise<void> {
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  const { data: user, isLoading } = useQuery<User | null>({
+  const { data: user, isLoading } = useQuery<SessionUser | null>({
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
     retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0,
+    // Keep auth state synchronized across tabs/routes and after redirects.
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 30_000,
   });
 
   const logoutMutation = useMutation({

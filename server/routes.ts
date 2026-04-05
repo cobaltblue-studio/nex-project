@@ -3,16 +3,144 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { seed } from "./seed";
 import { api } from "@shared/routes";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
+import { db } from "./db";
+import { battles, battleVotes, tracks, votes, type Profile } from "@shared/schema";
+import { and, count, eq, isNotNull, sql } from "drizzle-orm";
 import {
-  setupAuth,
-  registerAuthRoutes,
-  isAuthenticated,
-} from "./replit_integrations/auth";
+  isFounderAdminEmail,
+  MAX_ACTIVE_TRACKS_PER_CREATOR,
+  MAX_BATTLE_ROUNDS,
+  MAX_CREATOR_AI_PROMPT_EDITS,
+  MAX_TRACK_ARTISTIC_INTENT_CHARS,
+  HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS,
+  MIN_ACTIVE_HOURS,
+  MIN_TRACK_ARTISTIC_INTENT_CHARS,
+  NEX_FOUNDER_ADMIN_EMAIL,
+  ROTATION_COOLDOWN_HOURS,
+} from "@shared/constants";
+import { createApiAccessControl } from "./api-access";
+import {
+  sanitizeBattleForPublic,
+  sanitizePublicProfileDetail,
+  sanitizePublicProfileForDirectory,
+  sanitizePublicTrack,
+  sanitizeTrackDetailForPublic,
+} from "./public-response";
+import { apiMsg } from "./api-i18n";
+import { resolveSunoShareToSongUuid } from "./suno-resolve";
 
-// Check if the logged-in user's email matches the configured admin email
-function isAdminEmail(req: any): boolean {
-  const adminEmail = process.env.ADMIN_EMAIL;
-  return !!(adminEmail && req.user?.claims?.email === adminEmail);
+function getUserId(req: any): string {
+  return String(req.user?.id ?? req.user?.claims?.sub ?? "");
+}
+
+function getUserEmail(req: any): string | null {
+  return (req.user?.email ?? req.user?.claims?.email ?? null) as string | null;
+}
+
+function founderEnvEmail(): string {
+  return (process.env.NEX_FOUNDER_ADMIN_EMAIL || NEX_FOUNDER_ADMIN_EMAIL).trim().toLowerCase();
+}
+
+/** Founder Google account is always admin; in non-production, any DB `admin` profile still counts (local dev). */
+async function isAdmin(req: any): Promise<boolean> {
+  const email = getUserEmail(req);
+  if (isFounderAdminEmail(email, founderEnvEmail())) return true;
+  const userId = getUserId(req);
+  if (!userId) return false;
+  const p = await storage.getProfileByUserId(userId);
+  if (p?.role === "admin") {
+    if (process.env.NODE_ENV === "production") return isFounderAdminEmail(email, founderEnvEmail());
+    return true;
+  }
+  return false;
+}
+
+async function syncFounderProfileOnRead(req: any, p: Profile): Promise<Profile> {
+  const email = getUserEmail(req);
+  const founder = isFounderAdminEmail(email, founderEnvEmail());
+  if (founder && p.role !== "admin") {
+    return storage.updateProfile(p.id, { role: "admin", creatorApplicationStatus: "none" });
+  }
+  if (process.env.NODE_ENV === "production" && !founder && p.role === "admin") {
+    return storage.updateProfile(p.id, { role: "listener" });
+  }
+  return p;
+}
+
+async function canBypassVoteLimits(req: any): Promise<boolean> {
+  return isAdmin(req);
+}
+
+async function assertTrackAdmin(req: any, res: any): Promise<boolean> {
+  if (!req.isAuthenticated?.()) {
+    res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    return false;
+  }
+  if (!(await isAdmin(req))) {
+    res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    return false;
+  }
+  return true;
+}
+
+/** Staff admin → any track; creator → own tracks only. */
+async function assertTrackOwnerOrAdmin(req: any, res: any, trackId: number): Promise<boolean> {
+  if (!req.isAuthenticated?.()) {
+    res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    return false;
+  }
+  if (await isAdmin(req)) return true;
+  const track = await storage.getTrack(trackId);
+  if (!track) {
+    res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    return false;
+  }
+  const p = await storage.getProfileByUserId(getUserId(req));
+  if (!p || p.id !== track.creatorId) {
+    res.status(403).json({ message: apiMsg("본인 트랙만 수정하거나 삭제할 수 있습니다", "You can only edit or delete your own tracks") });
+    return false;
+  }
+  return true;
+}
+
+async function assertCreatorCanPublishAnotherTrack(req: any, res: any, creatorProfileId: number): Promise<boolean> {
+  const [activeCountRow] = await db
+    .select({ n: count() })
+    .from(tracks)
+    .where(and(eq(tracks.creatorId, creatorProfileId), eq(tracks.isDeleted, false)));
+  const activeCount = activeCountRow?.n ?? 0;
+  if (activeCount >= MAX_ACTIVE_TRACKS_PER_CREATOR) {
+    res.status(409).json({
+      message: apiMsg(
+        `활성 트랙은 최대 ${MAX_ACTIVE_TRACKS_PER_CREATOR}개입니다. 새로 올리려면 하나를 아카이브하세요`,
+        `Active track limit reached (${MAX_ACTIVE_TRACKS_PER_CREATOR}). Archive one track before uploading a new one.`,
+      ),
+    });
+    return false;
+  }
+
+  const [latestArchived] = await db
+    .select({ archivedAt: sql<Date | null>`max(${tracks.archivedAt})` })
+    .from(tracks)
+    .where(and(eq(tracks.creatorId, creatorProfileId), eq(tracks.isDeleted, true), isNotNull(tracks.archivedAt)));
+  const archivedAt = latestArchived?.archivedAt ? new Date(latestArchived.archivedAt) : null;
+  if (archivedAt) {
+    const cooldownMs = ROTATION_COOLDOWN_HOURS * 60 * 60 * 1000;
+    const remainingMs = archivedAt.getTime() + cooldownMs - Date.now();
+    if (remainingMs > 0) {
+      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+      res.status(429).json({
+        message: apiMsg(
+          `트랙 교체 쿨다운 중입니다. 약 ${remainingHours}시간 후 다시 시도해 주세요`,
+          `Rotation cooldown active. Try again in about ${remainingHours} hour(s).`,
+        ),
+      });
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export async function registerRoutes(
@@ -21,175 +149,909 @@ export async function registerRoutes(
 ): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
+  app.use(createApiAccessControl(isAdmin));
 
   // Get current user's profile — auto-creates a minimal profile on first access
   app.get(api.profiles.me.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+
     let p = await storage.getProfileByUserId(userId);
 
     if (!p) {
-      // Auto-create a minimal profile so the UI always has role/country to display.
-      // Derive a unique username from email prefix or user ID.
-      const adminEmail = process.env.ADMIN_EMAIL;
-      const assignedRole = (adminEmail && req.user?.claims?.email === adminEmail) ? "founder" : "listener";
-      const emailPrefix = (req.user?.claims?.email as string | undefined)?.split("@")[0] ?? "";
+      await storage.createUser({
+        id: userId,
+        email: getUserEmail(req),
+        firstName: req.user?.firstName ?? null,
+        lastName: req.user?.lastName ?? null,
+        profileImageUrl: req.user?.profileImageUrl ?? null,
+      });
+
+      const emailPrefix = (getUserEmail(req) ?? "").split("@")[0] ?? "";
       const baseUsername = emailPrefix || `user_${userId.slice(0, 8)}`;
-      // Ensure uniqueness by appending a short suffix if needed
       let username = baseUsername;
       const existing = await storage.getProfileByUsername(username);
       if (existing && existing.userId !== userId) {
         username = `${baseUsername}_${userId.slice(0, 4)}`;
       }
-      p = await storage.createProfile({ userId, username, role: assignedRole, country: null });
+      p = await storage.createProfile({
+        userId,
+        username,
+        role: "listener",
+        country: null,
+        creatorApplicationStatus: "none",
+      });
     }
 
-    // Keep role in sync — always enforce admin email = founder
-    if (isAdminEmail(req) && p.role !== "founder") {
-      await storage.updateProfile(p.id, { role: "founder" });
-      p.role = "founder";
-    }
-
+    p = await syncFounderProfileOnRead(req, p);
     const followerCount = await storage.getFollowerCount(p.id);
-    res.json({ ...p, followerCount });
+    const { userId: _uid, ...pub } = p;
+    res.json({ ...pub, followerCount });
   });
 
   // Create / update profile (called from the onboarding modal)
   app.post(api.profiles.create.path, isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = getUserId(req);
     const existing = await storage.getProfileByUserId(userId);
+    const email = getUserEmail(req);
+    const founder = isFounderAdminEmail(email, founderEnvEmail());
+    const staffAdmin = await isAdmin(req);
 
     const { username, country, aiToolUsed, bio } = req.body;
-    if (!username) return res.status(400).json({ message: "Username is required" });
+    if (!username) return res.status(400).json({ message: apiMsg("사용자 이름이 필요합니다", "Username is required") });
 
-    // Force "founder" role if this is the admin email; otherwise use submitted role
-    const assignedRole = isAdminEmail(req) ? "founder" : (req.body.role || "listener");
+    const requestedRole = typeof req.body.role === "string" ? req.body.role : "listener";
+
+    let assignedRole: "listener" | "creator" | "admin";
+    let creatorApplicationStatus: "none" | "pending" | "rejected" = (
+      existing?.creatorApplicationStatus ?? "none"
+    ) as "none" | "pending" | "rejected";
+
+    if (founder) {
+      assignedRole = "admin";
+      creatorApplicationStatus = "none";
+    } else if (existing?.role === "creator") {
+      assignedRole = "creator";
+      creatorApplicationStatus = "none";
+    } else if (requestedRole === "creator") {
+      if (staffAdmin) {
+        assignedRole = "creator";
+        creatorApplicationStatus = "none";
+      } else {
+        assignedRole = "listener";
+        creatorApplicationStatus = "pending";
+      }
+    } else {
+      assignedRole = "listener";
+      if (creatorApplicationStatus === "pending") creatorApplicationStatus = "none";
+    }
 
     if (existing) {
-      // Profile already exists (auto-created on first login) — update it
       const usernameCheck = await storage.getProfileByUsername(username);
       if (usernameCheck && usernameCheck.id !== existing.id) {
-        return res.status(409).json({ message: "Username already taken" });
+        return res.status(409).json({ message: apiMsg("이미 사용 중인 사용자 이름입니다", "Username already taken") });
       }
-      const updated = await storage.updateProfile(existing.id, { username, role: assignedRole, country, aiToolUsed, bio });
-      return res.status(200).json(updated);
+      const updated = await storage.updateProfile(existing.id, {
+        username,
+        role: assignedRole,
+        country,
+        aiToolUsed,
+        bio,
+        creatorApplicationStatus,
+      });
+      const { userId: _u1, ...pubU } = updated;
+      return res.status(200).json(pubU);
     }
 
     const usernameCheck = await storage.getProfileByUsername(username);
-    if (usernameCheck) return res.status(409).json({ message: "Username already taken" });
+    if (usernameCheck) return res.status(409).json({ message: apiMsg("이미 사용 중인 사용자 이름입니다", "Username already taken") });
 
-    const p = await storage.createProfile({ userId, username, role: assignedRole, country, aiToolUsed, bio });
-    res.status(201).json(p);
+    await storage.createUser({
+      id: userId,
+      email: getUserEmail(req),
+      firstName: req.user?.firstName ?? null,
+      lastName: req.user?.lastName ?? null,
+      profileImageUrl: req.user?.profileImageUrl ?? null,
+    });
+    const p = await storage.createProfile({
+      userId,
+      username,
+      role: assignedRole,
+      country,
+      aiToolUsed,
+      bio,
+      creatorApplicationStatus,
+    });
+    const { userId: _u2, ...pubP } = p;
+    res.status(201).json(pubP);
   });
 
   // Get profile by ID
   app.get(api.profiles.get.path, async (req, res) => {
     const p = await storage.getProfile(Number(req.params.id));
-    if (!p) return res.status(404).json({ message: "Profile not found" });
-    res.json(p);
+    if (!p) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    res.json(sanitizePublicProfileDetail(p));
   });
 
   // Get profile by username (for creator pages)
   app.get("/api/profiles/by-username/:username", async (req, res) => {
-    const p = await storage.getProfileByUsername(req.params.username);
-    if (!p) return res.status(404).json({ message: "Profile not found" });
+    const p = await storage.getProfileByUsername(req.params.username.trim().toLowerCase());
+    if (!p) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
     const full = await storage.getProfile(p.id);
-    res.json(full);
+    if (!full) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    res.json(sanitizePublicProfileDetail(full));
   });
 
   // Follow a creator
   app.post("/api/profiles/:id/follow", isAuthenticated, async (req: any, res) => {
     const creatorProfileId = Number(req.params.id);
-    await storage.followCreator(req.user.claims.sub, creatorProfileId);
-    res.json({ message: "Following" });
+    await storage.followCreator(getUserId(req), creatorProfileId);
+    res.json({ message: apiMsg("팔로우했습니다", "Following") });
   });
 
   // Unfollow a creator
   app.delete("/api/profiles/:id/follow", isAuthenticated, async (req: any, res) => {
     const creatorProfileId = Number(req.params.id);
-    await storage.unfollowCreator(req.user.claims.sub, creatorProfileId);
-    res.json({ message: "Unfollowed" });
+    await storage.unfollowCreator(getUserId(req), creatorProfileId);
+    res.json({ message: apiMsg("팔로우를 해제했습니다", "Unfollowed") });
   });
 
   // Check if following
   app.get("/api/profiles/:id/follow", isAuthenticated, async (req: any, res) => {
     const creatorProfileId = Number(req.params.id);
-    const isFollowing = await storage.isFollowing(req.user.claims.sub, creatorProfileId);
+    const isFollowing = await storage.isFollowing(getUserId(req), creatorProfileId);
     res.json({ isFollowing });
   });
 
+  // All tracks for a creator profile (any status, not deleted) — public profile track list
+  app.get("/api/profiles/:id/tracks", async (req, res) => {
+    const profileId = Number(req.params.id);
+    if (!Number.isFinite(profileId)) {
+      return res.status(400).json({ message: apiMsg("잘못된 프로필 ID입니다", "Invalid profile id") });
+    }
+    const profile = await storage.getProfile(profileId);
+    if (!profile) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    const ts = await storage.getTracksByCreator(profileId);
+    const trackIds = ts.map((t) => t.id);
+    const battleStats = await storage.getBattleStatsForTracks(trackIds);
+    const formatted = ts.map((t) =>
+      sanitizePublicTrack({
+        id: t.id,
+        title: t.title,
+        creatorName: t.artistName || t.creator.username,
+        creatorId: t.creatorId,
+        aiTool: t.aiTool,
+        genre: t.genre,
+        lyrics: t.lyrics,
+        votes: t.listenerVotes,
+        audioUrl: t.audioUrl,
+        musicVideoUrl: t.mvUrl,
+        coverImageUrl: t.coverImageUrl,
+        description: t.description,
+        aiCraftScore: t.aiCraftScore,
+        neoScore: t.neoScore,
+        playCount: t.playCount,
+        rankingScore: t.rankingScore,
+        trackType: t.trackType,
+        status: t.status,
+        winStreak: t.winStreak,
+        aiPrompt: t.aiPrompt,
+        aiPromptEditCount: t.aiPromptEditCount,
+        aiPromptLastEditedAt: t.aiPromptLastEditedAt,
+        createdAt: t.createdAt,
+        ...(battleStats[t.id]
+          ? {
+              totalBattles: battleStats[t.id].totalBattles,
+              wins: battleStats[t.id].wins,
+              winRate: battleStats[t.id].winRate,
+            }
+          : {}),
+      } as Record<string, unknown>),
+    );
+    res.json(formatted);
+  });
+
   app.get(api.tracks.list.path, async (req, res) => {
+    const requestedSortBy = (req.query.sortBy as "rankingScore" | "neoScore" | "createdAt") || undefined;
+    const requestedStatus = (req.query.status as string) || undefined;
+    const requestedTrackType = (req.query.trackType as string) || undefined;
+    const resolvedTrackType = requestedStatus === "MV" ? "video" : requestedTrackType;
+    const creatorIdRaw = req.query.creatorId;
+    let creatorId: number | undefined;
+    if (creatorIdRaw != null && String(creatorIdRaw).trim() !== "") {
+      const n = Number(creatorIdRaw);
+      if (Number.isFinite(n)) creatorId = n;
+    }
     const trackFilter = {
-      status: (req.query.status as string) || undefined,
+      status: requestedStatus,
       featured: req.query.featured === "true",
       limit: req.query.limit ? Number(req.query.limit) : undefined,
       genre: (req.query.genre as string) || undefined,
-      sortBy: (req.query.sortBy as "rankingScore" | "neoScore" | "createdAt") || undefined,
-      trackType: (req.query.trackType as string) || undefined,
+      // Default to newest-first so newly approved submissions show immediately.
+      sortBy: requestedSortBy ?? "createdAt",
+      trackType: resolvedTrackType,
+      creatorId,
+      q: (req.query.q as string) || undefined,
     };
 
-    let ts = await storage.getTracks(trackFilter);
+    const ts = await storage.getTracks(trackFilter);
 
     const trackIds = ts.map((t) => t.id);
     const battleStats = await storage.getBattleStatsForTracks(trackIds);
 
-    const formatted = ts.map((t) => ({
-      id: t.id,
-      title: t.title,
-      creatorName: t.artistName || t.creator.username,
-      creatorId: t.creatorId,
-      aiTool: t.aiTool,
-      genre: t.genre,
-      lyrics: t.lyrics,
-      votes: t.listenerVotes,
-      audioUrl: t.audioUrl,
-      musicVideoUrl: t.mvUrl,
-      coverImage: t.coverImage,
-      description: t.description,
-      aiCraftScore: t.aiCraftScore,
-      neoScore: t.neoScore,
-      playCount: t.playCount,
-      rankingScore: t.rankingScore,
-      trackType: t.trackType,
-      status: t.status,
-      winStreak: t.winStreak,
-      aiPrompt: t.aiPrompt,
-      createdAt: t.createdAt,
-      ...(battleStats[t.id] ? {
-        totalBattles: battleStats[t.id].totalBattles,
-        wins: battleStats[t.id].wins,
-        winRate: battleStats[t.id].winRate,
-      } : {}),
-    }));
+    const formatted = ts.map((t) =>
+      sanitizePublicTrack({
+        id: t.id,
+        title: t.title,
+        creatorName: t.artistName || t.creator.username,
+        creatorId: t.creatorId,
+        aiTool: t.aiTool,
+        genre: t.genre,
+        lyrics: t.lyrics,
+        votes: t.listenerVotes,
+        audioUrl: t.audioUrl,
+        musicVideoUrl: t.mvUrl,
+        coverImageUrl: t.coverImageUrl,
+        description: t.description,
+        aiCraftScore: t.aiCraftScore,
+        neoScore: t.neoScore,
+        playCount: t.playCount,
+        rankingScore: t.rankingScore,
+        trackType: t.trackType,
+        status: t.status,
+        winStreak: t.winStreak,
+        aiPrompt: t.aiPrompt,
+        aiPromptEditCount: t.aiPromptEditCount,
+        aiPromptLastEditedAt: t.aiPromptLastEditedAt,
+        createdAt: t.createdAt,
+        ...(battleStats[t.id]
+          ? {
+              totalBattles: battleStats[t.id].totalBattles,
+              wins: battleStats[t.id].wins,
+              winRate: battleStats[t.id].winRate,
+            }
+          : {}),
+      } as Record<string, unknown>),
+    );
     res.json(formatted);
   });
 
   app.post(api.tracks.seed.path, async (req, res) => {
+    if ((process.env.ENABLE_SEED_ENDPOINT ?? "0") !== "1") {
+      return res.status(403).json({ message: apiMsg("시드 API가 비활성화되어 있습니다", "Seed endpoint is disabled") });
+    }
     const token = req.body.token;
     const expected = process.env.ADMIN_SEED_TOKEN;
     if (!expected || token !== expected) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
     }
     await seed();
-    res.json({ message: "Seeding triggered" });
+    res.json({ message: apiMsg("시드 처리가 시작되었습니다", "Seeding triggered") });
   });
 
   app.get("/api/tracks/check-url", async (req, res) => {
     const url = req.query.url as string;
-    if (!url) return res.status(400).json({ message: "url query parameter is required" });
+    if (!url) return res.status(400).json({ message: apiMsg("url 쿼리 파라미터가 필요합니다", "url query parameter is required") });
     const exists = await storage.trackUrlExists(url);
     res.json({ exists });
   });
 
+  /** Suno /s/short links redirect to /song/{uuid}; embed player only accepts the UUID form. */
+  app.get("/api/suno/resolve", async (req, res) => {
+    const url = typeof req.query.url === "string" ? req.query.url.trim() : "";
+    if (!url) {
+      return res.status(400).json({
+        songUuid: null,
+        message: apiMsg("url 쿼리가 필요합니다", "url query parameter is required"),
+      });
+    }
+    try {
+      const songUuid = await resolveSunoShareToSongUuid(url);
+      if (!songUuid) {
+        return res.status(422).json({
+          songUuid: null,
+          message: apiMsg(
+            "Suno 링크에서 곡 UUID를 찾지 못했습니다. suno.com에서 곡 → ⋯ → 링크 복사로 받은 주소를 사용해 주세요",
+            "Could not resolve this Suno link. In Suno: open the song → ⋯ → Copy link (prefer the full song URL).",
+          ),
+        });
+      }
+      res.json({ songUuid });
+    } catch {
+      res.status(500).json({
+        songUuid: null,
+        message: apiMsg("Suno 링크 확인 중 서버 오류가 났습니다", "Server error while resolving Suno link"),
+      });
+    }
+  });
+
+  const validGenres = ["Pop", "Dance", "Rock", "Hip-Hop & Rap", "Funk", "Lo-Fi & Chill"];
+
+  function looksLikeGibberish(input: string): boolean {
+    const s = input.trim();
+    if (!s) return true;
+    const compact = s.replace(/\s+/g, "");
+    if (!compact) return true;
+    if (/([A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ])\1{4,}/.test(compact)) return true;
+    if (/^([ㄱ-ㅎㅏ-ㅣㅋㅋㅎ]+)$/.test(compact) && compact.length >= 5) return true;
+    if (/^(?:[a-z]{2,4}){3,}$/i.test(compact) && !/[aeiou]/i.test(compact)) return true;
+    const uniqueChars = new Set(compact.toLowerCase()).size;
+    const uniqueRatio = uniqueChars / compact.length;
+    if (compact.length >= 12 && uniqueRatio < 0.25) return true;
+    const meaningfulTokenCount = (s.match(/[A-Za-z가-힣]{2,}/g) || []).length;
+    if (s.length >= 20 && meaningfulTokenCount < 3) return true;
+    return false;
+  }
+
+  async function submitPublicTrack(req: any, res: any): Promise<void> {
+    if (!req.isAuthenticated?.()) {
+      res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+      return;
+    }
+    const p = await storage.getProfileByUserId(getUserId(req));
+    if (!p) {
+      res.status(403).json({ message: apiMsg("프로필이 필요합니다", "Profile required") });
+      return;
+    }
+    if (!p.id) {
+      res.status(500).json({
+        message: apiMsg(
+          "제출용 프로필이 없습니다. 먼저 계정을 만든 뒤 다시 시도해 주세요",
+          "No profile exists for submission. Create one account first.",
+        ),
+      });
+      return;
+    }
+    if (!(await isAdmin(req)) && p.role === "creator") {
+      if (!(await assertCreatorCanPublishAnotherTrack(req, res, p.id))) return;
+    }
+
+    const {
+      title,
+      artistName,
+      genre,
+      trackLink,
+      trackType,
+      aiPrompt,
+      originalityConfirmed,
+      coverImageUrl,
+      portfolioLink,
+    } = req.body;
+    if (!title || !artistName || !genre || !trackLink) {
+      res.status(400).json({
+        message: apiMsg(
+          "제목, 아티스트명, 장르, 트랙 링크는 필수입니다",
+          "title, artistName, genre, and trackLink are required",
+        ),
+      });
+      return;
+    }
+    const intentTrim = typeof aiPrompt === "string" ? aiPrompt.trim() : "";
+    if (intentTrim.length < MIN_TRACK_ARTISTIC_INTENT_CHARS) {
+      res.status(400).json({
+        message: apiMsg(
+          `창작 의도 및 프롬프트는 최소 ${MIN_TRACK_ARTISTIC_INTENT_CHARS}자 이상이어야 합니다`,
+          `Artistic intent & prompt must be at least ${MIN_TRACK_ARTISTIC_INTENT_CHARS} characters`,
+        ),
+      });
+      return;
+    }
+    if (intentTrim.length > MAX_TRACK_ARTISTIC_INTENT_CHARS) {
+      res.status(400).json({
+        message: apiMsg(
+          "창작 의도 및 프롬프트가 허용된 최대 길이를 초과했습니다",
+          "Artistic intent & prompt is too long",
+        ),
+      });
+      return;
+    }
+    if (looksLikeGibberish(intentTrim)) {
+      res.status(400).json({
+        message: apiMsg(
+          "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
+          "Gibberish or repetitive spam text is not allowed. Please describe your artistic intent in natural language.",
+        ),
+      });
+      return;
+    }
+    if (originalityConfirmed !== true) {
+      res.status(400).json({
+        message: apiMsg(
+          "이 트랙이 원본 AI 생성 콘텐츠임을 확인해야 합니다",
+          "You must confirm this track is original AI-generated content",
+        ),
+      });
+      return;
+    }
+    const portfolio = typeof portfolioLink === "string" ? portfolioLink.trim() : "";
+    if (!portfolio) {
+      res.status(400).json({
+        message: apiMsg(
+          "Social/Portfolio Link는 필수입니다",
+          "Social/Portfolio link is required",
+        ),
+      });
+      return;
+    }
+    try {
+      const u = new URL(portfolio);
+      if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("bad_protocol");
+    } catch {
+      res.status(400).json({
+        message: apiMsg(
+          "Social/Portfolio Link는 유효한 http(s) URL이어야 합니다",
+          "Social/Portfolio link must be a valid http(s) URL",
+        ),
+      });
+      return;
+    }
+    if (!validGenres.includes(genre)) {
+      res.status(400).json({ message: apiMsg("유효하지 않은 장르입니다", "Invalid genre") });
+      return;
+    }
+
+    const duplicate = await storage.trackUrlExists(trackLink);
+    if (duplicate) {
+      res.status(409).json({
+        message: apiMsg("이 URL로 이미 제출된 트랙이 있습니다", "A track with this URL has already been submitted"),
+      });
+      return;
+    }
+
+    let cover: string | null = null;
+    if (coverImageUrl != null && String(coverImageUrl).trim()) {
+      const s = String(coverImageUrl).trim();
+      try {
+        const u = new URL(s);
+        if (u.protocol !== "http:" && u.protocol !== "https:") {
+          res.status(400).json({
+            message: apiMsg("커버 이미지 URL은 http(s)여야 합니다", "Cover image URL must be http(s)"),
+          });
+          return;
+        }
+        cover = s;
+      } catch {
+        res.status(400).json({
+          message: apiMsg("유효하지 않은 커버 이미지 URL입니다", "Invalid cover image URL"),
+        });
+        return;
+      }
+    }
+
+    const resolvedTrackType = trackType === "video" ? "video" : "audio";
+    const t = await storage.submitTrack({
+      title,
+      artistName,
+      genre,
+      trackLink,
+      trackType: resolvedTrackType,
+      aiPrompt: intentTrim,
+      coverImageUrl: cover,
+      portfolioLink: portfolio,
+      creatorId: p.id,
+    });
+    res.status(201).json({
+      message: apiMsg("제출이 완료되었습니다", "Success"),
+      trackId: t.id,
+      trackType: resolvedTrackType,
+    });
+  }
+
   app.get(api.tracks.get.path, async (req, res) => {
     const t = await storage.getTrack(Number(req.params.id));
-    if (!t) return res.status(404).json({ message: "Track not found" });
-    res.json(t);
+    if (!t) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    res.json(sanitizeTrackDetailForPublic(t as Record<string, unknown>));
+  });
+
+  app.post("/api/tracks/:id/claim-request", isAuthenticated, async (req: any, res) => {
+    const p = await storage.getProfileByUserId(getUserId(req));
+    if (!p || p.role !== "creator") {
+      return res.status(403).json({
+        message: apiMsg(
+          "승인된 크리에이터만 소유권을 요청할 수 있습니다",
+          "Only approved creators can request track ownership",
+        ),
+      });
+    }
+    const id = Number(req.params.id);
+    const claimInfo = typeof req.body?.claimInfo === "string" ? req.body.claimInfo.trim() : "";
+    if (claimInfo.length < 10) {
+      return res.status(400).json({
+        message: apiMsg(
+          "아티스트 확인 정보를 10자 이상 입력해 주세요",
+          "Please provide at least 10 characters for artist verification info",
+        ),
+      });
+    }
+    const r = await storage.createTrackClaimRequest(id, p.id);
+    if (r.duplicate) {
+      return res.status(409).json({
+        message: apiMsg("이미 대기 중인 요청이 있습니다", "A pending request already exists"),
+      });
+    }
+    if (!r.created) {
+      return res.status(400).json({
+        message: apiMsg(
+          "이 트랙은 소유권 주장을 받지 않거나 이미 귀하의 트랙입니다",
+          "This track cannot be claimed or is already yours",
+        ),
+      });
+    }
+    await storage.addComment(getUserId(req), id, `[CLAIM INFO] ${claimInfo}`);
+    res.json({ ok: true });
+  });
+
+  app.post("/api/tracks/:id/claim-instant", isAuthenticated, async (req: any, res) => {
+    const p = await storage.getProfileByUserId(getUserId(req));
+    if (!p || p.role !== "creator") {
+      return res.status(403).json({
+        message: apiMsg(
+          "승인된 크리에이터만 소유권을 이전받을 수 있습니다",
+          "Only approved creators can claim track ownership",
+        ),
+      });
+    }
+    const secret = typeof req.body?.secret === "string" ? req.body.secret : "";
+    const out = await storage.claimTrackWithSecret(Number(req.params.id), p.id, secret);
+    if (!out.ok) {
+      if (out.reason === "invalid_secret") {
+        return res.status(403).json({
+          message: apiMsg("유효하지 않은 코드입니다", "Invalid claim code"),
+          reason: out.reason,
+        });
+      }
+      return res.status(400).json({
+        message: apiMsg("소유권을 이전할 수 없습니다", "Unable to claim this track"),
+        reason: out.reason,
+      });
+    }
+    res.json({ ok: true });
+  });
+
+  app.get("/api/tracks/my/battle-summaries", isAuthenticated, async (req: any, res) => {
+    const p = await storage.getProfileByUserId(getUserId(req));
+    if (!p) {
+      return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    }
+    const rows = await storage.getLatestBattleSummariesForCreatorProfile(p.id);
+    res.json(rows);
+  });
+
+  app.patch("/api/tracks/:id", isAuthenticated, async (req: any, res) => {
+    const id = Number(req.params.id);
+    const body = req.body ?? {};
+    const admin = await isAdmin(req);
+
+    if (!admin) {
+      if (!(await assertTrackOwnerOrAdmin(req, res, id))) return;
+
+      const definedKeys = (Object.keys(body) as string[]).filter((k) => body[k] !== undefined);
+      const disallowed = definedKeys.filter((k) => k !== "aiPrompt");
+      if (disallowed.length > 0) {
+        return res.status(403).json({
+          message: apiMsg(
+            "크리에이터는 곡 설명·프롬프트(창작 의도)만 직접 수정할 수 있습니다. 그 외 항목은 Request edit로 관리자에게 요청해 주세요",
+            "Creators may only update artistic intent & prompts here. Use Request edit for other metadata changes.",
+          ),
+        });
+      }
+      if (!definedKeys.includes("aiPrompt")) {
+        return res.status(400).json({
+          message: apiMsg(
+            "창작 의도 필드(aiPrompt)를 보내 주세요",
+            "Include the aiPrompt field to update artistic intent & prompts.",
+          ),
+        });
+      }
+
+      const track = await storage.getTrack(id);
+      if (!track) {
+        return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+      }
+
+      const intentTrim = typeof body.aiPrompt === "string" ? body.aiPrompt.trim() : "";
+      if (intentTrim.length < MIN_TRACK_ARTISTIC_INTENT_CHARS) {
+        return res.status(400).json({
+          message: apiMsg(
+            `창작 의도 및 프롬프트는 최소 ${MIN_TRACK_ARTISTIC_INTENT_CHARS}자 이상이어야 합니다`,
+            `Artistic intent & prompt must be at least ${MIN_TRACK_ARTISTIC_INTENT_CHARS} characters`,
+          ),
+        });
+      }
+      if (intentTrim.length > MAX_TRACK_ARTISTIC_INTENT_CHARS) {
+        return res.status(400).json({
+          message: apiMsg(
+            "창작 의도 및 프롬프트가 허용된 최대 길이를 초과했습니다",
+            "Artistic intent & prompt is too long",
+          ),
+        });
+      }
+      if (looksLikeGibberish(intentTrim)) {
+        return res.status(400).json({
+          message: apiMsg(
+            "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
+            "Gibberish or repetitive spam text is not allowed. Please describe your artistic intent in natural language.",
+          ),
+        });
+      }
+
+      const prev = (track.aiPrompt ?? "").trim();
+      if (intentTrim === prev) {
+        const unchanged = await storage.getTrack(id);
+        if (!unchanged) {
+          return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+        }
+        return res.json(unchanged);
+      }
+
+      const editCount = track.aiPromptEditCount ?? 0;
+      if (editCount >= MAX_CREATOR_AI_PROMPT_EDITS) {
+        return res.status(403).json({
+          message: apiMsg(
+            "창작 의도·프롬프트는 최초 등록 후 최대 2회까지만 수정할 수 있습니다",
+            "Artistic intent & prompt can be edited at most 2 times after the track is registered.",
+          ),
+        });
+      }
+      if (editCount >= 1 && track.aiPromptLastEditedAt) {
+        const ms = HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS * 60 * 60 * 1000;
+        const elapsed = Date.now() - new Date(track.aiPromptLastEditedAt).getTime();
+        if (elapsed < ms) {
+          const hoursLeft = Math.max(1, Math.ceil((ms - elapsed) / (60 * 60 * 1000)));
+          return res.status(403).json({
+            message: apiMsg(
+              `다음 수정까지 약 ${hoursLeft}시간 남았습니다 (첫 수정 후 ${HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS}시간 간격)`,
+              `Next prompt edit available in about ${hoursLeft} hour(s) (${HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS}h after your last edit).`,
+            ),
+          });
+        }
+      }
+
+      const updated = await storage.updateTrackMetadata(id, {
+        aiPrompt: intentTrim,
+        bumpAiPromptEditStats: true,
+      });
+      if (!updated) {
+        return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+      }
+      return res.json(updated);
+    }
+
+    if (!(await assertTrackAdmin(req, res))) return;
+
+    const { title, artistName, genre, coverImageUrl, audioUrl, mvUrl, aiPrompt } = body;
+
+    const updates: {
+      title?: string;
+      artistName?: string | null;
+      genre?: string;
+      coverImageUrl?: string | null;
+      audioUrl?: string;
+      mvUrl?: string | null;
+      aiPrompt?: string | null;
+    } = {};
+
+    if (title !== undefined) {
+      if (typeof title !== "string" || !title.trim()) {
+        return res.status(400).json({
+          message: apiMsg("제목은 비어 있을 수 없습니다", "title must be a non-empty string"),
+        });
+      }
+      updates.title = title.trim();
+    }
+    if (artistName !== undefined) {
+      if (typeof artistName !== "string" || !artistName.trim()) {
+        return res.status(400).json({
+          message: apiMsg("아티스트명은 비어 있을 수 없습니다", "artistName must be a non-empty string"),
+        });
+      }
+      updates.artistName = artistName.trim();
+    }
+    if (genre !== undefined) {
+      if (typeof genre !== "string" || !validGenres.includes(genre)) {
+        return res.status(400).json({ message: apiMsg("유효하지 않은 장르입니다", "Invalid genre") });
+      }
+      updates.genre = genre;
+    }
+    if (coverImageUrl !== undefined) {
+      if (coverImageUrl === null || coverImageUrl === "") {
+        updates.coverImageUrl = null;
+      } else if (typeof coverImageUrl === "string") {
+        const s = coverImageUrl.trim();
+        if (!s) {
+          updates.coverImageUrl = null;
+        } else {
+          try {
+            const u = new URL(s);
+            if (u.protocol !== "http:" && u.protocol !== "https:") {
+              return res.status(400).json({
+                message: apiMsg("커버 이미지 URL은 http(s)여야 합니다", "cover image URL must be http(s)"),
+              });
+            }
+            updates.coverImageUrl = s;
+          } catch {
+            return res.status(400).json({
+              message: apiMsg("유효하지 않은 커버 이미지 URL입니다", "Invalid cover image URL"),
+            });
+          }
+        }
+      } else {
+        return res.status(400).json({
+          message: apiMsg("coverImageUrl은 문자열이거나 null이어야 합니다", "coverImageUrl must be a string or null"),
+        });
+      }
+    }
+    if (audioUrl !== undefined) {
+      if (typeof audioUrl !== "string" || !audioUrl.trim()) {
+        return res.status(400).json({
+          message: apiMsg("스트리밍 링크는 비어 있을 수 없습니다", "Stream/track link must be a non-empty URL"),
+        });
+      }
+      const s = audioUrl.trim();
+      try {
+        const u = new URL(s);
+        if (u.protocol !== "http:" && u.protocol !== "https:") {
+          return res.status(400).json({
+            message: apiMsg("스트리밍 링크는 http(s)여야 합니다", "Stream link must be http(s)"),
+          });
+        }
+        updates.audioUrl = s;
+      } catch {
+        return res.status(400).json({
+          message: apiMsg("유효하지 않은 스트리밍 링크입니다", "Invalid stream/track URL"),
+        });
+      }
+    }
+    if (mvUrl !== undefined) {
+      if (mvUrl === null || mvUrl === "") {
+        updates.mvUrl = null;
+      } else if (typeof mvUrl === "string") {
+        const s = mvUrl.trim();
+        if (!s) {
+          updates.mvUrl = null;
+        } else {
+          try {
+            const u = new URL(s);
+            if (u.protocol !== "http:" && u.protocol !== "https:") {
+              return res.status(400).json({
+                message: apiMsg("뮤직비디오 URL은 http(s)여야 합니다", "Music video URL must be http(s)"),
+              });
+            }
+            updates.mvUrl = s;
+          } catch {
+            return res.status(400).json({
+              message: apiMsg("유효하지 않은 뮤직비디오 URL입니다", "Invalid music video URL"),
+            });
+          }
+        }
+      } else {
+        return res.status(400).json({
+          message: apiMsg("mvUrl은 문자열이거나 null이어야 합니다", "mvUrl must be a string or null"),
+        });
+      }
+    }
+    if (aiPrompt !== undefined) {
+      if (aiPrompt === null || aiPrompt === "") {
+        updates.aiPrompt = null;
+      } else if (typeof aiPrompt === "string") {
+        const intentTrim = aiPrompt.trim();
+        if (!intentTrim) {
+          updates.aiPrompt = null;
+        } else {
+          if (intentTrim.length < MIN_TRACK_ARTISTIC_INTENT_CHARS) {
+            return res.status(400).json({
+              message: apiMsg(
+                `창작 의도 및 프롬프트는 최소 ${MIN_TRACK_ARTISTIC_INTENT_CHARS}자 이상이어야 합니다`,
+                `Artistic intent & prompt must be at least ${MIN_TRACK_ARTISTIC_INTENT_CHARS} characters`,
+              ),
+            });
+          }
+          if (intentTrim.length > MAX_TRACK_ARTISTIC_INTENT_CHARS) {
+            return res.status(400).json({
+              message: apiMsg(
+                "창작 의도 및 프롬프트가 허용된 최대 길이를 초과했습니다",
+                "Artistic intent & prompt is too long",
+              ),
+            });
+          }
+          if (looksLikeGibberish(intentTrim)) {
+            return res.status(400).json({
+              message: apiMsg(
+                "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
+                "Gibberish or repetitive spam text is not allowed. Please describe your artistic intent in natural language.",
+              ),
+            });
+          }
+          updates.aiPrompt = intentTrim;
+        }
+      } else {
+        return res.status(400).json({
+          message: apiMsg("aiPrompt는 문자열이거나 null이어야 합니다", "aiPrompt must be a string or null"),
+        });
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        message: apiMsg("업데이트할 유효한 필드가 없습니다", "No valid fields to update"),
+      });
+    }
+
+    const updated = await storage.updateTrackMetadata(id, updates);
+    if (!updated) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    res.json(updated);
+  });
+
+  app.delete("/api/tracks/:id", async (req: any, res) => {
+    const id = Number(req.params.id);
+    if (!(await assertTrackAdmin(req, res))) return;
+    if (!(await isAdmin(req))) {
+      const track = await storage.getTrack(id);
+      if (!track) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+      const minAgeMs = MIN_ACTIVE_HOURS * 60 * 60 * 1000;
+      const ageMs = Date.now() - new Date(track.createdAt).getTime();
+      if (ageMs < minAgeMs) {
+        const remainingHours = Math.ceil((minAgeMs - ageMs) / (60 * 60 * 1000));
+        return res.status(409).json({
+          message: apiMsg(
+            `최소 ${MIN_ACTIVE_HOURS}시간 활성 유지 후 아카이브할 수 있습니다. 약 ${remainingHours}시간 후 가능합니다`,
+            `Minimum active time is ${MIN_ACTIVE_HOURS} hours. You can archive this track in about ${remainingHours} hour(s).`,
+          ),
+        });
+      }
+    }
+
+    const ok = await storage.deleteTrack(id);
+    if (!ok) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    res.json({ message: apiMsg("트랙이 아카이브되었습니다", "Archived") });
+  });
+
+  app.post("/api/tracks/:id/edit-request", isAuthenticated, async (req: any, res) => {
+    const id = Number(req.params.id);
+    const detail = typeof req.body?.detail === "string" ? req.body.detail.trim() : "";
+    const proposedLink = typeof req.body?.proposedLink === "string" ? req.body.proposedLink.trim() : "";
+    if (!detail || detail.length < 10) {
+      return res.status(400).json({
+        message: apiMsg(
+          "수정 요청 내용을 10자 이상 작성해 주세요",
+          "Please provide at least 10 characters for the edit request",
+        ),
+      });
+    }
+    if (proposedLink) {
+      try {
+        const u = new URL(proposedLink);
+        if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("bad_protocol");
+      } catch {
+        return res.status(400).json({
+          message: apiMsg("수정 링크는 유효한 http(s) URL이어야 합니다", "Replacement link must be a valid http(s) URL"),
+        });
+      }
+    }
+    const profile = await storage.getProfileByUserId(getUserId(req));
+    const track = await storage.getTrack(id);
+    if (!profile || !track) {
+      return res.status(404).json({ message: apiMsg("대상 정보를 찾을 수 없습니다", "Target not found") });
+    }
+    if (profile.id !== track.creatorId && !(await isAdmin(req))) {
+      return res.status(403).json({
+        message: apiMsg(
+          "본인 트랙에 대해서만 수정 요청할 수 있습니다",
+          "You can only request edits for your own tracks",
+        ),
+      });
+    }
+    const comment = proposedLink
+      ? `[EDIT REQUEST] ${detail}\n[PROPOSED LINK] ${proposedLink}`
+      : `[EDIT REQUEST] ${detail}`;
+    await storage.addComment(getUserId(req), id, comment);
+    res.json({ message: apiMsg("수정 요청이 관리자에게 전달되었습니다", "Edit request sent to admin") });
   });
 
   // Get current creator's own tracks
   app.get("/api/tracks/my", isAuthenticated, async (req: any, res) => {
-    const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p) return res.status(404).json({ message: "Profile not found" });
+    const p = await storage.getProfileByUserId(getUserId(req));
+    if (!p) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
     const ts = await storage.getTracksByCreator(p.id);
     const formatted = ts.map((t) => ({
       id: t.id,
@@ -202,7 +1064,7 @@ export async function registerRoutes(
       votes: t.listenerVotes,
       audioUrl: t.audioUrl,
       musicVideoUrl: t.mvUrl,
-      coverImage: t.coverImage,
+      coverImageUrl: t.coverImageUrl,
       description: t.description,
       aiCraftScore: t.aiCraftScore,
       neoScore: t.neoScore,
@@ -212,23 +1074,73 @@ export async function registerRoutes(
       status: t.status,
       winStreak: t.winStreak,
       aiPrompt: t.aiPrompt,
+      aiPromptEditCount: t.aiPromptEditCount,
+      aiPromptLastEditedAt: t.aiPromptLastEditedAt,
       createdAt: t.createdAt,
     }));
     res.json(formatted);
   });
 
-  app.post(api.tracks.create.path, isAuthenticated, async (req: any, res) => {
-    const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p || p.role !== "nex")
-      return res.status(403).json({ message: "Only NEX creators can upload" });
-    const { title, aiTool, genre, audioUrl, mvUrl, coverImage, description, lyrics } = req.body;
-    if (!title || !aiTool || !genre || !audioUrl) {
-      return res.status(400).json({ message: "title, aiTool, genre, and audioUrl are required" });
+  app.post(api.tracks.create.path, async (req: any, res) => {
+    const isPublicSubmitPayload =
+      typeof req.body?.trackLink === "string" || typeof req.body?.artistName === "string";
+    if (isPublicSubmitPayload) {
+      await submitPublicTrack(req, res);
+      return;
     }
+
+    if (!req.isAuthenticated?.()) {
+      return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    }
+
+    const p = await storage.getProfileByUserId(getUserId(req));
+    if (!p || (!(await isAdmin(req)) && p.role !== "creator")) {
+      return res.status(403).json({
+        message: apiMsg("승인된 크리에이터만 업로드할 수 있습니다", "Only approved creators can upload"),
+      });
+    }
+    if (!(await isAdmin(req))) {
+      if (!(await assertCreatorCanPublishAnotherTrack(req, res, p.id))) return;
+    }
+
+    const { title, aiTool, genre, audioUrl, mvUrl, coverImageUrl, coverImage, description, lyrics } = req.body;
+    if (!title || !aiTool || !genre || !audioUrl) {
+      return res.status(400).json({
+        message: apiMsg(
+          "제목, AI 도구, 장르, 오디오 URL은 필수입니다",
+          "title, aiTool, genre, and audioUrl are required",
+        ),
+      });
+    }
+
+    const resolvedCover =
+      typeof coverImageUrl === "string" && coverImageUrl.trim()
+        ? coverImageUrl.trim()
+        : typeof coverImage === "string" && coverImage.trim()
+          ? coverImage.trim()
+          : null;
+    if (resolvedCover) {
+      try {
+        const u = new URL(resolvedCover);
+        if (u.protocol !== "http:" && u.protocol !== "https:") {
+          return res.status(400).json({
+            message: apiMsg("커버 이미지 URL은 http(s)여야 합니다", "cover image URL must be http(s)"),
+          });
+        }
+      } catch {
+        return res.status(400).json({
+          message: apiMsg("유효하지 않은 커버 이미지 URL입니다", "Invalid cover image URL"),
+        });
+      }
+    }
+
     const t = await storage.createTrack({
-      title, aiTool, genre, audioUrl,
+      title,
+      aiTool,
+      genre,
+      audioUrl,
       mvUrl: mvUrl || null,
-      coverImage: coverImage || null,
+      coverImageUrl: resolvedCover,
       description: description || null,
       lyrics: lyrics || null,
       creatorId: p.id,
@@ -242,11 +1154,18 @@ export async function registerRoutes(
 
   app.post(api.tracks.vote.path, isAuthenticated, async (req: any, res) => {
     try {
-      await storage.voteTrack(req.user.claims.sub, Number(req.params.id));
-      res.json({ message: "Vote recorded" });
+      const userId = getUserId(req);
+      const trackId = Number(req.params.id);
+      if (await canBypassVoteLimits(req)) {
+        await db.delete(votes).where(and(eq(votes.userId, userId), eq(votes.trackId, trackId)));
+      }
+      await storage.voteTrack(userId, trackId);
+      res.json({ message: apiMsg("투표가 기록되었습니다", "Vote recorded") });
     } catch (err: any) {
       if (err?.message === "ALREADY_VOTED") {
-        return res.status(409).json({ message: "Already voted for this track" });
+        return res.status(409).json({
+          message: apiMsg("이미 이 트랙에 투표했습니다", "Already voted for this track"),
+        });
       }
       throw err;
     }
@@ -255,65 +1174,147 @@ export async function registerRoutes(
   // Record a play (requires 20s listen time enforced client-side; 10-min spam window enforced server-side)
   app.post("/api/tracks/:id/play", isAuthenticated, async (req: any, res) => {
     const trackId = Number(req.params.id);
-    const result = await storage.recordPlay(req.user.claims.sub, trackId);
-    res.json({ counted: result.counted, message: result.counted ? "Play recorded" : "Too soon — play not counted" });
+    const completed = req.body?.completed === true;
+    const result = await storage.recordPlay(getUserId(req), trackId, { completed });
+    res.json({
+      counted: result.counted,
+      completionUpdated: result.completionUpdated,
+      message: result.counted
+        ? apiMsg("재생이 기록되었습니다", "Play recorded")
+        : result.completionUpdated
+          ? apiMsg("완주(완청)가 기록되었습니다", "Completion recorded")
+          : apiMsg("재시도가 너무 빠릅니다 — 재생이 집계되지 않았습니다", "Too soon — play not counted"),
+    });
   });
 
   app.post(api.tracks.like.path, isAuthenticated, async (req: any, res) => {
-    await storage.likeTrack(req.user.claims.sub, Number(req.params.id));
-    res.json({ message: "Track liked" });
+    await storage.likeTrack(getUserId(req), Number(req.params.id));
+    res.json({ message: apiMsg("좋아요를 반영했습니다", "Track liked") });
   });
 
-  // Submit a track — any authenticated user can submit; saved with PENDING status
-  app.post("/api/tracks/submit", isAuthenticated, async (req: any, res) => {
-    const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!p) return res.status(404).json({ message: "Profile not found" });
-
-    const { title, artistName, genre, trackLink, trackType, aiPrompt, originalityConfirmed } = req.body;
-    if (!title || !artistName || !genre || !trackLink) {
-      return res.status(400).json({ message: "title, artistName, genre, and trackLink are required" });
-    }
-
-    if (originalityConfirmed !== true) {
-      return res.status(400).json({ message: "You must confirm this track is original AI-generated content" });
-    }
-
-    const validGenres = ["Pop", "Dance", "Rock", "Hip-Hop & Rap", "Funk", "Lo-Fi & Chill"];
-    if (!validGenres.includes(genre)) {
-      return res.status(400).json({ message: "Invalid genre" });
-    }
-
-    const duplicate = await storage.trackUrlExists(trackLink);
-    if (duplicate) {
-      return res.status(409).json({ message: "A track with this URL has already been submitted" });
-    }
-
-    const resolvedTrackType = trackType === "video" ? "video" : "audio";
-
-    const t = await storage.submitTrack({ title, artistName, genre, trackLink, trackType: resolvedTrackType, aiPrompt: aiPrompt || null, creatorId: p.id });
-    res.status(201).json({ message: "Track submitted successfully", trackId: t.id, trackType: resolvedTrackType });
+  // Legacy submit endpoint: kept for backward compatibility
+  app.post("/api/tracks/submit", async (req: any, res) => {
+    await submitPublicTrack(req, res);
   });
 
-  // RISING tracks: ≥5 battles, ≥60% win rate, not in top 100
+  // RISING: audio tracks outside the chart top 100, ordered by play count (view engagement)
   app.get("/api/tracks/rising", async (_req, res) => {
-    const rising = await storage.getRisingTracks();
-    res.json(rising);
+    const q = (_req.query.q as string) || undefined;
+    const rising = await storage.getRisingTracks(q);
+    res.json(rising.map((row) => sanitizePublicTrack(row as Record<string, unknown>)));
+  });
+
+  const AVATAR_MAX_BYTES = 500 * 1024;
+
+  function normalizeAvatarInput(raw: unknown): string | null | undefined {
+    if (raw === undefined) return undefined;
+    if (raw === null || raw === "") return null;
+    if (typeof raw !== "string") throw new Error("INVALID_AVATAR");
+    const s = raw.trim();
+    if (!s) return null;
+    if (s.startsWith("data:image/")) {
+      const comma = s.indexOf(",");
+      if (comma === -1) throw new Error("INVALID_AVATAR");
+      const b64 = s.slice(comma + 1);
+      const approxBytes = (b64.length * 3) / 4;
+      if (approxBytes > AVATAR_MAX_BYTES) throw new Error("AVATAR_TOO_LARGE");
+      return s;
+    }
+    try {
+      const u = new URL(s);
+      if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("INVALID_AVATAR");
+      return s;
+    } catch {
+      throw new Error("INVALID_AVATAR");
+    }
+  }
+
+  app.get("/api/tracks/:id/comments", async (req, res) => {
+    const trackId = Number(req.params.id);
+    if (!Number.isFinite(trackId)) {
+      return res.status(400).json({ message: apiMsg("잘못된 트랙 ID입니다", "Invalid track id") });
+    }
+    const rows = await storage.listTrackComments(trackId);
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        content: r.content,
+        createdAt: r.createdAt,
+        authorName: r.authorName,
+      })),
+    );
+  });
+
+  app.post("/api/tracks/:id/comments", isAuthenticated, async (req: any, res) => {
+    const trackId = Number(req.params.id);
+    const content = req.body?.content;
+    if (typeof content !== "string") {
+      return res.status(400).json({ message: apiMsg("댓글 내용이 필요합니다", "content is required") });
+    }
+    try {
+      await storage.addComment(getUserId(req), trackId, content);
+      res.status(201).json({ message: apiMsg("댓글이 등록되었습니다", "Comment posted") });
+    } catch (err: any) {
+      const msg = err?.message;
+      if (msg === "TRACK_NOT_FOUND") return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+      if (msg === "EMPTY_COMMENT")
+        return res.status(400).json({ message: apiMsg("댓글은 비울 수 없습니다", "Comment cannot be empty") });
+      if (msg === "COMMENT_TOO_LONG")
+        return res.status(400).json({ message: apiMsg("댓글이 너무 깁니다", "Comment too long") });
+      throw err;
+    }
   });
 
   // Update own profile (for editing country, bio, etc.)
   app.patch("/api/profiles/me", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
-    const p = await storage.getProfileByUserId(userId);
-    if (!p) return res.status(404).json({ message: "Profile not found" });
+    const p = await storage.getProfileByUserId(getUserId(req));
+    if (!p) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
 
-    const { country, bio, aiToolUsed } = req.body;
+    const { username, country, bio, aiToolUsed, avatarUrl } = req.body;
     const updates: any = {};
+    if (username !== undefined) {
+      const normalized = String(username).trim().toLowerCase();
+      if (!/^[a-z0-9_]{3,24}$/.test(normalized)) {
+        return res.status(400).json({
+          message: apiMsg(
+            "사용자명은 3~24자의 영문 소문자/숫자/언더스코어만 사용할 수 있습니다",
+            "Username must be 3-24 chars and use only lowercase letters, numbers, and underscore",
+          ),
+        });
+      }
+      const existing = await storage.getProfileByUsername(normalized);
+      if (existing && existing.id !== p.id) {
+        return res.status(409).json({
+          message: apiMsg("이미 사용 중인 사용자명입니다", "Username is already taken"),
+        });
+      }
+      updates.username = normalized;
+    }
     if (country !== undefined) updates.country = country;
     if (bio !== undefined) updates.bio = bio;
     if (aiToolUsed !== undefined) updates.aiToolUsed = aiToolUsed;
+    if (avatarUrl !== undefined) {
+      try {
+        updates.avatarUrl = normalizeAvatarInput(avatarUrl);
+      } catch (e: any) {
+        const code = e?.message;
+        if (code === "AVATAR_TOO_LARGE") {
+          return res.status(400).json({
+            message: apiMsg(
+              `아바타는 최대 ${AVATAR_MAX_BYTES / 1024}KB까지 허용됩니다`,
+              `Avatar must be at most ${AVATAR_MAX_BYTES / 1024}KB`,
+            ),
+          });
+        }
+        return res.status(400).json({
+          message: apiMsg("유효하지 않은 아바타 URL 또는 이미지 데이터입니다", "Invalid avatar URL or image data"),
+        });
+      }
+    }
 
     const updated = await storage.updateProfile(p.id, updates);
-    res.json(updated);
+    const { userId: _um, ...pubM } = updated;
+    res.json(pubM);
   });
 
   // --- BATTLE ROUTES ---
@@ -322,7 +1323,7 @@ export async function registerRoutes(
   app.get("/api/battles/recent", async (_req, res) => {
     try {
       const battle = await storage.getRecentBattle();
-      res.json(battle);
+      res.json(sanitizeBattleForPublic(battle as Record<string, unknown> | null));
     } catch {
       res.json(null);
     }
@@ -335,38 +1336,97 @@ export async function registerRoutes(
   });
 
   app.get("/api/battles/daily-count", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
-    const count = await storage.getDailyBattleVoteCount(userId);
-    res.json({ count, dailyMax: 5 });
+    if (await canBypassVoteLimits(req)) {
+      return res.json({ count: 0, dailyMax: MAX_BATTLE_ROUNDS });
+    }
+    const count = await storage.getDailyBattleVoteCount(getUserId(req));
+    res.json({ count, dailyMax: MAX_BATTLE_ROUNDS });
   });
 
   // Create a new battle for a given genre
-  app.post("/api/battles/new", async (req, res) => {
+  app.post("/api/battles/new", isAuthenticated, async (req: any, res) => {
     const { genre } = req.body;
-    if (!genre) return res.status(400).json({ message: "genre is required" });
-    const battle = await storage.createBattle(genre);
-    if (!battle) return res.status(409).json({ message: "Not enough tracks in this genre for a battle" });
-    res.json(battle);
+    if (!genre) return res.status(400).json({ message: apiMsg("장르가 필요합니다", "genre is required") });
+
+    if (!(await canBypassVoteLimits(req))) {
+      const used = await storage.getDailyBattleVoteCount(getUserId(req));
+      if (used >= MAX_BATTLE_ROUNDS) {
+        return res.status(429).json({
+          message: apiMsg("오늘 배틀 한도에 도달했습니다", "Daily battle limit reached"),
+        });
+      }
+    }
+
+    let candidateTracks = await storage.getTracks({
+      genre: genre === "ALL" ? undefined : genre,
+      trackType: "audio",
+    });
+
+    if (candidateTracks.length < 2 && genre !== "ALL") {
+      candidateTracks = await storage.getTracks({ trackType: "audio" });
+    }
+
+    if (candidateTracks.length < 2) {
+      return res.status(409).json({
+        message: apiMsg(
+          "이 장르로 진행할 오디오 트랙이 부족합니다",
+          "Not enough audio tracks in this genre for a battle",
+        ),
+      });
+    }
+
+    const firstIndex = Math.floor(Math.random() * candidateTracks.length);
+    let secondIndex = Math.floor(Math.random() * (candidateTracks.length - 1));
+    if (secondIndex >= firstIndex) secondIndex += 1;
+
+    const trackA = candidateTracks[firstIndex];
+    const trackB = candidateTracks[secondIndex];
+    const battleGenre = genre !== "ALL" ? genre : trackA.genre;
+
+    const [created] = await db.insert(battles).values({
+      genre: battleGenre,
+      trackAId: trackA.id,
+      trackBId: trackB.id,
+    }).returning();
+
+    const battle = await storage.getBattle(created.id);
+    res.json(sanitizeBattleForPublic(battle as Record<string, unknown>));
   });
 
   // Get a specific battle
   app.get("/api/battles/:id", async (req, res) => {
     const battle = await storage.getBattle(Number(req.params.id));
-    if (!battle) return res.status(404).json({ message: "Battle not found" });
-    res.json(battle);
+    if (!battle) return res.status(404).json({ message: apiMsg("배틀을 찾을 수 없습니다", "Battle not found") });
+    res.json(sanitizeBattleForPublic(battle as Record<string, unknown>));
   });
 
   // Vote in a battle
   app.post("/api/battles/:id/vote", isAuthenticated, async (req: any, res) => {
     const battleId = Number(req.params.id);
     const { trackId } = req.body;
-    if (!trackId) return res.status(400).json({ message: "trackId is required" });
+    if (!trackId) return res.status(400).json({ message: apiMsg("trackId가 필요합니다", "trackId is required") });
     try {
-      const result = await storage.recordBattleVote(battleId, req.user.claims.sub, Number(trackId));
+      const userId = getUserId(req);
+      if (!(await canBypassVoteLimits(req))) {
+        const used = await storage.getDailyBattleVoteCount(userId);
+        if (used >= MAX_BATTLE_ROUNDS) {
+          return res.status(429).json({
+          message: apiMsg("오늘 배틀 한도에 도달했습니다", "Daily battle limit reached"),
+        });
+        }
+      }
+      if (await canBypassVoteLimits(req)) {
+        await db.delete(battleVotes).where(and(eq(battleVotes.userId, userId), eq(battleVotes.battleId, battleId)));
+      }
+      const result = await storage.recordBattleVote(battleId, userId, Number(trackId));
       res.json(result);
     } catch (err: any) {
-      if (err?.message === "ALREADY_VOTED") return res.status(409).json({ message: "Already voted in this battle" });
-      if (err?.message === "BATTLE_NOT_FOUND") return res.status(404).json({ message: "Battle not found" });
+      if (err?.message === "ALREADY_VOTED")
+        return res.status(409).json({
+          message: apiMsg("이미 이 배틀에 투표했습니다", "Already voted in this battle"),
+        });
+      if (err?.message === "BATTLE_NOT_FOUND")
+        return res.status(404).json({ message: apiMsg("배틀을 찾을 수 없습니다", "Battle not found") });
       throw err;
     }
   });
@@ -374,21 +1434,42 @@ export async function registerRoutes(
   // POST /api/vote — shorthand endpoint for battle voting (battleId + trackId in body)
   app.post("/api/vote", isAuthenticated, async (req: any, res) => {
     const { battleId, trackId } = req.body;
-    if (!battleId || !trackId) return res.status(400).json({ message: "battleId and trackId are required" });
+    if (!battleId || !trackId)
+      return res.status(400).json({
+        message: apiMsg("battleId와 trackId가 모두 필요합니다", "battleId and trackId are required"),
+      });
     try {
-      const result = await storage.recordBattleVote(Number(battleId), req.user.claims.sub, Number(trackId));
+      const parsedBattleId = Number(battleId);
+      const parsedTrackId = Number(trackId);
+      const userId = getUserId(req);
+      if (!(await canBypassVoteLimits(req))) {
+        const used = await storage.getDailyBattleVoteCount(userId);
+        if (used >= MAX_BATTLE_ROUNDS) {
+          return res.status(429).json({
+          message: apiMsg("오늘 배틀 한도에 도달했습니다", "Daily battle limit reached"),
+        });
+        }
+      }
+      if (await canBypassVoteLimits(req)) {
+        await db.delete(battleVotes).where(and(eq(battleVotes.userId, userId), eq(battleVotes.battleId, parsedBattleId)));
+      }
+      const result = await storage.recordBattleVote(parsedBattleId, userId, parsedTrackId);
       res.json(result);
     } catch (err: any) {
-      if (err?.message === "ALREADY_VOTED") return res.status(409).json({ message: "Already voted in this battle" });
-      if (err?.message === "BATTLE_NOT_FOUND") return res.status(404).json({ message: "Battle not found" });
+      if (err?.message === "ALREADY_VOTED")
+        return res.status(409).json({
+          message: apiMsg("이미 이 배틀에 투표했습니다", "Already voted in this battle"),
+        });
+      if (err?.message === "BATTLE_NOT_FOUND")
+        return res.status(404).json({ message: apiMsg("배틀을 찾을 수 없습니다", "Battle not found") });
       throw err;
     }
   });
 
-  // GET /api/creators — returns profiles with role "nex" or "founder"
+  // GET /api/creators — NEX/founder profiles plus anyone with chart-eligible tracks
   app.get("/api/creators", async (_req, res) => {
     const creators = await storage.getCreators();
-    res.json(creators);
+    res.json(creators.map((p) => sanitizePublicProfileForDirectory(p)));
   });
 
   // Live stats for today
@@ -397,19 +1478,16 @@ export async function registerRoutes(
     res.json(stats);
   });
 
-  // Admin: lightweight check — returns isAdmin based purely on email, no profile required
+  // Admin: requires authenticated user whose profile role is admin
   app.get("/api/admin/check", isAuthenticated, async (req: any, res) => {
-    const admin = isAdminEmail(req);
-    // Also log the email seen for debugging
-    console.log(`[admin/check] email="${req.user?.claims?.email}" isAdmin=${admin} ADMIN_EMAIL="${process.env.ADMIN_EMAIL}"`);
-    res.json({ isAdmin: admin, email: req.user?.claims?.email ?? null });
+    const admin = await isAdmin(req);
+    if (!admin) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    res.json({ isAdmin: true });
   });
 
   // Admin: get all submitted tracks across all pipeline statuses
   app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
-    const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!isAdminEmail(req) && (!p || p.role !== "founder"))
-      return res.status(403).json({ message: "Admin access required" });
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
 
     const statuses = ["PENDING", "BATTLE_POOL", "REJECTED", "CHART", "MV"];
     const all: any[] = [];
@@ -423,6 +1501,7 @@ export async function registerRoutes(
           creatorId: t.creatorId,
           genre: t.genre,
           trackLink: t.audioUrl,
+          portfolioLink: t.description,
           trackType: t.trackType,
           status: t.status,
           createdAt: t.createdAt,
@@ -435,14 +1514,17 @@ export async function registerRoutes(
   });
 
   app.post(api.admin.review.path, isAuthenticated, async (req: any, res) => {
-    const p = await storage.getProfileByUserId(req.user.claims.sub);
-    if (!isAdminEmail(req) && (!p || p.role !== "founder"))
-      return res.status(403).json({ message: "Admin access required" });
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
 
     const { status } = req.body;
     const validStatuses = ["BATTLE_POOL", "REJECTED", "PUBLISHED"];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: "Invalid status. Must be BATTLE_POOL, REJECTED, or PUBLISHED" });
+      return res.status(400).json({
+        message: apiMsg(
+          "유효하지 않은 상태입니다. BATTLE_POOL, REJECTED, PUBLISHED 중 하나여야 합니다",
+          "Invalid status. Must be BATTLE_POOL, REJECTED, or PUBLISHED",
+        ),
+      });
     }
 
     await storage.updateTrackStatus(
@@ -450,7 +1532,157 @@ export async function registerRoutes(
       status,
       req.body.aiCraftScore,
     );
-    res.json({ message: "Review completed" });
+    if (status === "BATTLE_POOL" || status === "PUBLISHED") {
+      const reviewedTrack = await storage.getTrack(Number(req.params.id));
+      const profileId = reviewedTrack?.creatorId;
+      if (profileId) {
+        const reviewedProfile = await storage.getProfile(profileId);
+        if (reviewedProfile && reviewedProfile.role === "listener") {
+          await storage.updateProfile(reviewedProfile.id, {
+            role: "creator",
+            creatorApplicationStatus: "none",
+          });
+        }
+      }
+    }
+    res.json({ message: apiMsg("검토가 완료되었습니다", "Review completed") });
+  });
+
+  app.get("/api/admin/creator-applications", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const rows = await storage.getPendingCreatorApplications();
+    res.json(
+      rows.map(({ profile, email }) => ({
+        profileId: profile.id,
+        username: profile.username,
+        email,
+        country: profile.country,
+        aiToolUsed: profile.aiToolUsed,
+        bio: profile.bio,
+      })),
+    );
+  });
+
+  app.post("/api/admin/profiles/:id/approve-creator", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ message: apiMsg("잘못된 프로필 ID입니다", "Invalid profile id") });
+    const p = await storage.getProfile(id);
+    if (!p) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    if (p.creatorApplicationStatus !== "pending") {
+      return res.status(400).json({
+        message: apiMsg(
+          "이 프로필에 대기 중인 크리에이터 신청이 없습니다",
+          "No pending creator application for this profile",
+        ),
+      });
+    }
+    const updated = await storage.updateProfile(id, {
+      role: "creator",
+      creatorApplicationStatus: "none",
+    });
+    const { userId: _ua, ...pubA } = updated;
+    res.json(pubA);
+  });
+
+  app.post("/api/admin/profiles/:id/reject-creator", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ message: apiMsg("잘못된 프로필 ID입니다", "Invalid profile id") });
+    const p = await storage.getProfile(id);
+    if (!p) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    if (p.creatorApplicationStatus !== "pending") {
+      return res.status(400).json({
+        message: apiMsg(
+          "이 프로필에 대기 중인 크리에이터 신청이 없습니다",
+          "No pending creator application for this profile",
+        ),
+      });
+    }
+    const updated = await storage.updateProfile(id, {
+      role: "listener",
+      creatorApplicationStatus: "rejected",
+    });
+    const { userId: _ur, ...pubR } = updated;
+    res.json(pubR);
+  });
+
+  app.get("/api/admin/track-claim-requests", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const rows = await storage.listPendingTrackClaimRequests();
+    res.json(rows);
+  });
+
+  app.get("/api/admin/track-edit-requests", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const rows = await storage.listPendingTrackEditRequests();
+    res.json(rows);
+  });
+
+  app.delete("/api/admin/track-edit-requests/:commentId", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const commentId = Number(req.params.commentId);
+    if (!Number.isFinite(commentId)) {
+      return res.status(400).json({ message: apiMsg("잘못된 댓글 ID입니다", "Invalid comment id") });
+    }
+    const ok = await storage.deleteTrackEditRequestComment(commentId);
+    if (!ok) {
+      return res.status(404).json({
+        message: apiMsg("삭제할 수정 요청을 찾을 수 없습니다", "Edit request not found or cannot be deleted"),
+      });
+    }
+    res.json({ ok: true });
+  });
+
+  app.post("/api/admin/track-claim-requests/:id/approve", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const id = Number(req.params.id);
+    const out = await storage.approveTrackClaimRequest(id);
+    if (!out.ok) {
+      return res.status(400).json({
+        message: apiMsg("요청을 승인할 수 없습니다", "Unable to approve request"),
+        reason: out.reason,
+      });
+    }
+    res.json({ ok: true });
+  });
+
+  app.post("/api/admin/track-claim-requests/:id/reject", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const id = Number(req.params.id);
+    const ok = await storage.rejectTrackClaimRequest(id);
+    if (!ok) {
+      return res.status(400).json({ message: apiMsg("요청을 찾을 수 없습니다", "Request not found") });
+    }
+    res.json({ ok: true });
+  });
+
+  app.patch("/api/admin/tracks/:id/claimable", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const id = Number(req.params.id);
+    const claimable = req.body?.claimable;
+    if (typeof claimable !== "boolean") {
+      return res.status(400).json({
+        message: apiMsg("claimable은 true/false여야 합니다", "claimable must be a boolean"),
+      });
+    }
+    const updated = await storage.setTrackClaimableByCreators(id, claimable);
+    if (!updated) {
+      return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    }
+    res.json({ ok: true, claimableByCreators: updated.claimableByCreators });
   });
 
   return httpServer;

@@ -1,15 +1,75 @@
-import { profiles, tracks, likes, votes, follows, trackPlays, battles, battleVotes, type Profile, type Track, type Follow, type Battle } from "@shared/schema";
+import {
+  users,
+  profiles,
+  tracks,
+  likes,
+  votes,
+  follows,
+  trackPlays,
+  trackMetrics,
+  battles,
+  battleVotes,
+  comments,
+  trackClaimRequests,
+  type Profile,
+  type Track,
+  type Follow,
+  type Battle,
+} from "@shared/schema";
+import type { User } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, and, or, sql, count, gt, gte, ne } from "drizzle-orm";
+import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray } from "drizzle-orm";
 
-// Compute rankingScore = (votes * 3) + (playCount * 1) + recentBoost
-export function computeRankingScore(votesCount: number, playCount: number, createdAt: Date): number {
+const RANKING_WEIGHT_BATTLE = 0.5;
+const RANKING_WEIGHT_LIKES = 0.2;
+const RANKING_WEIGHT_PLAYS = 0.2;
+const RANKING_WEIGHT_FOLLOWERS = 0.1;
+
+function getRecentBoost(createdAt: Date): number {
   const hoursOld = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60);
-  let recentBoost = 0;
-  if (hoursOld < 24) recentBoost = 30;
-  else if (hoursOld < 48) recentBoost = 20;
-  else if (hoursOld < 72) recentBoost = 10;
-  return (votesCount * 3) + (playCount * 1) + recentBoost;
+  if (hoursOld < 24) return 30;
+  if (hoursOld < 48) return 20;
+  if (hoursOld < 72) return 10;
+  return 0;
+}
+
+/**
+ * Composite chart score:
+ * battle 50% + likes 20% + plays 20% + followers 10% (+ freshness boost).
+ */
+export function computeRankingScore(input: {
+  battleWins: number;
+  battleTotal: number;
+  likesCount: number;
+  playCount: number;
+  followerCount: number;
+  completionRate: number;
+  saveRelistenRate: number;
+  uniqueListeners: number;
+  createdAt: Date;
+}): number {
+  const battleQuality = input.battleWins * 2 + input.battleTotal;
+  const battleNorm = Math.log1p(Math.max(0, battleQuality));
+  const likesNorm = Math.log1p(Math.max(0, input.likesCount));
+  const playsNorm = Math.log1p(Math.max(0, input.playCount));
+  const followersNorm = Math.log1p(Math.max(0, input.followerCount));
+  const uniqueListenersNorm = Math.log1p(Math.max(0, input.uniqueListeners));
+
+  const weightedCore =
+    (battleNorm * RANKING_WEIGHT_BATTLE) +
+    (likesNorm * RANKING_WEIGHT_LIKES) +
+    (playsNorm * RANKING_WEIGHT_PLAYS) +
+    (followersNorm * RANKING_WEIGHT_FOLLOWERS);
+
+  // Quality/retention bonus from additional signals:
+  // 1) completion rate, 2) save+relisten rate, 3) unique listeners depth.
+  const qualityBonusFactor =
+    (Math.max(0, Math.min(1, input.completionRate)) * 0.08) +
+    (Math.max(0, Math.min(1, input.saveRelistenRate)) * 0.04) +
+    (Math.max(0, Math.min(1, uniqueListenersNorm / 6)) * 0.03);
+
+  const recentBoost = getRecentBoost(input.createdAt);
+  return Number((weightedCore * (1 + qualityBonusFactor) * 100 + recentBoost).toFixed(4));
 }
 
 function weightedPickTwo<T extends { rankingScore: number }>(items: T[]): [T, T] {
@@ -34,21 +94,56 @@ function weightedPickTwo<T extends { rankingScore: number }>(items: T[]): [T, T]
 
 export interface IStorage {
   getProfileByUserId(userId: string): Promise<Profile | undefined>;
+  createUser(u: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<any>;
+  getUserById(id: string): Promise<User | undefined>;
+  upsertOAuthUser(u: {
+    id: string;
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    profileImageUrl?: string | null;
+  }): Promise<void>;
   getProfileByUsername(username: string): Promise<Profile | undefined>;
   getProfile(id: number): Promise<(Profile & { tracks: Track[]; followerCount: number }) | undefined>;
   createProfile(p: any): Promise<Profile>;
   updateProfile(id: number, data: Partial<Profile>): Promise<Profile>;
-  getTracks(filter: { status?: string; featured?: boolean; limit?: number; genre?: string; sortBy?: "rankingScore" | "neoScore" | "createdAt"; trackType?: string }): Promise<any[]>;
+  getTracks(filter: {
+    status?: string;
+    featured?: boolean;
+    limit?: number;
+    genre?: string;
+    sortBy?: "rankingScore" | "neoScore" | "createdAt";
+    trackType?: string;
+    creatorId?: number;
+    q?: string;
+  }): Promise<any[]>;
   getTracksByCreator(creatorId: number): Promise<any[]>;
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
-  submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; creatorId: number }): Promise<Track>;
+  submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; coverImageUrl?: string | null; portfolioLink?: string | null; creatorId: number }): Promise<Track>;
   checkAndPromoteToChart(trackId: number): Promise<void>;
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
   likeTrack(userId: string, trackId: number): Promise<void>;
-  recordPlay(userId: string, trackId: number): Promise<{ counted: boolean }>;
+  recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }>;
   updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void>;
+  updateTrackMetadata(
+    id: number,
+    data: {
+      title?: string;
+      artistName?: string | null;
+      genre?: string;
+      coverImageUrl?: string | null;
+      audioUrl?: string;
+      mvUrl?: string | null;
+      aiPrompt?: string | null;
+      /** When the track owner edits `aiPrompt`; increments edit count and sets last-edited time. */
+      bumpAiPromptEditStats?: boolean;
+    },
+  ): Promise<Track | undefined>;
+  /** Admin-only: remove a track comment that is an edit-request ticket. */
+  deleteTrackEditRequestComment(commentId: number): Promise<boolean>;
+  deleteTrack(id: number): Promise<boolean>;
   recalculateAllRankingScores(): Promise<void>;
   followCreator(followerId: string, creatorProfileId: number): Promise<void>;
   unfollowCreator(followerId: string, creatorProfileId: number): Promise<void>;
@@ -59,31 +154,362 @@ export interface IStorage {
   getBattle(id: number): Promise<any | null>;
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
   recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }>;
-  getRisingTracks(): Promise<any[]>;
+  getRisingTracks(q?: string): Promise<any[]>;
+  addComment(userId: string, trackId: number, content: string): Promise<void>;
+  listTrackComments(
+    trackId: number,
+  ): Promise<{ id: number; userId: string; content: string; createdAt: Date; authorName: string | null }[]>;
+  listPendingTrackEditRequests(): Promise<
+    {
+      commentId: number;
+      trackId: number;
+      trackTitle: string;
+      requesterUsername: string | null;
+      detail: string;
+      proposedLink: string | null;
+      createdAt: Date;
+    }[]
+  >;
   getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>>;
   getDailyBattleVoteCount(userId: string): Promise<number>;
   getRecentBattle(): Promise<any | null>;
   getTodayStats(): Promise<{ totalVotesToday: number; battlesPlayedToday: number; tracksInPool: number; newTracksToday: number }>;
   trackUrlExists(url: string): Promise<boolean>;
   getCreators(): Promise<Profile[]>;
-  clearAllData(): Promise<void>;
+  getPendingCreatorApplications(): Promise<{ profile: Profile; email: string | null }[]>;
+  transferTrackOwnershipFromClaim(trackId: number, newCreatorProfileId: number): Promise<Track | null>;
+  createTrackClaimRequest(trackId: number, requesterProfileId: number): Promise<{ created: boolean; duplicate: boolean }>;
+  listPendingTrackClaimRequests(): Promise<
+    {
+      id: number;
+      trackId: number;
+      trackTitle: string;
+      requesterProfileId: number;
+      requesterUsername: string;
+      createdAt: Date;
+    }[]
+  >;
+  approveTrackClaimRequest(requestId: number): Promise<{ ok: boolean; reason?: string }>;
+  rejectTrackClaimRequest(requestId: number): Promise<boolean>;
+  claimTrackWithSecret(trackId: number, requesterProfileId: number, secret: string): Promise<{ ok: boolean; reason?: string }>;
+  setTrackClaimableByCreators(trackId: number, claimable: boolean): Promise<Track | null>;
+  getLatestBattleSummariesForCreatorProfile(creatorProfileId: number): Promise<
+    {
+      trackId: number;
+      trackTitle: string;
+      trackCoverImageUrl: string | null;
+      battleId: number;
+      opponentTrackId: number;
+      opponentTitle: string;
+      opponentCoverImageUrl: string | null;
+      myVotes: number;
+      opponentVotes: number;
+      iWon: boolean;
+      createdAt: Date;
+    }[]
+  >;
 }
 
 export class DatabaseStorage implements IStorage {
+  // To keep chart scoring fair under burst traffic, we debounce rankingScore recomputation.
+  // Instead of recomputing immediately for every like/play/vote, we batch affected trackIds.
+  private pendingRankingRecomputeTrackIds = new Set<number>();
+  private rankingRecomputeFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private get rankingRecomputeDebounceMs(): number {
+    const raw = process.env.RANKING_RECOMPUTE_DEBOUNCE_MS;
+    const n = raw ? Number(raw) : 5000;
+    return Number.isFinite(n) ? n : 5000;
+  }
+
+  private get rankingRecomputeMaxBatch(): number {
+    const raw = process.env.RANKING_RECOMPUTE_MAX_BATCH;
+    const n = raw ? Number(raw) : 50;
+    return Number.isFinite(n) ? n : 50;
+  }
+
+  private scheduleRecomputeTrackRankingScore(trackId: number): void {
+    if (!Number.isFinite(trackId)) return;
+    this.pendingRankingRecomputeTrackIds.add(trackId);
+    if (this.rankingRecomputeFlushTimer) return;
+
+    this.rankingRecomputeFlushTimer = setTimeout(() => {
+      void this.flushRankingRecomputeQueue();
+    }, this.rankingRecomputeDebounceMs);
+  }
+
+  private async flushRankingRecomputeQueue(): Promise<void> {
+    this.rankingRecomputeFlushTimer = null;
+
+    const ids: number[] = [];
+    this.pendingRankingRecomputeTrackIds.forEach((id) => ids.push(id));
+    this.pendingRankingRecomputeTrackIds.clear();
+    if (ids.length === 0) return;
+
+    const batch = ids.slice(0, this.rankingRecomputeMaxBatch);
+    const rest = ids.slice(batch.length);
+    if (rest.length) {
+      for (const id of rest) this.pendingRankingRecomputeTrackIds.add(id);
+    }
+
+    // Run sequentially to reduce DB concurrency under burst traffic.
+    for (const id of batch) {
+      await this.recomputeTrackRankingScore(id);
+    }
+
+    if (this.pendingRankingRecomputeTrackIds.size > 0) {
+      // Keep draining the queue, but don't spin too aggressively.
+      this.rankingRecomputeFlushTimer = setTimeout(() => {
+        void this.flushRankingRecomputeQueue();
+      }, 1000);
+    }
+  }
+
+  private async ensureTrackMetricsRow(trackId: number, creatorId?: number): Promise<void> {
+    if (!Number.isFinite(trackId)) return;
+    const [existing] = await db.select({ id: trackMetrics.id }).from(trackMetrics).where(eq(trackMetrics.trackId, trackId));
+    if (existing) return;
+
+    let resolvedCreatorId = creatorId;
+    if (!resolvedCreatorId) {
+      const [t] = await db.select({ creatorId: tracks.creatorId }).from(tracks).where(eq(tracks.id, trackId));
+      resolvedCreatorId = t?.creatorId;
+    }
+    const followerCount = resolvedCreatorId ? await this.getFollowerCount(resolvedCreatorId) : 0;
+    await db.insert(trackMetrics).values({ trackId, followerCount }).onConflictDoNothing();
+  }
+
+  private async rebuildTrackMetrics(trackId: number): Promise<void> {
+    const [t] = await db.select().from(tracks).where(eq(tracks.id, trackId));
+    if (!t) return;
+
+    const [likesResult] = await db
+      .select({ count: count() })
+      .from(likes)
+      .where(eq(likes.trackId, trackId));
+    const likesCount = likesResult?.count || 0;
+
+    const [playsResult] = await db
+      .select({ count: count() })
+      .from(trackPlays)
+      .where(eq(trackPlays.trackId, trackId));
+    const playsCount = playsResult?.count || 0;
+
+    const [completedResult] = await db
+      .select({ count: count() })
+      .from(trackPlays)
+      .where(and(eq(trackPlays.trackId, trackId), eq(trackPlays.completed, true)));
+    const completedPlaysCount = completedResult?.count || 0;
+
+    const [uniqueResult] = await db
+      .select({ count: sql<number>`count(distinct ${trackPlays.userId})` })
+      .from(trackPlays)
+      .where(eq(trackPlays.trackId, trackId));
+    const uniqueListenersCount = Number(uniqueResult?.count || 0);
+    const relistenPlaysCount = Math.max(0, playsCount - uniqueListenersCount);
+
+    const { totalBattles: battleTotalCount, wins: battleWinsCount } = await this.getTrackBattleStats(trackId);
+    const followerCount = await this.getFollowerCount(t.creatorId);
+
+    await db
+      .insert(trackMetrics)
+      .values({
+        trackId,
+        likesCount,
+        playsCount,
+        completedPlaysCount,
+        uniqueListenersCount,
+        relistenPlaysCount,
+        battleTotalCount,
+        battleWinsCount,
+        followerCount,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: trackMetrics.trackId,
+        set: {
+          likesCount,
+          playsCount,
+          completedPlaysCount,
+          uniqueListenersCount,
+          relistenPlaysCount,
+          battleTotalCount,
+          battleWinsCount,
+          followerCount,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  private async getTrackBattleStats(trackId: number): Promise<{ totalBattles: number; wins: number }> {
+    const allBattles = await db.select().from(battles)
+      .where(sql`${battles.winnerId} IS NOT NULL AND (${battles.trackAId} = ${trackId} OR ${battles.trackBId} = ${trackId})`);
+    const totalBattles = allBattles.length;
+    const wins = allBattles.filter((b) => b.winnerId === trackId).length;
+    return { totalBattles, wins };
+  }
+
+  private async recomputeTrackRankingScore(trackId: number): Promise<void> {
+    const [t] = await db.select().from(tracks).where(eq(tracks.id, trackId));
+    if (!t) return;
+
+    await this.ensureTrackMetricsRow(trackId, t.creatorId);
+    let [m] = await db.select().from(trackMetrics).where(eq(trackMetrics.trackId, trackId));
+    if (!m) {
+      await this.rebuildTrackMetrics(trackId);
+      [m] = await db.select().from(trackMetrics).where(eq(trackMetrics.trackId, trackId));
+      if (!m) return;
+    }
+
+    const completionRate = m.playsCount > 0 ? m.completedPlaysCount / m.playsCount : 0;
+    const relistenRate = m.playsCount > 0 ? m.relistenPlaysCount / m.playsCount : 0;
+    const saveRate = m.uniqueListenersCount > 0 ? Math.min(1, m.likesCount / m.uniqueListenersCount) : 0;
+    const saveRelistenRate = (saveRate + relistenRate) / 2;
+
+    const rs = computeRankingScore({
+      battleWins: m.battleWinsCount,
+      battleTotal: m.battleTotalCount,
+      likesCount: m.likesCount,
+      playCount: m.playsCount,
+      followerCount: m.followerCount,
+      completionRate,
+      saveRelistenRate,
+      uniqueListeners: m.uniqueListenersCount,
+      createdAt: t.createdAt,
+    });
+
+    await db.update(tracks).set({ rankingScore: rs }).where(eq(tracks.id, trackId));
+  }
+
+  private async recomputeCreatorTrackRankingScores(creatorId: number): Promise<void> {
+    const creatorTracks = await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.creatorId, creatorId));
+    for (const row of creatorTracks) {
+      this.scheduleRecomputeTrackRankingScore(row.id);
+    }
+  }
+
+  async createUser(u: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<any> {
+    const values = {
+      id: u.id,
+      email: u.email ?? null,
+      firstName: u.firstName ?? null,
+      lastName: u.lastName ?? null,
+      profileImageUrl: u.profileImageUrl ?? null,
+    };
+
+    const inserted = await db.insert(users).values(values).onConflictDoNothing().returning();
+    if (inserted.length) return inserted[0];
+
+    const [existing] = await db.select().from(users).where(eq(users.id, u.id));
+    return existing;
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    const [row] = await db.select().from(users).where(eq(users.id, id));
+    return row;
+  }
+
+  async upsertOAuthUser(u: {
+    id: string;
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    profileImageUrl?: string | null;
+  }): Promise<void> {
+    const emailNorm = u.email != null && String(u.email).trim() !== "" ? String(u.email).trim().toLowerCase() : null;
+
+    /**
+     * Move all rows pointing at `fromId` to `toId`, then delete `fromId`.
+     * `toId` must already exist in `users` (FK targets profiles, likes, …).
+     */
+    const mergeUserId = async (fromId: string, toId: string) => {
+      if (fromId === toId) return;
+      await db.transaction(async (tx) => {
+        const [pFrom] = await tx.select().from(profiles).where(eq(profiles.userId, fromId));
+        const [pTo] = await tx.select().from(profiles).where(eq(profiles.userId, toId));
+
+        if (pFrom && pTo) {
+          await tx.update(tracks).set({ creatorId: pTo.id }).where(eq(tracks.creatorId, pFrom.id));
+          await tx.delete(profiles).where(eq(profiles.id, pFrom.id));
+        } else if (pFrom && !pTo) {
+          await tx.update(profiles).set({ userId: toId }).where(eq(profiles.userId, fromId));
+        }
+
+        await tx.update(likes).set({ userId: toId }).where(eq(likes.userId, fromId));
+        await tx.update(votes).set({ userId: toId }).where(eq(votes.userId, fromId));
+        await tx.update(follows).set({ followerId: toId }).where(eq(follows.followerId, fromId));
+        await tx.update(trackPlays).set({ userId: toId }).where(eq(trackPlays.userId, fromId));
+        await tx.update(battleVotes).set({ userId: toId }).where(eq(battleVotes.userId, fromId));
+        await tx.update(comments).set({ userId: toId }).where(eq(comments.userId, fromId));
+
+        await tx.delete(users).where(eq(users.id, fromId));
+      });
+    };
+
+    // 1) Ensure the canonical row (Google `sub` = u.id) exists without setting email yet — avoids
+    //    users_email_unique violations when another row already has this address (old UUID user, etc.).
+    await db
+      .insert(users)
+      .values({
+        id: u.id,
+        email: null,
+        firstName: u.firstName ?? null,
+        lastName: u.lastName ?? null,
+        profileImageUrl: u.profileImageUrl ?? null,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          firstName: u.firstName ?? null,
+          lastName: u.lastName ?? null,
+          profileImageUrl: u.profileImageUrl ?? null,
+          updatedAt: sql`now()`,
+        },
+      });
+
+    // 2) Merge any other user rows that already use this email into u.id (must run before final email update).
+    if (emailNorm) {
+      const conflicts = await db
+        .select()
+        .from(users)
+        .where(and(ne(users.id, u.id), sql`lower(trim(coalesce(${users.email}, ''))) = ${emailNorm}`));
+
+      for (const row of conflicts) {
+        await mergeUserId(row.id, u.id);
+      }
+    }
+
+    // 3) Safe to set email: no other row can still hold this unique value.
+    await db
+      .update(users)
+      .set({
+        email: emailNorm ?? u.email ?? null,
+        firstName: u.firstName ?? null,
+        lastName: u.lastName ?? null,
+        profileImageUrl: u.profileImageUrl ?? null,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(users.id, u.id));
+  }
+
   async getProfileByUserId(userId: string): Promise<Profile | undefined> {
     const [p] = await db.select().from(profiles).where(eq(profiles.userId, userId));
     return p;
   }
 
   async getProfileByUsername(username: string): Promise<Profile | undefined> {
-    const [p] = await db.select().from(profiles).where(eq(profiles.username, username));
+    const u = username.trim().toLowerCase();
+    const [p] = await db.select().from(profiles).where(eq(profiles.username, u));
     return p;
   }
 
   async getProfile(id: number): Promise<(Profile & { tracks: Track[]; followerCount: number }) | undefined> {
     const [p] = await db.select().from(profiles).where(eq(profiles.id, id));
     if (!p) return undefined;
-    const t = await db.select().from(tracks).where(eq(tracks.creatorId, id));
+    const t = await db
+      .select()
+      .from(tracks)
+      .where(and(eq(tracks.creatorId, id), eq(tracks.isDeleted, false)));
     const followerCount = await this.getFollowerCount(id);
     return { ...p, tracks: t, followerCount };
   }
@@ -98,8 +524,35 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getTracks({ status, featured, limit, genre, sortBy, trackType }: { status?: string; featured?: boolean; limit?: number; genre?: string; sortBy?: "rankingScore" | "neoScore" | "createdAt"; trackType?: string }): Promise<any[]> {
-    let q = db.select({ track: tracks, creator: profiles })
+  async getPendingCreatorApplications(): Promise<{ profile: Profile; email: string | null }[]> {
+    const rows = await db
+      .select({ profile: profiles, email: users.email })
+      .from(profiles)
+      .innerJoin(users, eq(profiles.userId, users.id))
+      .where(eq(profiles.creatorApplicationStatus, "pending"));
+    return rows.map((r) => ({ profile: r.profile, email: r.email ?? null }));
+  }
+
+  async getTracks({
+    status,
+    featured,
+    limit,
+    genre,
+    sortBy,
+    trackType,
+    creatorId,
+    q: searchQuery,
+  }: {
+    status?: string;
+    featured?: boolean;
+    limit?: number;
+    genre?: string;
+    sortBy?: "rankingScore" | "neoScore" | "createdAt";
+    trackType?: string;
+    creatorId?: number;
+    q?: string;
+  }): Promise<any[]> {
+    let query = db.select({ track: tracks, creator: profiles })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
       .$dynamic();
@@ -107,23 +560,39 @@ export class DatabaseStorage implements IStorage {
     if (status) {
       filters.push(eq(tracks.status, status));
     } else {
-      // Default: show chart-eligible tracks — PUBLISHED (legacy), BATTLE_POOL (approved), CHART (earned)
-      filters.push(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`);
+      // Default: show battle/chart eligible tracks (includes auto-approved submissions)
+      filters.push(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`);
     }
     if (featured) filters.push(eq(tracks.isFeatured, true));
     if (genre) filters.push(eq(tracks.genre, genre));
     if (trackType) filters.push(eq(tracks.trackType, trackType));
-    if (filters.length) q = q.where(and(...filters));
+    if (creatorId != null && Number.isFinite(creatorId)) {
+      filters.push(eq(tracks.creatorId, creatorId));
+    }
+    const qNorm = typeof searchQuery === "string" ? searchQuery.trim().toLowerCase() : "";
+    if (qNorm) {
+      const likePattern = `%${qNorm}%`;
+      filters.push(
+        sql`(
+          lower(${tracks.title}) like ${likePattern}
+          or lower(coalesce(${tracks.artistName}, '')) like ${likePattern}
+          or lower(${profiles.username}) like ${likePattern}
+          or lower(${tracks.genre}) like ${likePattern}
+        )`,
+      );
+    }
+    filters.push(eq(tracks.isDeleted, false));
+    if (filters.length) query = query.where(and(...filters));
     // Sort by requested field or default rankingScore
     if (sortBy === "neoScore") {
-      q = q.orderBy(desc(tracks.neoScore));
+      query = query.orderBy(desc(tracks.neoScore));
     } else if (sortBy === "createdAt") {
-      q = q.orderBy(desc(tracks.createdAt));
+      query = query.orderBy(desc(tracks.createdAt));
     } else {
-      q = q.orderBy(desc(tracks.rankingScore));
+      query = query.orderBy(desc(tracks.rankingScore));
     }
-    if (limit) q = q.limit(limit);
-    const results = await q;
+    if (limit) query = query.limit(limit);
+    const results = await query;
     return results.map(r => ({ ...r.track, creator: r.creator }));
   }
 
@@ -132,7 +601,7 @@ export class DatabaseStorage implements IStorage {
       .select({ track: tracks, creator: profiles })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
-      .where(eq(tracks.id, id));
+      .where(and(eq(tracks.id, id), eq(tracks.isDeleted, false)));
     return r ? { ...r.track, creator: r.creator } : undefined;
   }
 
@@ -141,15 +610,27 @@ export class DatabaseStorage implements IStorage {
       .select({ track: tracks, creator: profiles })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
-      .where(eq(tracks.creatorId, creatorId))
+      .where(and(eq(tracks.creatorId, creatorId), eq(tracks.isDeleted, false)))
       .orderBy(desc(tracks.rankingScore));
     return results.map(r => ({ ...r.track, creator: r.creator }));
   }
 
   async createTrack(t: any): Promise<Track> {
     const now = new Date();
-    const rs = computeRankingScore(0, 0, now);
+    const rs = computeRankingScore({
+      battleWins: 0,
+      battleTotal: 0,
+      likesCount: 0,
+      playCount: 0,
+      followerCount: 0,
+      completionRate: 0,
+      saveRelistenRate: 0,
+      uniqueListeners: 0,
+      createdAt: now,
+    });
     const [nt] = await db.insert(tracks).values({ ...t, rankingScore: rs }).returning();
+    await this.ensureTrackMetricsRow(nt.id, nt.creatorId);
+    this.scheduleRecomputeTrackRankingScore(nt.id);
     return nt;
   }
 
@@ -165,24 +646,35 @@ export class DatabaseStorage implements IStorage {
 
     await db.insert(votes).values({ userId, trackId });
 
-    // Fetch track to compute new rankingScore
     const [t] = await db.select().from(tracks).where(eq(tracks.id, trackId));
     if (!t) return;
     const newVotes = t.listenerVotes + 1;
-    const rs = computeRankingScore(newVotes, t.playCount, t.createdAt);
 
     await db.update(tracks).set({
       listenerVotes: sql`${tracks.listenerVotes} + 1`,
       neoScore: sql`(${tracks.aiCraftScore} * 0.7) + ((${tracks.listenerVotes} + 1) * 0.3)`,
-      rankingScore: rs,
     }).where(eq(tracks.id, trackId));
+    this.scheduleRecomputeTrackRankingScore(trackId);
   }
 
   async likeTrack(userId: string, trackId: number): Promise<void> {
-    await db.insert(likes).values({ userId, trackId }).onConflictDoNothing();
+    const inserted = await db.insert(likes).values({ userId, trackId }).onConflictDoNothing().returning({ id: likes.id });
+    if (inserted.length === 0) return;
+    await this.ensureTrackMetricsRow(trackId);
+    await db.update(trackMetrics).set({
+      likesCount: sql`${trackMetrics.likesCount} + 1`,
+      updatedAt: new Date(),
+    }).where(eq(trackMetrics.trackId, trackId));
+    this.scheduleRecomputeTrackRankingScore(trackId);
   }
 
-  async recordPlay(userId: string, trackId: number): Promise<{ counted: boolean }> {
+  async recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }> {
+    const completed = !!opts?.completed;
+    const [hadAny] = await db
+      .select({ id: trackPlays.id })
+      .from(trackPlays)
+      .where(and(eq(trackPlays.userId, userId), eq(trackPlays.trackId, trackId)))
+      .limit(1);
     // Spam prevention: same user can only increment once per 10 minutes per track
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const [recent] = await db.select().from(trackPlays)
@@ -192,56 +684,145 @@ export class DatabaseStorage implements IStorage {
         gt(trackPlays.playedAt, tenMinutesAgo)
       ));
 
-    if (recent) return { counted: false };
+    if (recent) {
+      if (completed && !recent.completed) {
+        await db.update(trackPlays).set({ completed: true }).where(eq(trackPlays.id, recent.id));
+        await this.ensureTrackMetricsRow(trackId);
+        await db.update(trackMetrics).set({
+          completedPlaysCount: sql`${trackMetrics.completedPlaysCount} + 1`,
+          updatedAt: new Date(),
+        }).where(eq(trackMetrics.trackId, trackId));
+        this.scheduleRecomputeTrackRankingScore(trackId);
+        return { counted: false, completionUpdated: true };
+      }
+      return { counted: false, completionUpdated: false };
+    }
 
     // Record the play
-    await db.insert(trackPlays).values({ userId, trackId });
+    await db.insert(trackPlays).values({ userId, trackId, completed });
+    await this.ensureTrackMetricsRow(trackId);
+    await db.update(trackMetrics).set({
+      playsCount: sql`${trackMetrics.playsCount} + 1`,
+      completedPlaysCount: sql`${trackMetrics.completedPlaysCount} + ${completed ? 1 : 0}`,
+      uniqueListenersCount: sql`${trackMetrics.uniqueListenersCount} + ${hadAny ? 0 : 1}`,
+      relistenPlaysCount: sql`${trackMetrics.relistenPlaysCount} + ${hadAny ? 1 : 0}`,
+      updatedAt: new Date(),
+    }).where(eq(trackMetrics.trackId, trackId));
 
-    // Fetch track and update playCount + rankingScore
+    // Fetch track and update playCount
     const [t] = await db.select().from(tracks).where(eq(tracks.id, trackId));
-    if (!t) return { counted: false };
-
-    const newPlayCount = t.playCount + 1;
-    const rs = computeRankingScore(t.listenerVotes, newPlayCount, t.createdAt);
+    if (!t) return { counted: false, completionUpdated: false };
 
     await db.update(tracks).set({
       playCount: sql`${tracks.playCount} + 1`,
-      rankingScore: rs,
       lastPlayedAt: new Date(),
     }).where(eq(tracks.id, trackId));
+    this.scheduleRecomputeTrackRankingScore(trackId);
 
-    return { counted: true };
+    return { counted: true, completionUpdated: false };
   }
 
   async updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void> {
     const set: any = { status };
     if (aiCraftScore !== undefined) {
-      const [t] = await db.select().from(tracks).where(eq(tracks.id, id));
-      if (t) {
-        set.aiCraftScore = aiCraftScore;
-        set.neoScore = sql`(${aiCraftScore} * 0.7) + (${tracks.listenerVotes} * 0.3)`;
-        set.rankingScore = computeRankingScore(t.listenerVotes, t.playCount, t.createdAt);
-      }
+      set.aiCraftScore = aiCraftScore;
+      set.neoScore = sql`(${aiCraftScore} * 0.7) + (${tracks.listenerVotes} * 0.3)`;
     }
     await db.update(tracks).set(set).where(eq(tracks.id, id));
+    this.scheduleRecomputeTrackRankingScore(id);
+  }
+
+  async updateTrackMetadata(
+    id: number,
+    data: {
+      title?: string;
+      artistName?: string | null;
+      genre?: string;
+      coverImageUrl?: string | null;
+      audioUrl?: string;
+      mvUrl?: string | null;
+      aiPrompt?: string | null;
+      bumpAiPromptEditStats?: boolean;
+    },
+  ): Promise<Track | undefined> {
+    const [existing] = await db.select().from(tracks).where(eq(tracks.id, id));
+    if (!existing) return undefined;
+
+    const updates: Partial<Track> = {};
+    if (data.title !== undefined) updates.title = data.title;
+    if (data.artistName !== undefined) updates.artistName = data.artistName;
+    if (data.genre !== undefined) updates.genre = data.genre;
+    if (data.coverImageUrl !== undefined) updates.coverImageUrl = data.coverImageUrl;
+    if (data.audioUrl !== undefined) updates.audioUrl = data.audioUrl;
+    if (data.mvUrl !== undefined) updates.mvUrl = data.mvUrl;
+    if (data.aiPrompt !== undefined) updates.aiPrompt = data.aiPrompt;
+    if (data.bumpAiPromptEditStats) {
+      updates.aiPromptEditCount = (existing.aiPromptEditCount ?? 0) + 1;
+      updates.aiPromptLastEditedAt = new Date();
+    }
+
+    if (Object.keys(updates).length === 0) return existing;
+
+    const [updated] = await db.update(tracks).set(updates).where(eq(tracks.id, id)).returning();
+    // Ranking might depend on metrics derived from battles/plays/likes; schedule a refresh anyway.
+    this.scheduleRecomputeTrackRankingScore(updated.id);
+    return updated;
+  }
+
+  async deleteTrackEditRequestComment(commentId: number): Promise<boolean> {
+    const [row] = await db
+      .select({ id: comments.id, content: comments.content })
+      .from(comments)
+      .where(eq(comments.id, commentId));
+    if (!row) return false;
+    if (!/^\[EDIT REQUEST\]/i.test(row.content.trim())) return false;
+    await db.delete(comments).where(eq(comments.id, commentId));
+    return true;
+  }
+
+  async deleteTrack(trackId: number): Promise<boolean> {
+    const [existing] = await db.select({ id: tracks.id }).from(tracks).where(and(eq(tracks.id, trackId), eq(tracks.isDeleted, false)));
+    if (!existing) return false;
+
+    const affectedBattles = await db
+      .select({ id: battles.id })
+      .from(battles)
+      .where(or(eq(battles.trackAId, trackId), eq(battles.trackBId, trackId), eq(battles.winnerId, trackId)));
+    const battleIds = affectedBattles.map((b) => b.id);
+    if (battleIds.length) {
+      await db.delete(battleVotes).where(inArray(battleVotes.battleId, battleIds));
+      await db.delete(battles).where(inArray(battles.id, battleIds));
+    }
+
+    await db.update(tracks).set({
+      isDeleted: true,
+      archivedAt: new Date(),
+      status: "ARCHIVED",
+    }).where(eq(tracks.id, trackId));
+    return true;
   }
 
   // Recalculate rankingScore for ALL tracks — run on startup
   async recalculateAllRankingScores(): Promise<void> {
     const allTracks = await db.select().from(tracks);
-    for (const t of allTracks) {
-      const rs = computeRankingScore(t.listenerVotes, t.playCount, t.createdAt);
-      await db.update(tracks).set({ rankingScore: rs }).where(eq(tracks.id, t.id));
+    for (const row of allTracks) {
+      await this.rebuildTrackMetrics(row.id);
+      await this.recomputeTrackRankingScore(row.id);
     }
   }
 
   async getAvailableBattleGenres(): Promise<string[]> {
-    // Battle-eligible statuses: PUBLISHED (legacy), BATTLE_POOL (approved), CHART (graduated)
+    // Battle-eligible statuses: PUBLISHED (legacy), BATTLE_POOL/APPROVED (approved), CHART (graduated)
     // Genres with >=2 eligible tracks can host same-genre battles
     const genreResults = await db
       .select({ genre: tracks.genre, cnt: count() })
       .from(tracks)
-      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`)
+      .where(
+        and(
+          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+          eq(tracks.isDeleted, false),
+        ),
+      )
       .groupBy(tracks.genre)
       .having(sql`count(*) >= 2`);
 
@@ -251,7 +832,12 @@ export class DatabaseStorage implements IStorage {
     const [{ total }] = await db
       .select({ total: count() })
       .from(tracks)
-      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`);
+      .where(
+        and(
+          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+          eq(tracks.isDeleted, false),
+        ),
+      );
 
     if (Number(total) >= 2) {
       return ["ALL", ...genres];
@@ -260,7 +846,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBattle(genre: string): Promise<any | null> {
-    const eligibleSql = sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`;
+    const eligibleSql = and(
+      sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+      eq(tracks.isDeleted, false),
+    );
 
     let pool = await db.select().from(tracks).where(
       genre && genre !== "ALL"
@@ -289,7 +878,9 @@ export class DatabaseStorage implements IStorage {
 
     const top100 = await db.select({ id: tracks.id })
       .from(tracks)
-      .where(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`)
+      .where(
+        and(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`, eq(tracks.isDeleted, false)),
+      )
       .orderBy(desc(tracks.rankingScore))
       .limit(100);
     const top100Ids = new Set(top100.map(t => t.id));
@@ -299,7 +890,7 @@ export class DatabaseStorage implements IStorage {
     const chartPool: typeof pool = [];
 
     for (const track of pool) {
-      if (track.status === 'BATTLE_POOL') {
+      if (track.status === "BATTLE_POOL" || track.status === "APPROVED") {
         newPool.push(track);
       } else {
         const s = battleStats[track.id];
@@ -341,65 +932,135 @@ export class DatabaseStorage implements IStorage {
     return this.getBattle(battle.id);
   }
 
-  async getRisingTracks(): Promise<any[]> {
-    // Get all completed battles (with a winner)
-    const allBattles = await db.select().from(battles).where(sql`${battles.winnerId} IS NOT NULL`);
+  async getRisingTracks(q?: string): Promise<any[]> {
+    const eligibleSql = sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`;
 
-    // Tally battles and wins per track
-    const stats: Record<number, { battles: number; wins: number }> = {};
-    for (const b of allBattles) {
-      const ids = [b.trackAId, b.trackBId];
-      for (const id of ids) {
-        if (!stats[id]) stats[id] = { battles: 0, wins: 0 };
-        stats[id].battles += 1;
-      }
-      if (b.winnerId) {
-        if (!stats[b.winnerId]) stats[b.winnerId] = { battles: 0, wins: 0 };
-        stats[b.winnerId].wins += 1;
-      }
-    }
-
-    // Get top 100 track IDs by rankingScore (to exclude from RISING) — includes PUBLISHED + CHART
-    const top100 = await db.select({ id: tracks.id })
+    const top100Rows = await db
+      .select({ id: tracks.id })
       .from(tracks)
-      .where(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`)
+      .where(
+        and(
+          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+          eq(tracks.trackType, "audio"),
+        ),
+      )
       .orderBy(desc(tracks.rankingScore))
       .limit(100);
-    const top100Ids = new Set(top100.map(t => t.id));
+    const top100Ids = top100Rows.map((t) => t.id);
 
-    // Filter to qualifying tracks
-    const qualifyingIds = Object.entries(stats)
-      .filter(([id, s]) => {
-        const numId = Number(id);
-        const winRate = s.battles > 0 ? s.wins / s.battles : 0;
-        return s.battles >= 5 && winRate >= 0.6 && !top100Ids.has(numId);
-      })
-      .map(([id]) => Number(id));
-
-    if (qualifyingIds.length === 0) return [];
-
-    // Fetch track + creator data for qualifying tracks
-    const results: any[] = [];
-    for (const id of qualifyingIds) {
-      const [r] = await db
-        .select({ track: tracks, creator: profiles })
-        .from(tracks)
-        .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
-        .where(eq(tracks.id, id));
-      if (r) {
-        const s = stats[id];
-        results.push({
-          ...r.track,
-          creatorName: r.creator.username,
-          totalBattles: s.battles,
-          wins: s.wins,
-          winRate: Math.round((s.wins / s.battles) * 100),
-        });
-      }
+    const conds = [eligibleSql, eq(tracks.trackType, "audio")];
+    const qNorm = typeof q === "string" ? q.trim().toLowerCase() : "";
+    if (qNorm) {
+      const likePattern = `%${qNorm}%`;
+      conds.push(
+        sql`(
+          lower(${tracks.title}) like ${likePattern}
+          or lower(coalesce(${tracks.artistName}, '')) like ${likePattern}
+          or lower(${profiles.username}) like ${likePattern}
+          or lower(${tracks.genre}) like ${likePattern}
+        )`,
+      );
+    }
+    if (top100Ids.length > 0) {
+      conds.push(notInArray(tracks.id, top100Ids));
     }
 
-    // Sort by win rate desc, then total battles desc
-    return results.sort((a, b) => b.winRate - a.winRate || b.totalBattles - a.totalBattles);
+    const rows = await db
+      .select({ track: tracks, creator: profiles })
+      .from(tracks)
+      .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .where(and(...conds))
+      .orderBy(desc(tracks.playCount), desc(tracks.createdAt))
+      .limit(100);
+
+    const trackIds = rows.map((r) => r.track.id);
+    const battleStats = await this.getBattleStatsForTracks(trackIds);
+
+    return rows.map((r) => {
+      const t = r.track;
+      const s = battleStats[t.id];
+      return {
+        ...t,
+        creatorName: t.artistName || r.creator.username,
+        totalBattles: s?.totalBattles ?? 0,
+        wins: s?.wins ?? 0,
+        winRate: s?.winRate ?? 0,
+      };
+    });
+  }
+
+  async addComment(userId: string, trackId: number, content: string): Promise<void> {
+    const body = content.trim();
+    if (!body) throw new Error("EMPTY_COMMENT");
+    if (body.length > 2000) throw new Error("COMMENT_TOO_LONG");
+    const [t] = await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.id, trackId));
+    if (!t) throw new Error("TRACK_NOT_FOUND");
+    await db.insert(comments).values({ userId, trackId, content: body });
+  }
+
+  async listTrackComments(
+    trackId: number,
+  ): Promise<{ id: number; userId: string; content: string; createdAt: Date; authorName: string | null }[]> {
+    return db
+      .select({
+        id: comments.id,
+        userId: comments.userId,
+        content: comments.content,
+        createdAt: comments.createdAt,
+        authorName: profiles.username,
+      })
+      .from(comments)
+      .leftJoin(profiles, eq(comments.userId, profiles.userId))
+      .where(eq(comments.trackId, trackId))
+      .orderBy(desc(comments.createdAt))
+      .limit(200);
+  }
+
+  async listPendingTrackEditRequests(): Promise<
+    {
+      commentId: number;
+      trackId: number;
+      trackTitle: string;
+      requesterUsername: string | null;
+      detail: string;
+      proposedLink: string | null;
+      createdAt: Date;
+    }[]
+  > {
+    const rows = await db
+      .select({
+        commentId: comments.id,
+        trackId: comments.trackId,
+        trackTitle: tracks.title,
+        requesterUsername: profiles.username,
+        content: comments.content,
+        createdAt: comments.createdAt,
+      })
+      .from(comments)
+      .innerJoin(tracks, eq(comments.trackId, tracks.id))
+      .leftJoin(profiles, eq(comments.userId, profiles.userId))
+      // Postgres: ~ avoids drizzle LIKE placeholder quirks; prefix is always ASCII from the API.
+      .where(sql`${comments.content} ~ '^\\[EDIT REQUEST\\]'`)
+      .orderBy(desc(comments.createdAt))
+      .limit(100);
+
+    return rows.map((r) => {
+      const body = r.content ?? "";
+      const detail = body
+        .replace(/^\[EDIT REQUEST\]\s*/i, "")
+        .split("\n[PROPOSED LINK]")[0]
+        .trim();
+      const linkMatch = body.match(/\[PROPOSED LINK\]\s*(https?:\/\/\S+)/i);
+      return {
+        commentId: r.commentId,
+        trackId: r.trackId,
+        trackTitle: r.trackTitle,
+        requesterUsername: r.requesterUsername,
+        detail,
+        proposedLink: linkMatch?.[1] ?? null,
+        createdAt: r.createdAt,
+      };
+    });
   }
 
   async getBattleStatsForTracks(trackIds: number[]): Promise<Record<number, { totalBattles: number; wins: number; winRate: number }>> {
@@ -445,8 +1106,12 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...battle,
-      trackA: trackA ? { ...trackA.track, creatorName: trackA.creator.username } : null,
-      trackB: trackB ? { ...trackB.track, creatorName: trackB.creator.username } : null,
+      trackA: trackA
+        ? { ...trackA.track, creatorName: trackA.track.artistName || trackA.creator.username }
+        : null,
+      trackB: trackB
+        ? { ...trackB.track, creatorName: trackB.track.artistName || trackB.creator.username }
+        : null,
     };
   }
 
@@ -462,6 +1127,7 @@ export class DatabaseStorage implements IStorage {
 
     const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
     if (!battle) throw new Error("BATTLE_NOT_FOUND");
+    const prevWinnerId = battle.winnerId;
 
     // Record vote
     await db.insert(battleVotes).values({ battleId, userId, trackId });
@@ -481,12 +1147,30 @@ export class DatabaseStorage implements IStorage {
       winnerId,
     }).where(eq(battles.id, battleId));
 
-    // Award +2 to the voted-for track's rankingScore
-    const [t] = await db.select().from(tracks).where(eq(tracks.id, trackId));
-    if (t) {
-      const newRs = computeRankingScore(t.listenerVotes, t.playCount, t.createdAt) + 2;
-      await db.update(tracks).set({ rankingScore: newRs }).where(eq(tracks.id, trackId));
+    await this.ensureTrackMetricsRow(battle.trackAId);
+    await this.ensureTrackMetricsRow(battle.trackBId);
+    if (prevWinnerId == null) {
+      await db.update(trackMetrics).set({
+        battleTotalCount: sql`${trackMetrics.battleTotalCount} + 1`,
+        updatedAt: new Date(),
+      }).where(inArray(trackMetrics.trackId, [battle.trackAId, battle.trackBId]));
     }
+    if (prevWinnerId !== winnerId) {
+      if (prevWinnerId != null) {
+        await db.update(trackMetrics).set({
+          battleWinsCount: sql`greatest(${trackMetrics.battleWinsCount} - 1, 0)`,
+          updatedAt: new Date(),
+        }).where(eq(trackMetrics.trackId, prevWinnerId));
+      }
+      await db.update(trackMetrics).set({
+        battleWinsCount: sql`${trackMetrics.battleWinsCount} + 1`,
+        updatedAt: new Date(),
+      }).where(eq(trackMetrics.trackId, winnerId));
+    }
+
+    // Recompute ranking scores from updated battle outcomes (debounced).
+    this.scheduleRecomputeTrackRankingScore(battle.trackAId);
+    this.scheduleRecomputeTrackRankingScore(battle.trackBId);
 
     // Update win streaks: winner +1, loser reset to 0
     await db.update(tracks).set({ winStreak: sql`${tracks.winStreak} + 1` }).where(eq(tracks.id, winnerId));
@@ -508,8 +1192,8 @@ export class DatabaseStorage implements IStorage {
 
   async checkAndPromoteToChart(trackId: number): Promise<void> {
     const [track] = await db.select().from(tracks).where(eq(tracks.id, trackId));
-    // Only BATTLE_POOL tracks can earn their way to CHART
-    if (!track || track.status !== "BATTLE_POOL") return;
+    // Only approved/battle-pool tracks can earn their way to CHART
+    if (!track || (track.status !== "BATTLE_POOL" && track.status !== "APPROVED")) return;
 
     const allBattles = await db.select().from(battles)
       .where(sql`${battles.winnerId} IS NOT NULL AND (${battles.trackAId} = ${trackId} OR ${battles.trackBId} = ${trackId})`);
@@ -528,7 +1212,7 @@ export class DatabaseStorage implements IStorage {
     return !!existing;
   }
 
-  async submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; creatorId: number }): Promise<Track> {
+  async submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; coverImageUrl?: string | null; portfolioLink?: string | null; creatorId: number }): Promise<Track> {
     const isVideo = data.trackType === "video";
     const [t] = await db.insert(tracks).values({
       title: data.title,
@@ -536,23 +1220,254 @@ export class DatabaseStorage implements IStorage {
       genre: data.genre,
       audioUrl: data.trackLink,
       mvUrl: isVideo ? data.trackLink : null,
+      coverImageUrl: data.coverImageUrl?.trim() || null,
       creatorId: data.creatorId,
       trackType: data.trackType,
-      status: isVideo ? "MV" : "PENDING",
+      status: "APPROVED",
       aiTool: "submitted",
       aiPrompt: data.aiPrompt || null,
+      description: data.portfolioLink?.trim() || null,
       aiCraftScore: 0,
       listenerVotes: 0,
       neoScore: 0,
       rankingScore: 0,
+      claimableByCreators: false,
     }).returning();
     return t;
+  }
+
+  async transferTrackOwnershipFromClaim(trackId: number, newCreatorProfileId: number): Promise<Track | null> {
+    const [updated] = await db
+      .update(tracks)
+      .set({
+        creatorId: newCreatorProfileId,
+        claimableByCreators: false,
+      })
+      .where(eq(tracks.id, trackId))
+      .returning();
+    return updated ?? null;
+  }
+
+  async createTrackClaimRequest(trackId: number, requesterProfileId: number): Promise<{ created: boolean; duplicate: boolean }> {
+    const [track] = await db.select().from(tracks).where(eq(tracks.id, trackId));
+    if (!track) return { created: false, duplicate: false };
+    if (!track.claimableByCreators) return { created: false, duplicate: false };
+    if (track.creatorId === requesterProfileId) return { created: false, duplicate: false };
+    const [existing] = await db
+      .select()
+      .from(trackClaimRequests)
+      .where(
+        and(eq(trackClaimRequests.trackId, trackId), eq(trackClaimRequests.requesterProfileId, requesterProfileId)),
+      );
+    if (existing) {
+      if (existing.status === "pending") return { created: false, duplicate: true };
+      await db
+        .update(trackClaimRequests)
+        .set({ status: "pending" })
+        .where(eq(trackClaimRequests.id, existing.id));
+      return { created: true, duplicate: false };
+    }
+    await db.insert(trackClaimRequests).values({
+      trackId,
+      requesterProfileId,
+      status: "pending",
+    });
+    return { created: true, duplicate: false };
+  }
+
+  async listPendingTrackClaimRequests(): Promise<
+    Array<{
+      id: number;
+      trackId: number;
+      trackTitle: string;
+      requesterProfileId: number;
+      requesterUsername: string;
+      createdAt: Date;
+    }>
+  > {
+    const rows = await db
+      .select({
+        id: trackClaimRequests.id,
+        trackId: trackClaimRequests.trackId,
+        trackTitle: tracks.title,
+        requesterProfileId: trackClaimRequests.requesterProfileId,
+        requesterUsername: profiles.username,
+        createdAt: trackClaimRequests.createdAt,
+      })
+      .from(trackClaimRequests)
+      .innerJoin(tracks, eq(tracks.id, trackClaimRequests.trackId))
+      .innerJoin(profiles, eq(profiles.id, trackClaimRequests.requesterProfileId))
+      .where(eq(trackClaimRequests.status, "pending"))
+      .orderBy(desc(trackClaimRequests.createdAt));
+    return rows;
+  }
+
+  async approveTrackClaimRequest(requestId: number): Promise<{ ok: boolean; reason?: string }> {
+    const [req] = await db.select().from(trackClaimRequests).where(eq(trackClaimRequests.id, requestId));
+    if (!req || req.status !== "pending") return { ok: false, reason: "not_found" };
+    const [track] = await db.select().from(tracks).where(eq(tracks.id, req.trackId));
+    if (!track) return { ok: false, reason: "track_missing" };
+    if (!track.claimableByCreators) return { ok: false, reason: "not_claimable" };
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tracks)
+        .set({ creatorId: req.requesterProfileId, claimableByCreators: false })
+        .where(eq(tracks.id, req.trackId));
+      await tx
+        .update(trackClaimRequests)
+        .set({ status: "approved" })
+        .where(eq(trackClaimRequests.id, requestId));
+      await tx
+        .update(trackClaimRequests)
+        .set({ status: "rejected" })
+        .where(
+          and(eq(trackClaimRequests.trackId, req.trackId), ne(trackClaimRequests.id, requestId)),
+        );
+    });
+    return { ok: true };
+  }
+
+  async rejectTrackClaimRequest(requestId: number): Promise<boolean> {
+    const [req] = await db.select().from(trackClaimRequests).where(eq(trackClaimRequests.id, requestId));
+    if (!req || req.status !== "pending") return false;
+    await db
+      .update(trackClaimRequests)
+      .set({ status: "rejected" })
+      .where(eq(trackClaimRequests.id, requestId));
+    return true;
+  }
+
+  async claimTrackWithSecret(
+    trackId: number,
+    requesterProfileId: number,
+    secret: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const expected = (process.env.TRACK_CLAIM_SECRET || "").trim();
+    if (!expected || secret.trim() !== expected) return { ok: false, reason: "invalid_secret" };
+    const [track] = await db.select().from(tracks).where(eq(tracks.id, trackId));
+    if (!track) return { ok: false, reason: "not_found" };
+    if (!track.claimableByCreators) return { ok: false, reason: "not_claimable" };
+    if (track.creatorId === requesterProfileId) return { ok: false, reason: "already_owner" };
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tracks)
+        .set({ creatorId: requesterProfileId, claimableByCreators: false })
+        .where(eq(tracks.id, trackId));
+      await tx
+        .update(trackClaimRequests)
+        .set({ status: "rejected" })
+        .where(eq(trackClaimRequests.trackId, trackId));
+    });
+    return { ok: true };
+  }
+
+  async setTrackClaimableByCreators(trackId: number, claimable: boolean): Promise<Track | null> {
+    const [updated] = await db
+      .update(tracks)
+      .set({ claimableByCreators: claimable })
+      .where(eq(tracks.id, trackId))
+      .returning();
+    return updated ?? null;
+  }
+
+  async getLatestBattleSummariesForCreatorProfile(
+    creatorProfileId: number,
+  ): Promise<
+    {
+      trackId: number;
+      trackTitle: string;
+      trackCoverImageUrl: string | null;
+      battleId: number;
+      opponentTrackId: number;
+      opponentTitle: string;
+      opponentCoverImageUrl: string | null;
+      myVotes: number;
+      opponentVotes: number;
+      iWon: boolean;
+      createdAt: Date;
+    }[]
+  > {
+    const myTrackRows = await db
+      .select({ id: tracks.id })
+      .from(tracks)
+      .where(eq(tracks.creatorId, creatorProfileId));
+    if (myTrackRows.length === 0) return [];
+    const trackIds = myTrackRows.map((t) => t.id);
+    const battleRows = await db
+      .select()
+      .from(battles)
+      .where(or(inArray(battles.trackAId, trackIds), inArray(battles.trackBId, trackIds)))
+      .orderBy(desc(battles.createdAt));
+
+    const out: {
+      trackId: number;
+      trackTitle: string;
+      trackCoverImageUrl: string | null;
+      battleId: number;
+      opponentTrackId: number;
+      opponentTitle: string;
+      opponentCoverImageUrl: string | null;
+      myVotes: number;
+      opponentVotes: number;
+      iWon: boolean;
+      createdAt: Date;
+    }[] = [];
+    const usedMyTrack = new Set<number>();
+
+    for (const b of battleRows) {
+      const inA = trackIds.includes(b.trackAId);
+      const inB = trackIds.includes(b.trackBId);
+      if (!inA && !inB) continue;
+      const myTrackId = inA ? b.trackAId : b.trackBId;
+      if (usedMyTrack.has(myTrackId)) continue;
+      usedMyTrack.add(myTrackId);
+
+      const oppId = myTrackId === b.trackAId ? b.trackBId : b.trackAId;
+      const myVotes = myTrackId === b.trackAId ? b.trackAVotes : b.trackBVotes;
+      const oppVotes = myTrackId === b.trackAId ? b.trackBVotes : b.trackAVotes;
+
+      const [myT] = await db
+        .select({ title: tracks.title, coverImageUrl: tracks.coverImageUrl })
+        .from(tracks)
+        .where(eq(tracks.id, myTrackId));
+      const [oppT] = await db
+        .select({ title: tracks.title, coverImageUrl: tracks.coverImageUrl })
+        .from(tracks)
+        .where(eq(tracks.id, oppId));
+      if (!myT || !oppT) continue;
+
+      out.push({
+        trackId: myTrackId,
+        trackTitle: myT.title,
+        trackCoverImageUrl: myT.coverImageUrl ?? null,
+        battleId: b.id,
+        opponentTrackId: oppId,
+        opponentTitle: oppT.title,
+        opponentCoverImageUrl: oppT.coverImageUrl ?? null,
+        myVotes,
+        opponentVotes: oppVotes,
+        iWon: b.winnerId != null && b.winnerId === myTrackId,
+        createdAt: b.createdAt,
+      });
+      if (out.length >= 2) break;
+    }
+
+    return out;
   }
 
   async followCreator(followerId: string, creatorProfileId: number): Promise<void> {
     const already = await this.isFollowing(followerId, creatorProfileId);
     if (!already) {
       await db.insert(follows).values({ followerId, creatorProfileId });
+      const creatorTracks = await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.creatorId, creatorProfileId));
+      for (const row of creatorTracks) {
+        await this.ensureTrackMetricsRow(row.id, creatorProfileId);
+        await db.update(trackMetrics).set({
+          followerCount: sql`${trackMetrics.followerCount} + 1`,
+          updatedAt: new Date(),
+        }).where(eq(trackMetrics.trackId, row.id));
+      }
+      await this.recomputeCreatorTrackRankingScores(creatorProfileId);
     }
   }
 
@@ -560,6 +1475,15 @@ export class DatabaseStorage implements IStorage {
     await db.delete(follows).where(
       and(eq(follows.followerId, followerId), eq(follows.creatorProfileId, creatorProfileId))
     );
+    const creatorTracks = await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.creatorId, creatorProfileId));
+    for (const row of creatorTracks) {
+      await this.ensureTrackMetricsRow(row.id, creatorProfileId);
+      await db.update(trackMetrics).set({
+        followerCount: sql`greatest(${trackMetrics.followerCount} - 1, 0)`,
+        updatedAt: new Date(),
+      }).where(eq(trackMetrics.trackId, row.id));
+    }
+    await this.recomputeCreatorTrackRankingScores(creatorProfileId);
   }
 
   async isFollowing(followerId: string, creatorProfileId: number): Promise<boolean> {
@@ -601,7 +1525,7 @@ export class DatabaseStorage implements IStorage {
     const [poolResult] = await db
       .select({ count: count() })
       .from(tracks)
-      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'CHART')`);
+      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`);
 
     const [newTracksResult] = await db
       .select({ count: count() })
@@ -624,18 +1548,23 @@ export class DatabaseStorage implements IStorage {
     return this.getBattle(battle.id);
   }
 
+  /** Every studio-role profile plus anyone who owns at least one track (full creator directory). */
   async getCreators(): Promise<Profile[]> {
-    return db.select().from(profiles).where(or(eq(profiles.role, "nex"), eq(profiles.role, "founder")));
+    const directoryRoles = ["creator", "nex", "founder", "admin"] as const;
+    const byRole = await db.select().from(profiles).where(inArray(profiles.role, [...directoryRoles]));
+    const trackCreatorIds = await db
+      .selectDistinct({ creatorId: tracks.creatorId })
+      .from(tracks)
+      .where(eq(tracks.isDeleted, false));
+    const ids = Array.from(new Set(trackCreatorIds.map((r) => r.creatorId)));
+    const fromTracks =
+      ids.length > 0 ? await db.select().from(profiles).where(inArray(profiles.id, ids)) : [];
+    const map = new Map<number, Profile>();
+    for (const p of byRole) map.set(p.id, p);
+    for (const p of fromTracks) map.set(p.id, p);
+    return Array.from(map.values());
   }
 
-  async clearAllData(): Promise<void> {
-    await db.delete(battleVotes);
-    await db.delete(battles);
-    await db.delete(trackPlays);
-    await db.delete(votes);
-    await db.delete(likes);
-    await db.delete(tracks);
-  }
 }
 
 export const storage = new DatabaseStorage();

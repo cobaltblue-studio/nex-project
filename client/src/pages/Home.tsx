@@ -5,6 +5,12 @@ import { Radio, Swords, Zap, Music2, Users, TrendingUp, BarChart3, Shield, Targe
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { isCreatorStudioRole } from "@shared/constants";
+import { GuestCheerModal } from "@/components/GuestCheerModal";
+import { BattleGuide } from "@/components/BattleGuide";
+import { useTranslation } from "react-i18next";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -97,47 +103,23 @@ function HeroVisualizer() {
   );
 }
 
-function generateDummyData(): number[] {
-  return Array.from({ length: 10 }, () => Math.floor(30 + Math.random() * 70));
-}
-
-function LiveVotingWidget() {
-  const [data, setData] = useState<number[]>(generateDummyData);
+function LiveVotingWidget({
+  todayStats,
+}: {
+  todayStats?: {
+    totalVotesToday?: number;
+    battlesPlayedToday?: number;
+    tracksInPool?: number;
+    newTracksToday?: number;
+  };
+}) {
+  const { t } = useTranslation();
   const [pulse, setPulse] = useState(true);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setData((prev) => {
-        const next = [...prev.slice(1), Math.floor(30 + Math.random() * 70)];
-        return next;
-      });
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => setPulse((p) => !p), 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-
-  const svgW = 220;
-  const svgH = 60;
-  const padX = 4;
-  const padY = 6;
-  const plotW = svgW - padX * 2;
-  const plotH = svgH - padY * 2;
-
-  const points = data.map((v, i) => {
-    const x = padX + (i / (data.length - 1)) * plotW;
-    const y = padY + plotH - ((v - min) / range) * plotH;
-    return `${x},${y}`;
-  });
-  const linePath = `M${points.join(" L")}`;
-  const areaPath = `${linePath} L${padX + plotW},${padY + plotH} L${padX},${padY + plotH} Z`;
 
   return (
     <motion.div
@@ -157,7 +139,7 @@ function LiveVotingWidget() {
       >
         <div className="flex items-center justify-between mb-3">
           <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-400">
-            Live Voting Trends
+            {t("home.liveVotingTrends")}
           </span>
           <span className="flex items-center gap-1.5" data-testid="badge-live">
             <span
@@ -169,44 +151,27 @@ function LiveVotingWidget() {
               }}
             />
             <span className="text-[8px] font-black uppercase tracking-widest text-red-400">
-              LIVE
+              {t("home.live")}
             </span>
           </span>
         </div>
-        <svg
-          viewBox={`0 0 ${svgW} ${svgH}`}
-          className="w-full"
-          data-testid="chart-voting-trends"
-        >
-          <defs>
-            <linearGradient id="votingGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00FF80" stopOpacity="0.1" />
-              <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d={areaPath} fill="url(#votingGrad)" />
-          <path d={linePath} fill="none" stroke="#00FF80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          {data.map((v, i) => {
-            const x = padX + (i / (data.length - 1)) * plotW;
-            const y = padY + plotH - ((v - min) / range) * plotH;
-            return (
-              <circle
-                key={i}
-                cx={x}
-                cy={y}
-                r={i === data.length - 1 ? 3 : 1.5}
-                fill={i === data.length - 1 ? "#00FF80" : "rgba(0, 255, 128, 0.5)"}
-              />
-            );
-          })}
-        </svg>
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[7px] uppercase tracking-widest text-zinc-600">
-            {data.length} data points
-          </span>
-          <span className="text-[9px] font-bold text-green-400">
-            {data[data.length - 1]} votes/min
-          </span>
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-md border border-white/10 bg-black/30 py-2">
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.votesToday")}</p>
+            <p className="text-[11px] font-bold text-green-400">{todayStats?.totalVotesToday ?? 0}</p>
+          </div>
+          <div className="rounded-md border border-white/10 bg-black/30 py-2">
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.battlesToday")}</p>
+            <p className="text-[11px] font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
+          </div>
+          <div className="rounded-md border border-white/10 bg-black/30 py-2">
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.poolTracks")}</p>
+            <p className="text-[11px] font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
+          </div>
+          <div className="rounded-md border border-white/10 bg-black/30 py-2">
+            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.newToday")}</p>
+            <p className="text-[11px] font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -214,10 +179,30 @@ function LiveVotingWidget() {
 }
 
 export function Home() {
+  const { t } = useTranslation();
   const { data: tracks, isLoading } = useWorks();
   const [, setLocation] = useLocation();
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const [guestSubmitGateOpen, setGuestSubmitGateOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const heroVisualizerRef = useRef<HTMLDivElement>(null);
+
+  const goSubmitTrack = () => {
+    if (!isAuthenticated) {
+      setGuestSubmitGateOpen(true);
+      return;
+    }
+    if (!isCreatorStudioRole(user?.role)) {
+      toast({
+        title: t("home.toastCreatorTitle"),
+        description: t("home.toastCreatorDesc"),
+        variant: "destructive",
+      });
+      return;
+    }
+    setLocation("/submit-track");
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -239,8 +224,11 @@ export function Home() {
     .slice(0, 5);
 
   return (
+    <>
+      <GuestCheerModal open={guestSubmitGateOpen} onOpenChange={setGuestSubmitGateOpen} />
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-40 pb-40">
 
+      <div>
       <section
         className="relative text-center overflow-hidden flex flex-col hero-section-responsive"
         style={{ minHeight: "100svh", height: "auto", paddingTop: "2vh", paddingBottom: "1rem", gap: "0.5rem" }}
@@ -264,7 +252,7 @@ export function Home() {
 
         <motion.div {...fadeUp} className="relative z-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-3">
-            The Future of AI Music
+            {t("home.heroEyebrow")}
           </p>
           <h1
             className="text-[9rem] md:text-[5.625rem] font-display font-black leading-none neon-text-strong neon-text-green"
@@ -280,12 +268,10 @@ export function Home() {
             NEX
           </h1>
           <p className="text-primary font-bold tracking-[0.4em] text-sm uppercase mt-2 md:mt-6">
-            AI Music Ranking Platform
+            {t("home.heroSubtitle")}
           </p>
           <p className="hidden md:block text-zinc-400 text-base md:text-lg max-w-2xl mx-auto mt-8 leading-relaxed normal-case font-light">
-            The world's first competitive ranking platform for AI-generated music.
-            Artists submit, battle, and rise through a transparent chart system
-            powered by community voting.
+            {t("home.heroBody")}
           </p>
         </motion.div>
 
@@ -297,14 +283,14 @@ export function Home() {
               className="px-5 py-2.5 glass-button text-primary font-bold text-xs uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
               style={{ animation: "cta-breathe 4s ease-in-out infinite" }}
             >
-              Start Battle
+              {t("home.startBattle")}
             </button>
             <button
-              onClick={() => setLocation("/submit")}
+              onClick={goSubmitTrack}
               data-testid="button-submit-track"
               className="px-5 py-2.5 glass-button-outline text-white text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
             >
-              Submit Track
+              {t("home.submitTrack")}
             </button>
             <button
               onClick={() => setLocation("/radio")}
@@ -312,7 +298,7 @@ export function Home() {
               className="px-5 py-2.5 glass-button-outline text-white flex items-center gap-1.5 text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
             >
               <Radio size={13} />
-              Radio
+              {t("home.radio")}
             </button>
           </div>
         </motion.div>
@@ -333,7 +319,7 @@ export function Home() {
               <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/80"
                 style={{ textShadow: "0 0 12px hsla(189,100%,50%,0.4)" }}
               >
-                DISCOVER MORE
+                {t("home.discoverMore")}
               </span>
               <motion.div
                 animate={{ opacity: [0.5, 1, 0.5] }}
@@ -346,47 +332,45 @@ export function Home() {
           </motion.div>
 
           <div className="hidden md:block" style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
-            <LiveVotingWidget />
+            <LiveVotingWidget todayStats={todayStats} />
           </div>
         </div>
       </section>
 
+      <BattleGuide />
+      </div>
+
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-platform-concept" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">What is NEX</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.whatIsNexEyebrow")}</p>
           <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
-            The Billboard for AI Music
+            {t("home.billboardTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
-            AI-generated music is a rapidly growing creative category with no definitive ranking
-            authority. NEX fills that gap — a transparent, community-driven chart that establishes
-            credibility and discoverability for AI music creators worldwide.
+            {t("home.billboardBody")}
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
           <div className="premium-card p-8 space-y-4 transition-premium" data-testid="card-concept-credibility">
             <Shield className="w-7 h-7 text-primary" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Credibility</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.credibilityTitle")}</h3>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
-              Rankings are determined by battle wins, community votes, and play counts — not
-              marketing spend. Every position is earned through performance.
+              {t("home.credibilityBody")}
             </p>
           </div>
           <div className="premium-card p-8 space-y-4 transition-premium" data-testid="card-concept-discovery">
             <Target className="w-7 h-7 text-primary" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Discovery</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.discoveryTitle")}</h3>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
-              The battle system surfaces quality tracks regardless of follower count. New creators
-              compete on equal footing with established ones.
+              {t("home.discoveryBody")}
             </p>
           </div>
           <div className="premium-card p-8 space-y-4 transition-premium" data-testid="card-concept-transparency">
             <BarChart3 className="w-7 h-7 text-primary" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Transparency</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.transparencyTitle")}</h3>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
-              Every ranking factor is visible. Listeners see battle records, win rates, play counts,
-              and vote totals — no hidden algorithms.
+              {t("home.transparencyBody")}
             </p>
           </div>
         </div>
@@ -394,43 +378,42 @@ export function Home() {
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-battle-system" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">The Engine</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.engineEyebrow")}</p>
           <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
-            Battle-Driven Rankings
+            {t("home.battleRankingsTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
-            Two tracks enter. One wins. The battle engine is the core mechanism that
-            drives all chart movement on NEX.
+            {t("home.battleRankingsBody")}
           </p>
         </div>
 
         <div className="grid md:grid-cols-4 gap-8 text-center">
           <div className="premium-card p-7 space-y-4 transition-premium">
             <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">1</div>
-            <p className="text-[10px] font-bold text-white uppercase tracking-widest">Submit</p>
+            <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepSubmitTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
-              Creator uploads an AI-generated track with a YouTube or SoundCloud link
+              {t("home.stepSubmitBody")}
             </p>
           </div>
           <div className="premium-card p-7 space-y-4 transition-premium">
             <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">2</div>
-            <p className="text-[10px] font-bold text-white uppercase tracking-widest">Battle</p>
+            <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepBattleTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
-              Track enters the battle pool and faces head-to-head matchups against other tracks
+              {t("home.stepBattleBody")}
             </p>
           </div>
           <div className="premium-card p-7 space-y-4 transition-premium">
             <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">3</div>
-            <p className="text-[10px] font-bold text-white uppercase tracking-widest">Rise</p>
+            <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepRiseTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
-              Tracks with strong win rates enter the Rising category — proving themselves
+              {t("home.stepRiseBody")}
             </p>
           </div>
           <div className="premium-card p-7 space-y-4 transition-premium">
             <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">4</div>
-            <p className="text-[10px] font-bold text-white uppercase tracking-widest">Chart</p>
+            <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepChartTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
-              Top performers earn a spot in the official NEX Top 100 chart
+              {t("home.stepChartBody")}
             </p>
           </div>
         </div>
@@ -438,15 +421,15 @@ export function Home() {
         {recentBattle ? (
           <div className="premium-card p-10 mt-12" data-testid="section-live-battle-arena">
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 text-center mb-8">
-              Live Battle
+              {t("home.liveBattleEyebrow")}
             </p>
             <div className="flex md:flex-row flex-col items-center justify-center gap-4 md:gap-8">
               <div className="flex-1 md:text-right text-center">
                 <p className="text-[0.7rem] font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-a">
-                  {recentBattle.trackA?.title || "Track A"}
+                  {recentBattle.trackA?.title || t("home.trackAFallback")}
                 </p>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-                  {recentBattle.trackA?.creatorName || "Creator"}
+                  {recentBattle.trackA?.creatorName || t("home.creatorFallback")}
                 </p>
               </div>
               <div className="shrink-0 self-center">
@@ -454,10 +437,10 @@ export function Home() {
               </div>
               <div className="flex-1 md:text-left text-center">
                 <p className="text-[0.7rem] font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-b">
-                  {recentBattle.trackB?.title || "Track B"}
+                  {recentBattle.trackB?.title || t("home.trackBFallback")}
                 </p>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-                  {recentBattle.trackB?.creatorName || "Creator"}
+                  {recentBattle.trackB?.creatorName || t("home.creatorFallback")}
                 </p>
               </div>
             </div>
@@ -468,19 +451,19 @@ export function Home() {
                 className="px-10 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
               >
                 <Zap className="w-4 h-4 inline mr-2" />
-                Vote Now
+                {t("home.voteNow")}
               </button>
             </div>
           </div>
         ) : (
           <div className="premium-card border-dashed p-10 text-center mt-12" data-testid="section-live-battle-arena">
-            <p className="text-zinc-500 text-sm mb-6">No active battles right now</p>
+            <p className="text-zinc-500 text-sm mb-6">{t("home.noActiveBattles")}</p>
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-first-battle"
               className="px-8 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
             >
-              Start a Battle
+              {t("home.startABattle")}
             </button>
           </div>
         )}
@@ -488,13 +471,12 @@ export function Home() {
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-creator-ecosystem" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">For Creators</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.forCreatorsEyebrow")}</p>
           <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
-            Creator Ecosystem
+            {t("home.ecosystemTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
-            NEX gives AI music creators a stage, an audience, and a verifiable track record.
-            Every battle win, every chart position is publicly recorded.
+            {t("home.ecosystemBody")}
           </p>
         </div>
 
@@ -502,44 +484,37 @@ export function Home() {
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
               <TrendingUp className="w-6 h-6 text-primary" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Meritocratic Ranking</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.meritTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
-              No pay-to-play. No follower gates. Your track's chart position is determined
-              purely by battle performance, votes, and plays. A brand-new creator can reach
-              #1 on talent alone.
+              {t("home.meritBody")}
             </p>
           </div>
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
               <Users className="w-6 h-6 text-primary" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Built-in Audience</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.audienceTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
-              Every battle exposes your track to new listeners. The Radio feature provides
-              continuous play for chart-eligible tracks, growing your audience without
-              external marketing.
+              {t("home.audienceBody")}
             </p>
           </div>
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
               <Music2 className="w-6 h-6 text-primary" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Creator Profiles</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.profilesTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
-              Each creator gets a public profile showing their tracks, battle stats,
-              chart history, and follower count — a verifiable portfolio of AI music
-              achievement.
+              {t("home.profilesBody")}
             </p>
           </div>
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
               <Swords className="w-6 h-6 text-primary" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Win Streaks</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.streaksTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
-              Tracks on winning streaks get highlighted across the platform, driving
-              more plays and visibility. Momentum rewards consistency and quality.
+              {t("home.streaksBody")}
             </p>
           </div>
         </div>
@@ -547,12 +522,12 @@ export function Home() {
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-trending-today" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Live Rankings</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.trendingEyebrow")}</p>
           <h2 className="text-base md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
-            Trending Today
+            {t("home.trendingTitle")}
           </h2>
           <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">
-            Ranked by battle wins, plays & votes
+            {t("home.trendingSub")}
           </p>
         </div>
 
@@ -570,7 +545,7 @@ export function Home() {
               data-testid="button-view-full-chart"
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-primary transition-premium glass-button-outline px-8 py-3 rounded-xl"
             >
-              View Full Chart <ArrowRight className="w-3 h-3 inline ml-1" />
+              {t("home.viewFullChart")} <ArrowRight className="w-3 h-3 inline ml-1" />
             </button>
           </div>
         )}
@@ -578,23 +553,22 @@ export function Home() {
 
       <motion.section className="text-center space-y-10 pt-12 px-6" data-testid="section-cta" {...fadeUp}>
         <div className="space-y-5">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">Join NEX</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.joinEyebrow")}</p>
           <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
-            Shape the Future of AI Music
+            {t("home.ctaTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base max-w-xl mx-auto leading-relaxed normal-case font-light">
-            Whether you're a creator, listener, or investor — NEX is the platform where
-            AI music finds its audience and proves its value.
+            {t("home.ctaBody")}
           </p>
         </div>
 
         <div className="flex flex-wrap justify-center gap-9">
           <button
-            onClick={() => setLocation("/submit")}
+            onClick={goSubmitTrack}
             data-testid="button-submit-your-track"
             className="px-10 py-5 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
           >
-            Submit Your Track
+            {t("home.submitYourTrack")}
           </button>
           <button
             onClick={() => setLocation("/battle")}
@@ -602,18 +576,19 @@ export function Home() {
             className="px-10 py-5 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
             style={{ borderColor: "hsla(282, 100%, 50%, 0.3)", background: "hsla(282, 100%, 50%, 0.08)" }}
           >
-            Enter Battle Arena
+            {t("home.enterBattleArena")}
           </button>
           <button
             onClick={() => setLocation("/about")}
             data-testid="button-learn-how-nex-works"
             className="px-10 py-5 glass-button-outline text-white font-bold text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary"
           >
-            Learn More
+            {t("home.learnMore")}
           </button>
         </div>
       </motion.section>
 
     </motion.div>
+    </>
   );
 }

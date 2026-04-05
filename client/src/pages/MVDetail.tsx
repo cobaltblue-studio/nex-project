@@ -13,9 +13,11 @@ export function MVDetail() {
   // Normalize track data based on the API response structure { ...track, creator }
   const track = useMemo(() => {
     if (!trackData) return null;
+    const artistName = (trackData as { artistName?: string | null }).artistName?.trim();
+    const creatorName = (trackData as { creatorName?: string }).creatorName?.trim();
     return {
       ...trackData,
-      creatorName: trackData.creator?.username || "NEX CREATOR",
+      creatorName: artistName || creatorName || "unknown",
       votes: trackData.listenerVotes || 0
     };
   }, [trackData]);

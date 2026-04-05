@@ -3,6 +3,8 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Music, Upload, Play, ChevronUp, Clock, Video } from "lucide-react";
+import { TrackAdminActions } from "@/components/TrackAdminActions";
+import { isCreatorStudioRole } from "@shared/constants";
 
 export function MyTracks() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -43,14 +45,14 @@ export function MyTracks() {
     return (
       <div className="py-40 text-center space-y-6">
         <p className="font-display text-2xl uppercase tracking-widest text-zinc-500">Authentication Required</p>
-        <a href="/api/login" className="inline-block border border-primary/30 text-primary px-6 py-3 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-primary/10 transition-all">
+        <a href="/api/auth/login" className="inline-block border border-primary/30 text-primary px-6 py-3 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-primary/10 transition-all">
           Login
         </a>
       </div>
     );
   }
 
-  if (profile?.role !== "nex") {
+  if (!isCreatorStudioRole(profile?.role)) {
     return (
       <div className="py-40 text-center space-y-6">
         <div className="border border-white/5 border-dashed p-16 rounded-sm max-w-md mx-auto space-y-4">
@@ -123,8 +125,8 @@ export function MyTracks() {
             >
               {/* Cover Image */}
               <div className="w-14 h-14 rounded-sm bg-zinc-900 border border-white/10 flex-shrink-0 overflow-hidden relative">
-                {track.coverImage ? (
-                  <img src={track.coverImage} alt={track.title} className="w-full h-full object-cover" />
+                {track.coverImageUrl ? (
+                  <img src={track.coverImageUrl} alt={track.title} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Music className="w-5 h-5 text-zinc-700" />
@@ -144,7 +146,7 @@ export function MyTracks() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-mono text-zinc-600">
+                <div className="flex items-center gap-3 text-[10px] font-mono text-zinc-600 flex-wrap">
                   <span className="uppercase tracking-widest">{track.aiTool}</span>
                   <span className="text-zinc-800">·</span>
                   <span className="uppercase tracking-widest">{track.genre}</span>
@@ -153,6 +155,25 @@ export function MyTracks() {
                     <Clock className="w-2.5 h-2.5" />
                     {formatDate(track.createdAt)}
                   </span>
+                </div>
+                <div className="pt-2">
+                  <TrackAdminActions
+                    compact
+                    track={{
+                      id: track.id,
+                      creatorId: track.creatorId,
+                      title: track.title,
+                      creatorName: track.creatorName,
+                      genre: track.genre,
+                      coverImageUrl: track.coverImageUrl,
+                      audioUrl: track.audioUrl,
+                      mvUrl: track.musicVideoUrl ?? null,
+                      trackType: track.trackType,
+                      aiPrompt: track.aiPrompt,
+                      aiPromptEditCount: track.aiPromptEditCount,
+                      aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                    }}
+                  />
                 </div>
               </div>
 

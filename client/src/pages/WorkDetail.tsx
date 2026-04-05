@@ -2,40 +2,33 @@ import { useRoute, Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity } from "lucide-react";
+import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, KeyRound, Send } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
 import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
-
-// Universal embed URL builder
-function getEmbedUrl(url: string | undefined, enableJsApi = false): string | null {
-  if (!url) return null;
-  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
-  if (ytMatch) {
-    const params = new URLSearchParams({ autoplay: "0", rel: "0", modestbranding: "1", controls: "1", showinfo: "0", disablekb: "1", fs: "0" });
-    if (enableJsApi) { params.set("enablejsapi", "1"); params.set("origin", window.location.origin); }
-    return `https://www.youtube.com/embed/${ytMatch[1]}?${params.toString()}`;
-  }
-  if (url.includes("suno.com")) return url.replace("/song/", "/embed/");
-  if (url.includes("soundcloud.com")) return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300f0ff&auto_play=false&hide_related=true&show_comments=false&show_artwork=true`;
-  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-  if (url.includes("udio.com")) return url;
-  return url;
-}
+import { TrackAdminActions } from "@/components/TrackAdminActions";
+import { useTranslation } from "react-i18next";
+import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare } from "@/lib/streamingEmbed";
+import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
+import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 
 export function TrackDetail() {
+  const { t } = useTranslation();
   const [, params] = useRoute("/track/:id");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   // currentTrackId is the source of truth for the player — decoupled from URL
   const [currentTrackId, setCurrentTrackId] = useState<number>(() => Number(params?.id) || 0);
   const [autoPlayNext, setAutoPlayNext] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+  const [claimSecret, setClaimSecret] = useState("");
+  const [claimInfo, setClaimInfo] = useState("");
   const playerKey = useRef(0); // forces iframe remount on track change
   const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playCountedRef = useRef<Set<number>>(new Set()); // tracks recorded this session
@@ -58,7 +51,7 @@ export function TrackDetail() {
       // Skip if already recorded in this session
       if (playCountedRef.current.has(currentTrackId)) return;
       try {
-        await apiRequest("POST", `/api/tracks/${currentTrackId}/play`, {});
+        await apiRequest("POST", `/api/tracks/${currentTrackId}/play`, { completed: false });
         playCountedRef.current.add(currentTrackId);
         queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       } catch { /* silent — play count is best-effort */ }
@@ -70,14 +63,49 @@ export function TrackDetail() {
   }, [currentTrackId, isAuthenticated]);
 
   const { data: trackData, isLoading: isTrackLoading } = useWork(String(currentTrackId));
+
+  const rawForStreaming = useMemo(() => {
+    if (!trackData) return undefined;
+    const mv = String((trackData as { mvUrl?: string | null }).mvUrl ?? "").trim();
+    const audio = String((trackData as { audioUrl?: string | null }).audioUrl ?? "").trim();
+    const mYt = extractYoutubeId(mv || undefined);
+    const aYt = extractYoutubeId(audio || undefined);
+    if (mYt || aYt) return undefined;
+    const opts = { autoplay: true, enableJsApi: true } as const;
+    const sMv = mv ? buildStreamingIframeSrc(mv, opts) : null;
+    const sAu = audio ? buildStreamingIframeSrc(audio, opts) : null;
+    if (sMv) return mv;
+    if (sAu) return audio;
+    if (mv && urlLooksLikeSunoShare(mv)) return mv;
+    if (audio && urlLooksLikeSunoShare(audio)) return audio;
+    return mv || audio || undefined;
+  }, [trackData]);
+
+  const { iframeSrc: playableSrc, loading: streamLoading, error: streamError } = usePlayableStreamingSrc(
+    rawForStreaming,
+    { autoplay: true, enableJsApi: true },
+  );
+
+  const { data: myProfile } = useQuery({
+    queryKey: ["/api/profiles/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/profiles/me", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json() as Promise<{ id: number; role?: string } | null>;
+    },
+    enabled: isAuthenticated,
+    retry: false,
+  });
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
 
   // Normalize raw API response
   const track = useMemo(() => {
     if (!trackData) return null;
+    const artistName = (trackData as { artistName?: string | null }).artistName?.trim();
+    const creatorName = (trackData as { creatorName?: string }).creatorName?.trim();
     return {
       ...trackData,
-      creatorName: trackData.creator?.username || "NEX CREATOR",
+      creatorName: artistName || creatorName || "unknown",
       votes: trackData.listenerVotes || 0,
     };
   }, [trackData]);
@@ -121,7 +149,48 @@ export function TrackDetail() {
     setTimeout(() => setIsTransitioning(false), 400);
   }, [prevTrack, isTransitioning, setLocation]);
 
-  // onEnded is wired directly through YoutubePlayer's onEnded prop — no postMessage needed
+  const handleTrackEnded = useCallback(async () => {
+    if (isAuthenticated && currentTrackId) {
+      try {
+        await apiRequest("POST", `/api/tracks/${currentTrackId}/play`, { completed: true });
+        queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+      } catch {
+        // completion capture is best-effort
+      }
+    }
+    if (autoPlayNext) goToNext();
+  }, [autoPlayNext, currentTrackId, goToNext, isAuthenticated]);
+
+  const claimRequestMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentTrackId) throw new Error("No track");
+      await apiRequest("POST", `/api/tracks/${currentTrackId}/claim-request`, { claimInfo });
+    },
+    onSuccess: () => {
+      setClaimInfo("");
+      toast({ title: "Request sent", description: "An admin will review your ownership request." });
+      void queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(currentTrackId)] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not submit", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const claimInstantMutation = useMutation({
+    mutationFn: async (secret: string) => {
+      if (!currentTrackId) throw new Error("No track");
+      await apiRequest("POST", `/api/tracks/${currentTrackId}/claim-instant`, { secret });
+    },
+    onSuccess: () => {
+      setClaimSecret("");
+      toast({ title: "Track claimed", description: "This track is now linked to your creator account." });
+      void queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(currentTrackId)] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/tracks/my"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Claim failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   const handleVote = async () => {
     if (!track || isVoting) return;
@@ -167,19 +236,102 @@ export function TrackDetail() {
     );
   }
 
+  const claimable = !!(track as { claimableByCreators?: boolean }).claimableByCreators;
+  const trackOwnerId = (track as { creatorId?: number }).creatorId;
+  const canClaimTrack =
+    isAuthenticated &&
+    user?.role === "creator" &&
+    claimable &&
+    myProfile?.id != null &&
+    trackOwnerId != null &&
+    myProfile.id !== trackOwnerId;
+
   const mvYtId = extractYoutubeId(track.mvUrl);
   const audioYtId = extractYoutubeId(track.audioUrl);
   const ytId = mvYtId || audioYtId;
-  const videoEmbedUrl = !mvYtId ? getEmbedUrl(track.mvUrl) : null;
-  const audioEmbedUrl = !audioYtId ? getEmbedUrl(track.audioUrl) : null;
-  const nonYtUrl = videoEmbedUrl || audioEmbedUrl;
-  const isWidePlayer = !!(mvYtId || videoEmbedUrl);
+  const isWidePlayer = !!(mvYtId || (track.mvUrl?.trim() && !mvYtId));
+  const embedKind = classifyStreamingSource(rawForStreaming ?? undefined);
+  const iframeFrameClass =
+    embedKind === "soundcloud"
+      ? "min-h-[166px] h-[166px] sm:min-h-[180px] sm:h-[180px]"
+      : embedKind === "suno"
+        ? "min-h-[280px] h-[320px] sm:h-[360px]"
+        : isWidePlayer
+          ? "aspect-video"
+          : "aspect-square";
+
+  const adminTrack = {
+    id: track.id,
+    creatorId: (track as { creatorId?: number }).creatorId,
+    title: track.title,
+    creatorName: (track as { artistName?: string | null }).artistName || track.creatorName,
+    genre: track.genre,
+    coverImageUrl: track.coverImageUrl,
+    audioUrl: track.audioUrl,
+    mvUrl: track.mvUrl ?? null,
+    trackType: track.trackType ?? "audio",
+    aiPrompt: (track as { aiPrompt?: string | null }).aiPrompt ?? null,
+    aiPromptEditCount: (track as { aiPromptEditCount?: number }).aiPromptEditCount ?? 0,
+    aiPromptLastEditedAt: (track as { aiPromptLastEditedAt?: string | null }).aiPromptLastEditedAt ?? null,
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
-      <Link href="/music" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
-        <ArrowLeft className="w-4 h-4" /> Back to Music
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <Link href="/music" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
+          <ArrowLeft className="w-4 h-4" /> Back to Music
+        </Link>
+        <TrackAdminActions track={adminTrack} deleteRedirectTo="/music" />
+      </div>
+
+      {canClaimTrack ? (
+        <div className="rounded-sm border border-primary/30 bg-primary/5 p-4 sm:p-5 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Claim this track</p>
+          <p className="text-[11px] text-zinc-400 leading-relaxed">
+            This release was seeded by NEX staff. If you are the artist, request ownership so you can edit or archive it. Staff can approve your request, or use the instant claim code if you were given one.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <button
+              type="button"
+              disabled={claimRequestMutation.isPending || claimInfo.trim().length < 10}
+              onClick={() => claimRequestMutation.mutate()}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-primary text-black hover:brightness-110 disabled:opacity-40"
+            >
+              <Send className="w-3.5 h-3.5" />
+              {claimRequestMutation.isPending ? "Sending…" : "Request admin approval"}
+            </button>
+          </div>
+          <textarea
+            value={claimInfo}
+            onChange={(e) => setClaimInfo(e.target.value)}
+            placeholder="Artist verification info (min 10 chars): release proof, channel/account link, etc."
+            className="w-full bg-black/40 border border-white/10 rounded-sm px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-primary/40 focus:outline-none resize-none min-h-[88px]"
+          />
+          <div className="pt-2 border-t border-white/10 space-y-2">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+              <KeyRound className="w-3 h-3" /> Instant claim (secret code)
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="password"
+                autoComplete="off"
+                placeholder="Enter code from staff"
+                value={claimSecret}
+                onChange={(e) => setClaimSecret(e.target.value)}
+                className="flex-1 bg-black/50 border border-white/15 rounded-sm px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-primary/40 focus:outline-none"
+              />
+              <button
+                type="button"
+                disabled={claimInstantMutation.isPending || !claimSecret.trim()}
+                onClick={() => claimInstantMutation.mutate(claimSecret)}
+                className="px-4 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-40"
+              >
+                {claimInstantMutation.isPending ? "…" : "Claim now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="bg-[#050505] border border-white/5 p-8 md:p-16 rounded-sm relative overflow-hidden">
         <div className="flex flex-col items-center space-y-10 relative z-10">
@@ -195,22 +347,41 @@ export function TrackDetail() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.25 }}
-                className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${ytId ? "" : (isWidePlayer ? "aspect-video" : "aspect-square")}`}
+                className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${ytId ? "" : iframeFrameClass}`}
               >
                 {ytId ? (
                   <YoutubePlayer
                     videoId={ytId}
                     autoplay={true}
-                    onEnded={autoPlayNext ? goToNext : undefined}
+                    onEnded={handleTrackEnded}
                   />
-                ) : nonYtUrl ? (
-                  <iframe
-                    src={nonYtUrl}
-                    width="100%"
-                    height="100%"
-                    style={{ border: "none" }}
-                    allow="autoplay; encrypted-media"
-                  />
+                ) : streamLoading && !playableSrc ? (
+                  <div className="w-full min-h-[280px] flex flex-col items-center justify-center gap-3 text-zinc-500">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary/60" />
+                    <p className="text-[9px] font-bold uppercase tracking-widest">{t("suno.resolving")}</p>
+                  </div>
+                ) : playableSrc ? (
+                  <>
+                    <iframe
+                      key={playableSrc}
+                      src={playableSrc}
+                      width="100%"
+                      height="100%"
+                      style={{ border: "none" }}
+                      allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
+                      allowFullScreen
+                      title={track.title}
+                      {...(embedKind === "suno"
+                        ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
+                        : {})}
+                    />
+                    {embedKind === "suno" ? <SunoEmbedOutboundShield /> : null}
+                  </>
+                ) : streamError ? (
+                  <div className="w-full min-h-[200px] flex flex-col items-center justify-center gap-2 px-6 text-center">
+                    <Music className="w-16 h-16 text-zinc-800" />
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">{streamError}</p>
+                  </div>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Music className="w-24 h-24 text-zinc-800" />
@@ -334,8 +505,8 @@ export function TrackDetail() {
                   className="flex items-center gap-4 bg-white/[0.03] p-4 rounded-sm border border-white/5 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group max-w-sm mx-auto w-full"
                 >
                   <div className="w-12 h-12 bg-zinc-900 rounded-sm flex-shrink-0 flex items-center justify-center border border-white/10 group-hover:border-primary/20 overflow-hidden">
-                    {nextTrack.coverImage ? (
-                      <img src={nextTrack.coverImage} alt={nextTrack.title} className="w-full h-full object-cover" />
+                    {nextTrack.coverImageUrl ? (
+                      <img src={nextTrack.coverImageUrl} alt={nextTrack.title} className="w-full h-full object-cover" />
                     ) : (
                       <Music className="w-5 h-5 text-zinc-700 group-hover:text-primary transition-colors" />
                     )}

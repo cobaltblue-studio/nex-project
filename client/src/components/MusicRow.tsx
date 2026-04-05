@@ -67,7 +67,11 @@ export function MusicRow({ track, rank }: MusicRowProps) {
 
   const handleVote = () => {
     if (!isAuthenticated) {
-      window.location.href = "/api/login";
+      toast({
+        title: "Login required",
+        description: "You need to log in to vote.",
+        variant: "destructive",
+      });
       return;
     }
     if (hasVoted || voteMutation.isPending) return;
@@ -93,7 +97,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
         </Link>
         <div className="hidden md:flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500 mt-1">
           <span className="text-primary/70">
-            {track.creatorName || "NEX CREATOR"}
+            {track.creatorName || "unknown"}
           </span>
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
             {track.aiTool}
@@ -114,7 +118,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
         </div>
         <div className="flex md:hidden flex-wrap items-center gap-1 mt-1 min-w-0">
           <span className="text-[8px] font-bold text-primary/70 uppercase tracking-widest truncate max-w-[80px]">
-            {track.creatorName || "NEX CREATOR"}
+            {track.creatorName || "unknown"}
           </span>
           <span className="px-1 py-0.5 bg-white/5 rounded-xs text-[7px] border border-white/10 shrink-0">
             {track.aiTool}

@@ -29,6 +29,11 @@ function loadYTApi(cb: () => void) {
   document.head.appendChild(s);
 }
 
+/** Start loading the YouTube IFrame API early (e.g. battle arena) so the first player mounts faster. */
+export function warmYoutubeIframeApi(): void {
+  loadYTApi(() => {});
+}
+
 interface Props {
   videoId: string;
   autoplay?: boolean;
@@ -38,7 +43,8 @@ interface Props {
 }
 
 const BATTLE_PREVIEW_SECONDS = 20;
-const BATTLE_START_OFFSET = 30;
+/** Start at 0 for immediate audio (30s offset caused long buffering / perceived delay). */
+const BATTLE_START_OFFSET = 0;
 
 export function YoutubePlayer({
   videoId,
@@ -92,14 +98,23 @@ export function YoutubePlayer({
           onStateChange: (e: { data: number }) => {
             if (e.data === 0) onEndedRef.current?.();
           },
-          onReady: () => {
+          onReady: (ev: { target: any }) => {
+            const p = ev.target;
             if (battleMode && autoplay) {
+              try {
+                if (startTime > 0) p.seekTo(startTime, true);
+                p.playVideo?.();
+              } catch {}
               battleTimerRef.current = setTimeout(() => {
                 try {
                   playerRef.current?.pauseVideo();
                 } catch {}
                 onEndedRef.current?.();
               }, BATTLE_PREVIEW_SECONDS * 1000);
+            } else if (autoplay) {
+              try {
+                p.playVideo?.();
+              } catch {}
             }
           },
         },
@@ -122,7 +137,7 @@ export function YoutubePlayer({
       style={{
         position: "relative",
         width: "100%",
-        paddingTop: battleMode ? "47.8%" : "56.25%",
+        paddingTop: battleMode ? "42%" : "56.25%",
       }}
     >
       <div
@@ -161,16 +176,4 @@ export function extractYoutubeId(url: string | undefined): string | null {
   return m ? m[1] : null;
 }
 
-export function buildIframeEmbedUrl(url: string, autoplay = false): string {
-  if (url.includes("suno.com")) {
-    const base = url.replace("/song/", "/embed/");
-    return autoplay ? `${base}?autoplay=1` : base;
-  }
-  if (url.includes("soundcloud.com") && !url.includes("w.soundcloud.com")) {
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300f0ff&auto_play=${autoplay}&hide_related=true&show_comments=false`;
-  }
-  const vimeo = url.match(/vimeo\.com\/(\d+)/);
-  if (vimeo)
-    return `https://player.vimeo.com/video/${vimeo[1]}${autoplay ? "?autoplay=1" : ""}`;
-  return url;
-}
+export { buildIframeEmbedUrl } from "@/lib/streamingEmbed";

@@ -6,7 +6,7 @@ export function useWorks(type?: string, creatorId?: string) {
     queryKey: [api.tracks.list.path, type, creatorId],
     queryFn: async () => {
       const url = new URL(api.tracks.list.path, window.location.origin);
-      if (type) url.searchParams.set("type", type);
+      if (type) url.searchParams.set("trackType", type);
       if (creatorId) url.searchParams.set("creatorId", creatorId);
       
       const res = await fetch(url.toString(), { credentials: "include" });

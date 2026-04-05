@@ -68,7 +68,11 @@ export function MVCard({ track, index }: MVCardProps) {
     e.preventDefault();
     e.stopPropagation();
     if (!isAuthenticated) {
-      window.location.href = "/api/login";
+      toast({
+        title: "Login required",
+        description: "You need to log in to vote.",
+        variant: "destructive",
+      });
       return;
     }
     if (hasVoted || voteMutation.isPending) return;
@@ -108,7 +112,7 @@ export function MVCard({ track, index }: MVCardProps) {
             <div className="min-w-0">
               <div className="text-[8px] font-mono text-zinc-600 font-bold mb-0.5">NEX #{String(index + 1).padStart(3, "0")}</div>
               <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-zinc-500">
-                <span className="text-primary/70">{track.creatorName || "NEX CREATOR"}</span>
+                <span className="text-primary/70">{track.creatorName || "unknown"}</span>
                 {track.winStreak > 0 && (
                   <span className="px-1 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[7px] border border-orange-500/20" data-testid={`text-streak-mv-${track.id}`}>
                     🔥 WIN STREAK: {track.winStreak}
