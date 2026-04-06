@@ -144,7 +144,7 @@ export function Layout({ children }: LayoutProps) {
           <span className="text-[1.1rem] md:text-[1.5rem] main-logo-text">NEX</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-x-3 lg:gap-x-5 xl:gap-x-6 ml-4 lg:ml-6 min-w-0 flex-1 justify-center max-w-[min(52rem,100%)] overflow-x-auto [scrollbar-width:thin]">
+        <nav className="hidden md:flex items-center gap-x-3 lg:gap-x-5 xl:gap-x-6 ml-4 lg:ml-6 min-w-0 flex-1 justify-start max-w-[min(52rem,100%)] overflow-x-auto [scrollbar-width:thin] px-1">
           {navItems.map((item) => {
             const isActive = location === item.path;
             return (

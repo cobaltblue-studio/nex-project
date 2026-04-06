@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, User, Music, Trophy, Headphones, MapPin, Heart } from "lucide-react";
+import { Loader2, User, Music, Trophy, Headphones, MapPin, Heart, Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
@@ -124,6 +124,7 @@ function CreatorFollowChip({ creatorId, username }: { creatorId: number; usernam
 
 export function CreatorList() {
   const [, navigate] = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: creatorProfiles, isLoading: creatorsLoading } = useQuery<CreatorProfileRow[]>({
     queryKey: ["/api/creators"],
     queryFn: async () => {
@@ -190,6 +191,16 @@ export function CreatorList() {
     );
   }, [creatorProfiles, tracks]);
 
+  const filteredCreators = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return creators;
+    return creators.filter((creator) => {
+      const name = creator.displayLabel.toLowerCase();
+      const username = creator.username.toLowerCase();
+      return name.includes(q) || username.includes(q);
+    });
+  }, [creators, searchQuery]);
+
   const isLoading = creatorsLoading || tracksLoading;
   const totalTrackCount = tracks?.length ?? 0;
 
@@ -222,10 +233,27 @@ export function CreatorList() {
         <p className="text-zinc-500 text-sm mt-2">
           Track-mapped directory ({totalTrackCount} tracks / {creators.length} creators)
         </p>
+        <div className="mt-5 max-w-xl">
+          <label htmlFor="creator-search" className="sr-only">
+            Search creators
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <input
+              id="creator-search"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by creator name or @username"
+              className="w-full bg-black/40 border border-white/10 rounded-sm pl-10 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 transition-colors"
+              data-testid="input-creator-search"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="creators-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-5">
-        {creators.map((creator, idx) => (
+        {filteredCreators.map((creator, idx) => (
           <motion.div
             key={creator.id}
             initial={{ opacity: 0, y: 10 }}
@@ -306,6 +334,11 @@ export function CreatorList() {
           </motion.div>
         ))}
       </div>
+      {filteredCreators.length === 0 && (
+        <div className="text-center py-10 text-zinc-500 text-sm" data-testid="text-no-creator-results">
+          No creators found for "{searchQuery.trim()}".
+        </div>
+      )}
     </div>
   );
 }
