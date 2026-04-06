@@ -314,10 +314,13 @@ export async function setupAuth(app: Express) {
       ...sessionBase,
       ...(usePgStore
         ? {
+            // Reuse Drizzle `sessions` table (@shared/models/auth.ts). It already has index
+            // "IDX_session_expire"; connect-pg-simple's create script would duplicate that name
+            // if we used another tableName + createTableIfMissing.
             store: new PgSessionStore({
               pool,
-              tableName: "nex_session",
-              createTableIfMissing: true,
+              tableName: "sessions",
+              createTableIfMissing: false,
             }),
           }
         : {}),
