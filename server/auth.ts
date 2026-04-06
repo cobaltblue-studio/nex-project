@@ -1,6 +1,8 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
+import { pool } from "./db";
 import { Strategy as GoogleStrategy, type Profile as GoogleProfile } from "passport-google-oauth20";
 import type { User } from "@shared/models/auth";
 import type { Profile } from "@shared/schema";
@@ -261,6 +263,10 @@ function parseTrustProxySetting(): boolean | number {
   if (raw === "false" || raw === "0" || raw === "off") return false;
   if (raw === "true" || raw === "on" || raw === "all") return true;
   if (raw && /^\d+$/.test(raw)) return Number.parseInt(raw, 10);
+  // Railway (and similar) often chains multiple proxies; `1` can break req.protocol / cookies for OAuth.
+  if (process.env.NODE_ENV === "production" && process.env.RAILWAY_ENVIRONMENT) {
+    return true;
+  }
   return 1;
 }
 
@@ -285,19 +291,36 @@ export async function setupAuth(app: Express) {
 
   const cookieSecure = sessionCookieSecure();
 
+  const sessionBase = {
+    secret: getSessionSecret(),
+    resave: false,
+    saveUninitialized: false,
+    name: "nex.sid",
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax" as const,
+      secure: cookieSecure,
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  };
+
+  const PgSessionStore = connectPgSimple(session);
+  const usePgStore =
+    process.env.NODE_ENV === "production" && !!process.env.DATABASE_URL;
+
   app.use(
     session({
-      secret: getSessionSecret(),
-      resave: false,
-      saveUninitialized: false,
-      name: "nex.sid",
-      cookie: {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: cookieSecure,
-        path: "/",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      },
+      ...sessionBase,
+      ...(usePgStore
+        ? {
+            store: new PgSessionStore({
+              pool,
+              tableName: "nex_session",
+              createTableIfMissing: true,
+            }),
+          }
+        : {}),
     }),
   );
 
@@ -379,11 +402,12 @@ export function registerAuthRoutes(app: Express) {
       if (!callbackURL) {
         return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_callback_misconfigured`);
       }
+      // passport-oauth2 accepts callbackURL; @types/passport omit it.
       passport.authenticate("google", {
         scope: ["profile", "email"],
         session: true,
         callbackURL,
-      })(req, res, next);
+      } as Record<string, unknown>)(req, res, next);
     });
   };
 
@@ -401,7 +425,15 @@ export function registerAuthRoutes(app: Express) {
 
     passport.authenticate("google", { session: true }, (err: unknown, user: SessionUser | false) => {
       if (err || !user) {
-        return res.redirect("/?authError=oauth_failed");
+        const qErr = req.query.error;
+        const qDesc = req.query.error_description;
+        console.error(
+          "[auth] Google callback failed:",
+          err ?? "no user",
+          typeof qErr === "string" ? `query.error=${qErr}` : "",
+          typeof qDesc === "string" ? String(qDesc).slice(0, 200) : "",
+        );
+        return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_failed`);
       }
 
       // Read stored return path before regenerating the session (regenerate clears the store).
