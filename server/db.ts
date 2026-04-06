@@ -35,7 +35,18 @@ function normalizeDatabaseUrl(rawUrl: string): string {
 
 const normalizedDatabaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
 
-export const pool = new Pool({ connectionString: normalizedDatabaseUrl });
+/** Fail fast on bad networks; default pg behavior can hang indefinitely on TCP connect. */
+const connectionTimeoutMillis = parseInt(
+  process.env.PG_CONNECTION_TIMEOUT_MS || "15000",
+  10,
+);
+
+export const pool = new Pool({
+  connectionString: normalizedDatabaseUrl,
+  connectionTimeoutMillis: Number.isFinite(connectionTimeoutMillis)
+    ? connectionTimeoutMillis
+    : 15000,
+});
 export const db = drizzle(pool, { schema });
 
 let initialized = false;

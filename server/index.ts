@@ -97,10 +97,9 @@ app.use((req, res, next) => {
 (async () => {
   const { ensureDbConnected } = await import("./db");
   const { storage } = await import("./storage");
+  console.log("[boot] connecting to database…");
   await ensureDbConnected();
-  // Recalculate ranking scores for all tracks on startup
-  await storage.recalculateAllRankingScores();
-  console.log("Ranking scores recalculated.");
+  console.log("[boot] database OK");
   await registerRoutes(httpServer, app);
 
   app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
@@ -154,6 +153,11 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      // Do not block accepting traffic: full-table recalc can take a long time.
+      void storage
+        .recalculateAllRankingScores()
+        .then(() => console.log("[boot] ranking scores recalculated"))
+        .catch((err) => console.error("[boot] recalculateAllRankingScores failed:", err));
     },
   );
 })();
