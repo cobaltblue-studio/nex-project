@@ -226,8 +226,14 @@ export function ProfileMe() {
       queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
       toast({ title: "PROFILE UPDATED", description: "Your profile has been saved." });
       setIsEditingProfile(false);
-    } catch {
-      toast({ title: "ERROR", description: "Failed to save profile.", variant: "destructive" });
+    } catch (err: any) {
+      const raw = typeof err?.message === "string" ? err.message : "";
+      const detail = raw.replace(/^\d+\s*:\s*/, "").trim();
+      toast({
+        title: "ERROR",
+        description: detail || "Failed to save profile.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
