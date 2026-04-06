@@ -426,7 +426,12 @@ export function registerAuthRoutes(app: Express) {
       return res.redirect(`${getPublicOrigin(req)}/?authError=google_not_configured`);
     }
 
-    passport.authenticate("google", { session: true }, (err: unknown, user: SessionUser | false) => {
+    const callbackURL = resolveGoogleCallbackUrlForRequest(req);
+    if (!callbackURL) {
+      return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_callback_misconfigured`);
+    }
+
+    passport.authenticate("google", { session: true, callbackURL } as Record<string, unknown>, (err: unknown, user: SessionUser | false) => {
       if (err || !user) {
         const qErr = req.query.error;
         const qDesc = req.query.error_description;
