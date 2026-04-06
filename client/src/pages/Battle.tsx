@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { getLoginUrl } from "@/lib/loginRedirect";
 import {
   ChevronRight,
   Trophy,
@@ -315,6 +316,8 @@ function BattleTrackPlayer({
 export function Battle() {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [location] = useLocation();
+  const battleLoginHref = getLoginUrl(location.startsWith("/") ? location : "/battle");
 
   const [phase, setPhase] = useState<Phase>("genre-select");
   const [selectedGenre, setSelectedGenre] = useState<string>("");
@@ -365,12 +368,33 @@ export function Battle() {
       setBattle(data);
       setPhase("track-a");
     },
-    onError: () => {
-      toast({
-        title: "Could not start battle",
-        description: "Not enough tracks in this genre.",
-        variant: "destructive",
-      });
+    onError: (err: Error) => {
+      const msg = (err?.message ?? "").trim();
+      if (msg.startsWith("401")) {
+        toast({
+          title: "Login required",
+          description: "Sign in to start a battle. Use the LOGIN button, then “Continue to login”.",
+          variant: "destructive",
+        });
+      } else if (msg.startsWith("409")) {
+        toast({
+          title: "Could not start battle",
+          description: msg.replace(/^409:\s*/, "") || "Not enough audio tracks for this match-up.",
+          variant: "destructive",
+        });
+      } else if (msg.startsWith("429")) {
+        toast({
+          title: "Daily limit reached",
+          description: msg.replace(/^429:\s*/, "") || "Come back tomorrow.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Could not start battle",
+          description: msg || "Please try again.",
+          variant: "destructive",
+        });
+      }
       setPhase("genre-select");
     },
   });
@@ -424,6 +448,15 @@ export function Battle() {
 
   const startBattle = useCallback(
     (genre: string) => {
+      if (!isAuthenticated) {
+        toast({
+          title: "Login required",
+          description: "Battles need a signed-in account. Tap LOGIN, open “Continue to login”, then try again.",
+          variant: "destructive",
+        });
+        setPhase("genre-select");
+        return;
+      }
       if (limitReachedRef.current) {
         setPhase("genre-select");
         return;
@@ -437,7 +470,7 @@ export function Battle() {
       setShowSharePopup(false);
       createBattleMutation.mutate(genre);
     },
-    [createBattleMutation],
+    [createBattleMutation, isAuthenticated, toast],
   );
 
   const nextBattle = useCallback(() => {
@@ -621,6 +654,19 @@ export function Battle() {
               <p className="text-lg font-bold text-zinc-300 uppercase tracking-wider" data-testid="text-daily-limit-reached">
                 Daily limit of {dailyMax} reached. Come back tomorrow.
               </p>
+            ) : !isAuthenticated ? (
+              <div className="flex flex-col items-center gap-4 max-w-md text-center">
+                <p className="text-sm text-zinc-400">
+                  Sign in to start battles and vote. After Google, you&apos;ll return here.
+                </p>
+                <a
+                  href={battleLoginHref}
+                  data-testid="button-battle-login"
+                  className="px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105 inline-block"
+                >
+                  LOGIN TO BATTLE
+                </a>
+              </div>
             ) : (
               <button
                 onClick={() => startBattle("ALL")}

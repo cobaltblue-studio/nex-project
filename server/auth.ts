@@ -168,6 +168,40 @@ function getCallbackURL(): string {
   return "http://localhost:5001/api/auth/google/callback";
 }
 
+/**
+ * Google must see the same redirect_uri you started from (cookie host must match).
+ * Allow nexmusic.ai, Railway `*.up.railway.app`, and local dev.
+ */
+function isOAuthCallbackOriginAllowed(origin: string): boolean {
+  try {
+    const u = new URL(origin);
+    const host = u.hostname.toLowerCase();
+    if (host === "nexmusic.ai" || host === "www.nexmusic.ai") {
+      return u.protocol === "https:";
+    }
+    if (host.endsWith(".up.railway.app")) {
+      return u.protocol === "https:";
+    }
+    if (host === "localhost" || host === "127.0.0.1") {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** Per-request callback so OAuth returns to the same host the user is browsing (Railway vs nexmusic.ai). */
+function resolveGoogleCallbackUrlForRequest(req: Request): string | null {
+  const origin = getPublicOrigin(req);
+  if (isOAuthCallbackOriginAllowed(origin)) {
+    return `${origin}/api/auth/google/callback`;
+  }
+  const fixed = process.env.GOOGLE_CALLBACK_URL?.trim();
+  if (fixed) return fixed;
+  return null;
+}
+
 /** When OAuth did not store returnTo: creators → profile; listeners & admins → home (never force /submit-track). */
 async function resolvePostLoginRedirect(user: SessionUser): Promise<string> {
   const uid = user.id != null ? String(user.id) : "";
@@ -341,9 +375,14 @@ export function registerAuthRoutes(app: Express) {
     (req.session as { oauthReturnTo?: string }).oauthReturnTo = returnTo;
     req.session.save((saveErr) => {
       if (saveErr) return next(saveErr);
+      const callbackURL = resolveGoogleCallbackUrlForRequest(req);
+      if (!callbackURL) {
+        return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_callback_misconfigured`);
+      }
       passport.authenticate("google", {
         scope: ["profile", "email"],
         session: true,
+        callbackURL,
       })(req, res, next);
     });
   };
