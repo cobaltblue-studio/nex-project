@@ -252,7 +252,7 @@ export function CreatorList() {
         </div>
       </div>
 
-      <div className="creators-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-5">
+      <div className="creators-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-5">
         {filteredCreators.map((creator, idx) => (
           <motion.div
             key={creator.id}
@@ -286,9 +286,9 @@ export function CreatorList() {
             </div>
 
             <div className="text-center min-w-0 w-full flex flex-col items-center gap-1.5">
-              <div className="flex items-center justify-center gap-2 w-full min-w-0">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 w-full min-w-0">
                 <h3
-                  className="text-sm font-display font-bold text-white uppercase truncate group-hover:text-primary transition-premium min-w-0"
+                  className="text-sm font-display font-bold text-white uppercase truncate group-hover:text-primary transition-premium min-w-0 max-w-full"
                   data-testid={`text-creator-name-${creator.id}`}
                 >
                   {creator.displayLabel}

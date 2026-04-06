@@ -479,7 +479,9 @@
   }
 
   .creators-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: 100% !important;
   }
   .creators-grid [data-testid^="card-creator"],
   .creators-grid [data-testid^="card-placeholder"] {
@@ -497,15 +499,15 @@
 
   .creators-grid [data-testid^="card-creator"] .text-xs,
   .creators-grid [data-testid^="card-creator"] .text-sm {
-    font-size: 6.4px !important;
+    font-size: 12px !important;
   }
 
   .creators-grid [data-testid^="card-creator"] .text-\[8px\] {
-    font-size: 5.1px !important;
+    font-size: 9px !important;
   }
 
   .creators-grid [data-testid^="card-creator"] .text-\[10px\] {
-    font-size: 5.5px !important;
+    font-size: 10px !important;
   }
 
   .creators-grid [data-testid^="card-creator"] .text-lg {
@@ -651,6 +653,6 @@
   .nav-item i { font-size: 18px !important; }
   .nav-item span { font-size: 8px !important; display: block !important; color: #fff !important; }
 
-  .creators-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .creators-grid { display: grid !important; grid-template-columns: 1fr !important; gap: 12px !important; }
   .creator-card { width: 100% !important; min-height: 160px !important; }
 }

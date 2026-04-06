@@ -12,7 +12,7 @@ export function LanguageSwitcher() {
 
   return (
     <div
-      className="flex items-center rounded-sm border border-white/10 bg-black/40 p-0.5"
+      className="flex items-center rounded-sm border border-white/10 bg-black/40 p-0.5 scale-90 sm:scale-100 origin-right"
       role="group"
       aria-label={t("lang.switchAria")}
     >

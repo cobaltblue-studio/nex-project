@@ -165,7 +165,7 @@ export function Layout({ children }: LayoutProps) {
         </nav>
 
         <div className="flex items-center shrink-0 gap-2 md:gap-3">
-          <div className="hidden sm:block">
+          <div className="block">
             <LanguageSwitcher />
           </div>
           {isLoading && (
@@ -337,11 +337,6 @@ export function Layout({ children }: LayoutProps) {
           </nav>
         </div>
       </footer>
-
-      {/* Mobile Nav */}
-      <div className="mobile-bottom-nav md:hidden fixed bottom-20 right-4 z-[55]">
-        <LanguageSwitcher />
-      </div>
 
       <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-4">
         {navItems.map((item) => {
