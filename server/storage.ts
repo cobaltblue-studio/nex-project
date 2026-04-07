@@ -11,6 +11,10 @@ import {
   battleVotes,
   comments,
   trackClaimRequests,
+  boostTickets,
+  boostUsageLogs,
+  boostImpressionEvents,
+  boostStatus,
   type Profile,
   type Track,
   type Follow,
@@ -72,8 +76,15 @@ export function computeRankingScore(input: {
   return Number((weightedCore * (1 + qualityBonusFactor) * 100 + recentBoost).toFixed(4));
 }
 
-function weightedPickTwo<T extends { rankingScore: number }>(items: T[]): [T, T] {
-  const weights = items.map(t => Math.max(1, t.rankingScore));
+function weightedPickTwo<T extends { rankingScore: number; id: number }>(
+  items: T[],
+  opts?: { multiplierByTrackId?: Map<number, number> },
+): [T, T] {
+  const weights = items.map((t) => {
+    const base = Math.max(1, t.rankingScore);
+    const multiplier = opts?.multiplierByTrackId?.get(t.id) ?? 1;
+    return Math.max(1, base * multiplier);
+  });
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
 
   const pickIndex = (excludeIdx: number): number => {
@@ -208,6 +219,91 @@ export interface IStorage {
       createdAt: Date;
     }[]
   >;
+  getBoostTicketBalance(profileId: number): Promise<number>;
+  grantBoostTickets(profileId: number, amount: number): Promise<number>;
+  getCreatorAnalyticsSnapshot(
+    profileId: number,
+  ): Promise<{
+    profileId: number;
+    username: string;
+    followerCount: number;
+    trackCount: number;
+    boostTicketBalance: number;
+    totals: {
+      chartPlayCount: number;
+      metricsPlays: number;
+      completedPlays: number;
+      likes: number;
+      listenerVotes: number;
+      battles: number;
+      battleWins: number;
+      uniqueListeners: number;
+      relistens: number;
+    };
+    tracks: {
+      id: number;
+      title: string;
+      status: string;
+      genre: string;
+      trackType: string;
+      chartPlayCount: number;
+      listenerVotes: number;
+      rankingScore: number;
+      neoScore: number;
+      winStreak: number;
+      lastPlayedAt: string | null;
+      createdAt: string;
+      metrics: {
+        likesCount: number;
+        playsCount: number;
+        completedPlaysCount: number;
+        uniqueListenersCount: number;
+        relistenPlaysCount: number;
+        battleTotalCount: number;
+        battleWinsCount: number;
+      } | null;
+      battleStats: { totalBattles: number; wins: number; winRate: number };
+    }[];
+    generatedAt: string;
+  } | null>;
+  checkBoostEligibility(params: {
+    ownerProfileId: number;
+    trackId: number;
+  }): Promise<{
+    eligible: boolean;
+    reason?: string;
+    cooldownUntil?: Date | null;
+    weeklyStartsUsed: number;
+    weeklyStartsMax: number;
+    hasActiveBoost: boolean;
+  }>;
+  activateBoostForTrack(params: {
+    ownerProfileId: number;
+    trackId: number;
+    targetImpressions?: number;
+  }): Promise<{ ok: boolean; reason?: string; usageLogId?: number; remainingTickets?: number; cooldownUntil?: Date | null }>;
+  incrementBoostImpression(params: {
+    trackId: number;
+    viewerUserId?: string | null;
+    sessionKey?: string | null;
+  }): Promise<{
+    counted: boolean;
+    active: boolean;
+    currentImpressions?: number;
+    targetImpressions?: number;
+    status?: "ACTIVE" | "COMPLETED";
+  }>;
+  getActiveBoostLogsForOwner(profileId: number): Promise<
+    {
+      id: number;
+      trackId: number;
+      title: string;
+      targetImpressions: number;
+      currentImpressions: number;
+      status: string;
+      startedAt: Date;
+    }[]
+  >;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -226,6 +322,19 @@ export class DatabaseStorage implements IStorage {
     const raw = process.env.RANKING_RECOMPUTE_MAX_BATCH;
     const n = raw ? Number(raw) : 50;
     return Number.isFinite(n) ? n : 50;
+  }
+
+  /** Wall-clock cooldown after a boost run completes (default 48h). */
+  private get boostCooldownMs(): number {
+    const h = Number(process.env.BOOST_COOLDOWN_HOURS ?? 48);
+    const hours = Number.isFinite(h) && h > 0 ? h : 48;
+    return hours * 3600000;
+  }
+
+  /** Max boost activations per profile per track in a rolling 7-day window. */
+  private get boostMaxStartsPerWeekPerTrack(): number {
+    const n = Number(process.env.BOOST_MAX_STARTS_PER_WEEK_PER_TRACK ?? 3);
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 3;
   }
 
   private scheduleRecomputeTrackRankingScore(trackId: number): void {
@@ -615,6 +724,101 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({ ...r.track, creator: r.creator }));
   }
 
+  async getCreatorAnalyticsSnapshot(profileId: number) {
+    const [p] = await db
+      .select({ id: profiles.id, username: profiles.username })
+      .from(profiles)
+      .where(eq(profiles.id, profileId));
+    if (!p) return null;
+
+    const followerCount = await this.getFollowerCount(profileId);
+    const boostTicketBalance = await this.getBoostTicketBalance(profileId);
+
+    const trackRows = await db
+      .select()
+      .from(tracks)
+      .where(and(eq(tracks.creatorId, profileId), eq(tracks.isDeleted, false)))
+      .orderBy(desc(tracks.rankingScore));
+
+    const ids = trackRows.map((t) => t.id);
+    const battleByTrack = ids.length > 0 ? await this.getBattleStatsForTracks(ids) : {};
+    const metricsRows =
+      ids.length > 0
+        ? await db.select().from(trackMetrics).where(inArray(trackMetrics.trackId, ids))
+        : [];
+    const metricsByTrackId = new Map(metricsRows.map((m) => [m.trackId, m]));
+
+    const totals = {
+      chartPlayCount: 0,
+      metricsPlays: 0,
+      completedPlays: 0,
+      likes: 0,
+      listenerVotes: 0,
+      battles: 0,
+      battleWins: 0,
+      uniqueListeners: 0,
+      relistens: 0,
+    };
+
+    const outTracks = trackRows.map((t) => {
+      const m = metricsByTrackId.get(t.id);
+      const bs = battleByTrack[t.id];
+      totals.chartPlayCount += t.playCount;
+      totals.listenerVotes += t.listenerVotes;
+      if (m) {
+        totals.metricsPlays += m.playsCount;
+        totals.completedPlays += m.completedPlaysCount;
+        totals.likes += m.likesCount;
+        totals.battles += m.battleTotalCount;
+        totals.battleWins += m.battleWinsCount;
+        totals.uniqueListeners += m.uniqueListenersCount;
+        totals.relistens += m.relistenPlaysCount;
+      }
+
+      return {
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        genre: t.genre,
+        trackType: t.trackType,
+        chartPlayCount: t.playCount,
+        listenerVotes: t.listenerVotes,
+        rankingScore: t.rankingScore,
+        neoScore: t.neoScore,
+        winStreak: t.winStreak,
+        lastPlayedAt: t.lastPlayedAt ? new Date(t.lastPlayedAt).toISOString() : null,
+        createdAt: new Date(t.createdAt).toISOString(),
+        metrics: m
+          ? {
+              likesCount: m.likesCount,
+              playsCount: m.playsCount,
+              completedPlaysCount: m.completedPlaysCount,
+              uniqueListenersCount: m.uniqueListenersCount,
+              relistenPlaysCount: m.relistenPlaysCount,
+              battleTotalCount: m.battleTotalCount,
+              battleWinsCount: m.battleWinsCount,
+            }
+          : null,
+        battleStats: {
+          totalBattles: bs?.totalBattles ?? 0,
+          wins: bs?.wins ?? 0,
+          winRate: bs?.winRate ?? 0,
+        },
+      };
+    });
+
+    return {
+      profileId: p.id,
+      username: p.username,
+      followerCount,
+      trackCount: trackRows.length,
+      boostTicketBalance,
+      totals,
+      tracks: outTracks,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   async createTrack(t: any): Promise<Track> {
     const now = new Date();
     const rs = computeRankingScore({
@@ -845,6 +1049,19 @@ export class DatabaseStorage implements IStorage {
     return genres;
   }
 
+  private async getBoostMultiplierByTrackIds(trackIds: number[]): Promise<Map<number, number>> {
+    if (trackIds.length === 0) return new Map();
+    const rows = await db
+      .select({ trackId: boostStatus.trackId })
+      .from(boostStatus)
+      .where(and(eq(boostStatus.isActive, true), inArray(boostStatus.trackId, trackIds)));
+    const out = new Map<number, number>();
+    for (const row of rows) {
+      out.set(row.trackId, 3);
+    }
+    return out;
+  }
+
   async createBattle(genre: string): Promise<any | null> {
     const eligibleSql = and(
       sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
@@ -903,6 +1120,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    const boostMultiplierByTrackId = await this.getBoostMultiplierByTrackIds(pool.map((t) => t.id));
     const pools = [newPool, risingPool, chartPool];
     const startIdx = Math.floor(Math.random() * 3);
 
@@ -912,13 +1130,13 @@ export class DatabaseStorage implements IStorage {
     for (let attempt = 0; attempt < 3; attempt++) {
       const currentPool = pools[(startIdx + attempt) % 3];
       if (currentPool.length >= 2) {
-        [trackA, trackB] = weightedPickTwo(currentPool);
+        [trackA, trackB] = weightedPickTwo(currentPool, { multiplierByTrackId: boostMultiplierByTrackId });
         break;
       }
     }
 
     if (!trackA || !trackB) {
-      [trackA, trackB] = weightedPickTwo(pool);
+      [trackA, trackB] = weightedPickTwo(pool, { multiplierByTrackId: boostMultiplierByTrackId });
     }
 
     const battleGenre = (genre && genre !== "ALL") ? genre : trackA.genre;
@@ -1323,6 +1541,25 @@ export class DatabaseStorage implements IStorage {
         .where(
           and(eq(trackClaimRequests.trackId, req.trackId), ne(trackClaimRequests.id, requestId)),
         );
+      // Admin approval reward: grant 10 boost tickets to the claiming creator.
+      const [ticketRow] = await tx
+        .select()
+        .from(boostTickets)
+        .where(eq(boostTickets.userProfileId, req.requesterProfileId));
+      if (!ticketRow) {
+        await tx.insert(boostTickets).values({
+          userProfileId: req.requesterProfileId,
+          amount: 10,
+        });
+      } else {
+        await tx
+          .update(boostTickets)
+          .set({
+            amount: ticketRow.amount + 10,
+            updatedAt: new Date(),
+          })
+          .where(eq(boostTickets.userProfileId, req.requesterProfileId));
+      }
     });
     return { ok: true };
   }
@@ -1368,6 +1605,359 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tracks.id, trackId))
       .returning();
     return updated ?? null;
+  }
+
+  async getBoostTicketBalance(profileId: number): Promise<number> {
+    const [row] = await db
+      .select({ amount: boostTickets.amount })
+      .from(boostTickets)
+      .where(eq(boostTickets.userProfileId, profileId));
+    return row?.amount ?? 0;
+  }
+
+  async grantBoostTickets(profileId: number, amount: number): Promise<number> {
+    const delta = Math.max(0, Math.floor(amount));
+    if (delta <= 0) return this.getBoostTicketBalance(profileId);
+    const [existing] = await db
+      .select()
+      .from(boostTickets)
+      .where(eq(boostTickets.userProfileId, profileId));
+    if (!existing) {
+      await db.insert(boostTickets).values({
+        userProfileId: profileId,
+        amount: delta,
+      });
+      return delta;
+    }
+    const [updated] = await db
+      .update(boostTickets)
+      .set({
+        amount: existing.amount + delta,
+        updatedAt: new Date(),
+      })
+      .where(eq(boostTickets.userProfileId, profileId))
+      .returning({ amount: boostTickets.amount });
+    return updated?.amount ?? existing.amount + delta;
+  }
+
+  async checkBoostEligibility(params: {
+    ownerProfileId: number;
+    trackId: number;
+  }): Promise<{
+    eligible: boolean;
+    reason?: string;
+    cooldownUntil?: Date | null;
+    weeklyStartsUsed: number;
+    weeklyStartsMax: number;
+    hasActiveBoost: boolean;
+  }> {
+    const now = new Date();
+    const weeklyStartsMax = this.boostMaxStartsPerWeekPerTrack;
+    const [track] = await db.select().from(tracks).where(eq(tracks.id, params.trackId));
+    if (!track) {
+      return {
+        eligible: false,
+        reason: "track_not_found",
+        weeklyStartsUsed: 0,
+        weeklyStartsMax,
+        hasActiveBoost: false,
+      };
+    }
+    if (track.creatorId !== params.ownerProfileId) {
+      return {
+        eligible: false,
+        reason: "not_owner",
+        weeklyStartsUsed: 0,
+        weeklyStartsMax,
+        hasActiveBoost: false,
+      };
+    }
+
+    const weekAgo = new Date(now.getTime() - 7 * 86400000);
+    const [cntRow] = await db
+      .select({ c: count() })
+      .from(boostUsageLogs)
+      .where(
+        and(
+          eq(boostUsageLogs.ownerProfileId, params.ownerProfileId),
+          eq(boostUsageLogs.trackId, params.trackId),
+          gte(boostUsageLogs.startedAt, weekAgo),
+        ),
+      );
+    const weeklyStartsUsed = Number(cntRow?.c ?? 0);
+
+    const [active] = await db
+      .select({ id: boostUsageLogs.id })
+      .from(boostUsageLogs)
+      .where(and(eq(boostUsageLogs.trackId, params.trackId), eq(boostUsageLogs.status, "ACTIVE")));
+    const hasActiveBoost = !!active;
+
+    const [st] = await db.select().from(boostStatus).where(eq(boostStatus.trackId, params.trackId));
+    const cooldownUntil = st?.cooldownUntil ?? null;
+    const inCooldown = !!(cooldownUntil && cooldownUntil.getTime() > now.getTime());
+
+    if (hasActiveBoost) {
+      return {
+        eligible: false,
+        reason: "already_active",
+        cooldownUntil,
+        weeklyStartsUsed,
+        weeklyStartsMax,
+        hasActiveBoost: true,
+      };
+    }
+    if (inCooldown) {
+      return {
+        eligible: false,
+        reason: "cooldown_active",
+        cooldownUntil,
+        weeklyStartsUsed,
+        weeklyStartsMax,
+        hasActiveBoost: false,
+      };
+    }
+    if (weeklyStartsUsed >= weeklyStartsMax) {
+      return {
+        eligible: false,
+        reason: "weekly_limit",
+        cooldownUntil,
+        weeklyStartsUsed,
+        weeklyStartsMax,
+        hasActiveBoost: false,
+      };
+    }
+
+    return {
+      eligible: true,
+      cooldownUntil,
+      weeklyStartsUsed,
+      weeklyStartsMax,
+      hasActiveBoost: false,
+    };
+  }
+
+  async activateBoostForTrack(params: {
+    ownerProfileId: number;
+    trackId: number;
+    targetImpressions?: number;
+  }): Promise<{ ok: boolean; reason?: string; usageLogId?: number; remainingTickets?: number; cooldownUntil?: Date | null }> {
+    const target = Math.max(100, Math.floor(params.targetImpressions ?? 1000));
+    const eligibility = await this.checkBoostEligibility({
+      ownerProfileId: params.ownerProfileId,
+      trackId: params.trackId,
+    });
+    if (!eligibility.eligible) {
+      return {
+        ok: false,
+        reason: eligibility.reason,
+        cooldownUntil: eligibility.cooldownUntil ?? null,
+      };
+    }
+
+    const [ticketRow] = await db
+      .select()
+      .from(boostTickets)
+      .where(eq(boostTickets.userProfileId, params.ownerProfileId));
+    const balance = ticketRow?.amount ?? 0;
+    if (balance <= 0) return { ok: false, reason: "no_tickets" };
+
+    let usageLogId = 0;
+    await db.transaction(async (tx) => {
+      if (!ticketRow) {
+        throw new Error("BOOST_TICKET_ROW_MISSING");
+      }
+      const nextAmount = Math.max(0, ticketRow.amount - 1);
+      await tx
+        .update(boostTickets)
+        .set({ amount: nextAmount, updatedAt: new Date() })
+        .where(eq(boostTickets.userProfileId, params.ownerProfileId));
+      const [created] = await tx
+        .insert(boostUsageLogs)
+        .values({
+          trackId: params.trackId,
+          ownerProfileId: params.ownerProfileId,
+          targetImpressions: target,
+          currentImpressions: 0,
+          status: "ACTIVE",
+        })
+        .returning({ id: boostUsageLogs.id });
+      usageLogId = created.id;
+      const now = new Date();
+      await tx
+        .insert(boostStatus)
+        .values({
+          trackId: params.trackId,
+          isActive: true,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: boostStatus.trackId,
+          set: {
+            isActive: true,
+            updatedAt: now,
+          },
+        });
+    });
+    return { ok: true, usageLogId, remainingTickets: balance - 1 };
+  }
+
+  async incrementBoostImpression(params: {
+    trackId: number;
+    viewerUserId?: string | null;
+    sessionKey?: string | null;
+  }): Promise<{
+    counted: boolean;
+    active: boolean;
+    currentImpressions?: number;
+    targetImpressions?: number;
+    status?: "ACTIVE" | "COMPLETED";
+  }> {
+    const [active] = await db
+      .select()
+      .from(boostUsageLogs)
+      .where(
+        and(
+          eq(boostUsageLogs.trackId, params.trackId),
+          eq(boostUsageLogs.status, "ACTIVE"),
+        ),
+      )
+      .orderBy(desc(boostUsageLogs.startedAt))
+      .limit(1);
+    if (!active) return { counted: false, active: false };
+
+    const viewerUserId = params.viewerUserId?.trim() || null;
+    const sessionKey = params.sessionKey?.trim() || null;
+    if (!viewerUserId && !sessionKey) {
+      return {
+        counted: false,
+        active: true,
+        currentImpressions: active.currentImpressions,
+        targetImpressions: active.targetImpressions,
+        status: active.status as "ACTIVE" | "COMPLETED",
+      };
+    }
+
+    const duplicate = viewerUserId
+      ? await db
+          .select({ id: boostImpressionEvents.id })
+          .from(boostImpressionEvents)
+          .where(
+            and(
+              eq(boostImpressionEvents.usageLogId, active.id),
+              eq(boostImpressionEvents.viewerUserId, viewerUserId),
+            ),
+          )
+          .limit(1)
+      : await db
+          .select({ id: boostImpressionEvents.id })
+          .from(boostImpressionEvents)
+          .where(
+            and(
+              eq(boostImpressionEvents.usageLogId, active.id),
+              eq(boostImpressionEvents.sessionKey, sessionKey!),
+            ),
+          )
+          .limit(1);
+
+    if (duplicate.length > 0) {
+      return {
+        counted: false,
+        active: true,
+        currentImpressions: active.currentImpressions,
+        targetImpressions: active.targetImpressions,
+        status: active.status as "ACTIVE" | "COMPLETED",
+      };
+    }
+
+    const [updated] = await db.transaction(async (tx) => {
+      await tx.insert(boostImpressionEvents).values({
+        usageLogId: active.id,
+        trackId: active.trackId,
+        viewerUserId,
+        sessionKey,
+      });
+      const [row] = await tx
+        .update(boostUsageLogs)
+        .set({
+          currentImpressions: active.currentImpressions + 1,
+          status:
+            active.currentImpressions + 1 >= active.targetImpressions
+              ? "COMPLETED"
+              : "ACTIVE",
+        })
+        .where(eq(boostUsageLogs.id, active.id))
+        .returning({
+          currentImpressions: boostUsageLogs.currentImpressions,
+          targetImpressions: boostUsageLogs.targetImpressions,
+          status: boostUsageLogs.status,
+        });
+
+      const completed = row.status === "COMPLETED";
+      const now = new Date();
+      const coolUntil = new Date(now.getTime() + this.boostCooldownMs);
+      const [st] = await tx.select().from(boostStatus).where(eq(boostStatus.trackId, active.trackId));
+      const nextTotal = (st?.totalImpressions ?? 0) + 1;
+      if (!st) {
+        await tx.insert(boostStatus).values({
+          trackId: active.trackId,
+          isActive: !completed,
+          totalImpressions: nextTotal,
+          lastUsedAt: completed ? now : null,
+          cooldownUntil: completed ? coolUntil : null,
+          updatedAt: now,
+        });
+      } else {
+        await tx
+          .update(boostStatus)
+          .set({
+            totalImpressions: nextTotal,
+            isActive: !completed,
+            lastUsedAt: completed ? now : st.lastUsedAt,
+            cooldownUntil: completed ? coolUntil : st.cooldownUntil,
+            updatedAt: now,
+          })
+          .where(eq(boostStatus.trackId, active.trackId));
+      }
+
+      return [row];
+    });
+
+    return {
+      counted: true,
+      active: true,
+      currentImpressions: updated.currentImpressions,
+      targetImpressions: updated.targetImpressions,
+      status: updated.status as "ACTIVE" | "COMPLETED",
+    };
+  }
+
+  async getActiveBoostLogsForOwner(profileId: number): Promise<
+    {
+      id: number;
+      trackId: number;
+      title: string;
+      targetImpressions: number;
+      currentImpressions: number;
+      status: string;
+      startedAt: Date;
+    }[]
+  > {
+    const rows = await db
+      .select({
+        id: boostUsageLogs.id,
+        trackId: boostUsageLogs.trackId,
+        title: tracks.title,
+        targetImpressions: boostUsageLogs.targetImpressions,
+        currentImpressions: boostUsageLogs.currentImpressions,
+        status: boostUsageLogs.status,
+        startedAt: boostUsageLogs.startedAt,
+      })
+      .from(boostUsageLogs)
+      .innerJoin(tracks, eq(tracks.id, boostUsageLogs.trackId))
+      .where(eq(boostUsageLogs.ownerProfileId, profileId))
+      .orderBy(desc(boostUsageLogs.startedAt))
+      .limit(50);
+    return rows;
   }
 
   async getLatestBattleSummariesForCreatorProfile(

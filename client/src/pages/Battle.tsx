@@ -338,6 +338,7 @@ export function Battle() {
   const [showSharePopup, setShowSharePopup] = useState(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultPhaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countedImpressionsRef = useRef<Set<string>>(new Set());
 
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
     queryKey: ["/api/battles/daily-count"],
@@ -500,6 +501,28 @@ export function Battle() {
   useEffect(() => {
     warmYoutubeIframeApi();
   }, []);
+
+  useEffect(() => {
+    countedImpressionsRef.current.clear();
+  }, [battle?.id]);
+
+  useEffect(() => {
+    if (!battle) return;
+    const visibleTrackId =
+      phase === "track-a" ? battle.trackA.id : phase === "track-b" ? battle.trackB.id : null;
+    if (!visibleTrackId) return;
+    const dedupeKey = `${battle.id}:${visibleTrackId}`;
+    if (countedImpressionsRef.current.has(dedupeKey)) return;
+    countedImpressionsRef.current.add(dedupeKey);
+    void fetch("/api/boost/increment-impression", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ trackId: visibleTrackId }),
+    }).catch(() => {
+      /* best-effort exposure counter; UI must not break */
+    });
+  }, [battle, phase]);
 
   useEffect(() => {
     if (!battle) return;

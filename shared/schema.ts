@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, integer, boolean, serial, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, serial, doublePrecision, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -68,6 +68,59 @@ export const trackClaimRequests = pgTable("track_claim_requests", {
   status: text("status").default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const boostTickets = pgTable(
+  "boost_tickets",
+  {
+    id: serial("id").primaryKey(),
+    userProfileId: integer("user_profile_id").references(() => profiles.id).notNull(),
+    amount: integer("amount").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("boost_tickets_user_profile_id_unique").on(table.userProfileId)],
+);
+
+export const boostUsageLogs = pgTable("boost_usage_logs", {
+  id: serial("id").primaryKey(),
+  trackId: integer("track_id").references(() => tracks.id).notNull(),
+  ownerProfileId: integer("owner_profile_id").references(() => profiles.id).notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  targetImpressions: integer("target_impressions").default(1000).notNull(),
+  currentImpressions: integer("current_impressions").default(0).notNull(),
+  status: text("status").default("ACTIVE").notNull(), // ACTIVE | COMPLETED
+});
+
+export const boostImpressionEvents = pgTable(
+  "boost_impression_events",
+  {
+    id: serial("id").primaryKey(),
+    usageLogId: integer("usage_log_id").references(() => boostUsageLogs.id).notNull(),
+    trackId: integer("track_id").references(() => tracks.id).notNull(),
+    viewerUserId: varchar("viewer_user_id").references(() => users.id),
+    sessionKey: text("session_key"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("boost_impression_events_usage_viewer_unique").on(table.usageLogId, table.viewerUserId),
+    uniqueIndex("boost_impression_events_usage_session_unique").on(table.usageLogId, table.sessionKey),
+  ],
+);
+
+/** One row per track: cooldown, active flag, cumulative boosted impressions */
+export const boostStatus = pgTable(
+  "boost_status",
+  {
+    id: serial("id").primaryKey(),
+    trackId: integer("track_id").references(() => tracks.id).notNull(),
+    isActive: boolean("is_active").default(false).notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    cooldownUntil: timestamp("cooldown_until"),
+    totalImpressions: integer("total_impressions").default(0).notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("boost_status_track_id_unique").on(table.trackId)],
+);
 
 export const likes = pgTable("likes", {
   id: serial("id").primaryKey(),
@@ -166,6 +219,27 @@ export const tracksRelations = relations(tracks, ({ one, many }) => ({
   plays: many(trackPlays),
   metrics: one(trackMetrics, { fields: [tracks.id], references: [trackMetrics.trackId] }),
   claimRequests: many(trackClaimRequests),
+  boostUsageLogs: many(boostUsageLogs),
+  boostStatus: one(boostStatus, { fields: [tracks.id], references: [boostStatus.trackId] }),
+}));
+
+export const boostTicketsRelations = relations(boostTickets, ({ one }) => ({
+  profile: one(profiles, { fields: [boostTickets.userProfileId], references: [profiles.id] }),
+}));
+
+export const boostUsageLogsRelations = relations(boostUsageLogs, ({ one, many }) => ({
+  track: one(tracks, { fields: [boostUsageLogs.trackId], references: [tracks.id] }),
+  ownerProfile: one(profiles, { fields: [boostUsageLogs.ownerProfileId], references: [profiles.id] }),
+  impressionEvents: many(boostImpressionEvents),
+}));
+
+export const boostImpressionEventsRelations = relations(boostImpressionEvents, ({ one }) => ({
+  usageLog: one(boostUsageLogs, { fields: [boostImpressionEvents.usageLogId], references: [boostUsageLogs.id] }),
+  track: one(tracks, { fields: [boostImpressionEvents.trackId], references: [tracks.id] }),
+}));
+
+export const boostStatusRelations = relations(boostStatus, ({ one }) => ({
+  track: one(tracks, { fields: [boostStatus.trackId], references: [tracks.id] }),
 }));
 
 export const trackClaimRequestsRelations = relations(trackClaimRequests, ({ one }) => ({
@@ -216,3 +290,6 @@ export type TrackPlay = typeof trackPlays.$inferSelect;
 export type Battle = typeof battles.$inferSelect;
 export type BattleVote = typeof battleVotes.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
+export type BoostTicket = typeof boostTickets.$inferSelect;
+export type BoostUsageLog = typeof boostUsageLogs.$inferSelect;
+export type BoostStatusRow = typeof boostStatus.$inferSelect;

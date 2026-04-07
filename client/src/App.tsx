@@ -15,6 +15,7 @@ import { Home } from "@/pages/Home";
 import { Join } from "@/pages/Join";
 import { CreatorList } from "@/pages/CreatorList";
 import { ProfileMe } from "@/pages/ProfileMe";
+import { CreatorAnalytics } from "@/pages/CreatorAnalytics";
 import { ProfileDetail } from "@/pages/ProfileDetail";
 import { TrackDetail } from "@/pages/WorkDetail";
 import { MVDetail } from "@/pages/MVDetail";
@@ -49,6 +50,7 @@ function Router() {
         <Route path="/my-tracks" component={MyTracks} />
         <Route path="/profile" component={CreatorList} />
         <Route path="/profile/me" component={ProfileMe} />
+        <Route path="/profile/me/analytics" component={CreatorAnalytics} />
         <Route path="/profile/:name" component={ProfileMe} />
         <Route path="/battle" component={Battle} />
         <Route path="/rising" component={Rising} />

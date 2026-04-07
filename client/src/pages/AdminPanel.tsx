@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
-  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2,
+  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -271,6 +271,22 @@ export default function AdminPanel() {
         >
           <RefreshCw className="w-4 h-4" />
         </button>
+      </div>
+
+      <div className="mb-8 border border-primary/25 rounded-sm bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <BarChart3 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">{t("adminPanel.insightsTitle")}</p>
+            <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed max-w-xl">{t("adminPanel.insightsBody")}</p>
+          </div>
+        </div>
+        <Link
+          href="/profile/me/analytics"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-primary/90 text-black hover:brightness-110 whitespace-nowrap shrink-0"
+        >
+          {t("adminPanel.insightsCta")}
+        </Link>
       </div>
 
       {/* Creator applications */}

@@ -2,7 +2,7 @@ import { useRoute, Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, KeyRound, Send } from "lucide-react";
+import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, KeyRound, Send, Zap } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -238,6 +238,93 @@ export function TrackDetail() {
 
   const claimable = !!(track as { claimableByCreators?: boolean }).claimableByCreators;
   const trackOwnerId = (track as { creatorId?: number }).creatorId;
+  const isTrackOwner =
+    isAuthenticated &&
+    myProfile?.id != null &&
+    trackOwnerId != null &&
+    myProfile.id === trackOwnerId;
+
+  const { data: boostMe } = useQuery({
+    queryKey: ["/api/boost/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/boost/me", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json() as Promise<{
+        ticketBalance: number;
+        logs: Array<{
+          id: number;
+          trackId: number;
+          targetImpressions: number;
+          currentImpressions: number;
+          status: string;
+        }>;
+      }>;
+    },
+    enabled: isTrackOwner,
+    retry: false,
+  });
+
+  const { data: boostEligibility } = useQuery({
+    queryKey: ["/api/boost/eligibility", currentTrackId],
+    queryFn: async () => {
+      const res = await fetch(`/api/boost/eligibility?trackId=${currentTrackId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json() as Promise<{
+        eligible: boolean;
+        reason: string | null;
+        cooldownUntil: string | null;
+        weeklyStartsUsed: number;
+        weeklyStartsMax: number;
+        hasActiveBoost: boolean;
+      }>;
+    },
+    enabled: isTrackOwner && !!currentTrackId,
+    retry: false,
+  });
+
+  const [boostCooldownTick, setBoostCooldownTick] = useState(0);
+  useEffect(() => {
+    if (!boostEligibility?.cooldownUntil) return;
+    const id = window.setInterval(() => setBoostCooldownTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [boostEligibility?.cooldownUntil]);
+
+  const boostCooldownRemainingMs = useMemo(() => {
+    void boostCooldownTick;
+    if (!boostEligibility?.cooldownUntil) return 0;
+    return Math.max(0, new Date(boostEligibility.cooldownUntil).getTime() - Date.now());
+  }, [boostEligibility?.cooldownUntil, boostCooldownTick]);
+
+  const formatBoostRemaining = (ms: number) => {
+    if (ms <= 0) return "0:00:00";
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+
+  const activeBoostForTrack = boostMe?.logs?.find(
+    (l) => l.trackId === track.id && l.status === "ACTIVE",
+  );
+
+  const boostActivateMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/boost/activate", {
+        trackId: track.id,
+        targetImpressions: 1000,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Boost started", description: "This track gets extra battle exposure until impressions complete." });
+      void queryClient.invalidateQueries({ queryKey: ["/api/boost/me"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/boost/eligibility", currentTrackId] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not start boost", description: err.message, variant: "destructive" });
+    },
+  });
+
   const canClaimTrack =
     isAuthenticated &&
     user?.role === "creator" &&
@@ -330,6 +417,58 @@ export function TrackDetail() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {isTrackOwner ? (
+        <div className="rounded-sm border border-amber-500/25 bg-amber-500/5 p-4 sm:p-5 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/90 flex items-center gap-2">
+            <Zap className="w-3.5 h-3.5" /> Battle boost (your track)
+          </p>
+          {activeBoostForTrack ? (
+            <p className="text-[11px] text-zinc-300">
+              Active: {activeBoostForTrack.currentImpressions} / {activeBoostForTrack.targetImpressions} impressions.
+              When complete, a 48h cooldown applies before you can boost this track again.
+            </p>
+          ) : boostEligibility?.reason === "cooldown_active" && boostCooldownRemainingMs > 0 ? (
+            <p className="text-[11px] text-zinc-300">
+              Cooldown: <span className="font-mono text-amber-300">{formatBoostRemaining(boostCooldownRemainingMs)}</span>{" "}
+              remaining (global 48h after last run).
+            </p>
+          ) : boostEligibility?.reason === "weekly_limit" ? (
+            <p className="text-[11px] text-zinc-400">
+              Weekly boost starts used: {boostEligibility.weeklyStartsUsed} / {boostEligibility.weeklyStartsMax}. Try again
+              after older runs fall outside the rolling 7-day window.
+            </p>
+          ) : (
+            <p className="text-[11px] text-zinc-400">
+              Spend one boost ticket to increase this track&apos;s chance of appearing in battles until the impression goal
+              is reached. One active boost per track; 48h cooldown after completion.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 text-[10px] text-zinc-500 uppercase tracking-widest">
+            <span>Tickets: {boostMe?.ticketBalance ?? "—"}</span>
+            {boostEligibility ? (
+              <span>
+                This week (this track): {boostEligibility.weeklyStartsUsed}/{boostEligibility.weeklyStartsMax}
+              </span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            disabled={
+              boostActivateMutation.isPending ||
+              !!activeBoostForTrack ||
+              (boostMe?.ticketBalance ?? 0) <= 0 ||
+              boostCooldownRemainingMs > 0 ||
+              boostEligibility?.reason === "weekly_limit" ||
+              boostEligibility?.eligible === false
+            }
+            onClick={() => boostActivateMutation.mutate()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-amber-500/90 text-black hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
+          >
+            {boostActivateMutation.isPending ? "Starting…" : activeBoostForTrack ? "Boost running" : "Use 1 ticket — start boost"}
+          </button>
         </div>
       ) : null}
 

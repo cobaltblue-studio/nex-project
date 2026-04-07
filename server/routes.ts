@@ -18,6 +18,7 @@ import {
   MIN_TRACK_ARTISTIC_INTENT_CHARS,
   NEX_FOUNDER_ADMIN_EMAIL,
   ROTATION_COOLDOWN_HOURS,
+  isCreatorStudioRole,
 } from "@shared/constants";
 import { createApiAccessControl } from "./api-access";
 import {
@@ -187,6 +188,27 @@ export async function registerRoutes(
     const followerCount = await storage.getFollowerCount(p.id);
     const { userId: _uid, ...pub } = p;
     res.json({ ...pub, followerCount });
+  });
+
+  /** Creator dashboard: followers, per-track plays/likes/battles, boost tickets (snapshot — not historical charts). */
+  app.get("/api/profiles/me/analytics", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    const p = await storage.getProfileByUserId(userId);
+    if (!p) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    if (!isCreatorStudioRole(p.role)) {
+      return res.status(403).json({
+        message: apiMsg(
+          "크리에이터 또는 관리자 계정에서만 이용할 수 있습니다",
+          "Available for creator and admin accounts only",
+        ),
+      });
+    }
+    const snapshot = await storage.getCreatorAnalyticsSnapshot(p.id);
+    if (!snapshot) {
+      return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    }
+    res.json(snapshot);
   });
 
   // Create / update profile (called from the onboarding modal)
@@ -1343,6 +1365,79 @@ export async function registerRoutes(
     res.json({ count, dailyMax: MAX_BATTLE_ROUNDS });
   });
 
+  app.get("/api/boost/me", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    const profile = await storage.getProfileByUserId(userId);
+    if (!profile) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    const ticketBalance = await storage.getBoostTicketBalance(profile.id);
+    const logs = await storage.getActiveBoostLogsForOwner(profile.id);
+    res.json({
+      ticketBalance,
+      logs,
+    });
+  });
+
+  app.get("/api/boost/eligibility", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    const profile = await storage.getProfileByUserId(userId);
+    if (!profile) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    const trackId = Number(req.query?.trackId);
+    if (!Number.isFinite(trackId)) {
+      return res.status(400).json({ message: apiMsg("trackId가 필요합니다", "trackId is required") });
+    }
+    const out = await storage.checkBoostEligibility({ ownerProfileId: profile.id, trackId });
+    res.json({
+      eligible: out.eligible,
+      reason: out.reason ?? null,
+      cooldownUntil: out.cooldownUntil ? out.cooldownUntil.toISOString() : null,
+      weeklyStartsUsed: out.weeklyStartsUsed,
+      weeklyStartsMax: out.weeklyStartsMax,
+      hasActiveBoost: out.hasActiveBoost,
+    });
+  });
+
+  app.post("/api/boost/activate", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    const profile = await storage.getProfileByUserId(userId);
+    if (!profile) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
+    const trackId = Number(req.body?.trackId);
+    if (!Number.isFinite(trackId)) {
+      return res.status(400).json({ message: apiMsg("trackId가 필요합니다", "trackId is required") });
+    }
+    const out = await storage.activateBoostForTrack({
+      ownerProfileId: profile.id,
+      trackId,
+      targetImpressions: Number(req.body?.targetImpressions) || 1000,
+    });
+    if (!out.ok) {
+      const status =
+        out.reason === "no_tickets"
+          ? 402
+          : out.reason === "already_active"
+            ? 409
+            : out.reason === "cooldown_active" || out.reason === "weekly_limit"
+              ? 429
+              : 400;
+      return res.status(status).json({
+        message: apiMsg("부스터를 시작할 수 없습니다", "Could not activate boost"),
+        reason: out.reason,
+        cooldownUntil: out.cooldownUntil ? out.cooldownUntil.toISOString() : null,
+      });
+    }
+    res.json({ ok: true, usageLogId: out.usageLogId, remainingTickets: out.remainingTickets });
+  });
+
+  app.post("/api/boost/increment-impression", async (req: any, res) => {
+    const trackId = Number(req.body?.trackId);
+    if (!Number.isFinite(trackId)) {
+      return res.status(400).json({ message: apiMsg("trackId가 필요합니다", "trackId is required") });
+    }
+    const sessionKey = req.sessionID ? String(req.sessionID) : null;
+    const viewerUserId = req.user?.id ? String(req.user.id) : null;
+    const out = await storage.incrementBoostImpression({ trackId, sessionKey, viewerUserId });
+    res.json(out);
+  });
+
   // Create a new battle for a given genre
   app.post("/api/battles/new", isAuthenticated, async (req: any, res) => {
     const { genre } = req.body;
@@ -1357,16 +1452,8 @@ export async function registerRoutes(
       }
     }
 
-    let candidateTracks = await storage.getTracks({
-      genre: genre === "ALL" ? undefined : genre,
-      trackType: "audio",
-    });
-
-    if (candidateTracks.length < 2 && genre !== "ALL") {
-      candidateTracks = await storage.getTracks({ trackType: "audio" });
-    }
-
-    if (candidateTracks.length < 2) {
+    const battle = await storage.createBattle(String(genre));
+    if (!battle) {
       return res.status(409).json({
         message: apiMsg(
           "이 장르로 진행할 오디오 트랙이 부족합니다",
@@ -1375,21 +1462,6 @@ export async function registerRoutes(
       });
     }
 
-    const firstIndex = Math.floor(Math.random() * candidateTracks.length);
-    let secondIndex = Math.floor(Math.random() * (candidateTracks.length - 1));
-    if (secondIndex >= firstIndex) secondIndex += 1;
-
-    const trackA = candidateTracks[firstIndex];
-    const trackB = candidateTracks[secondIndex];
-    const battleGenre = genre !== "ALL" ? genre : trackA.genre;
-
-    const [created] = await db.insert(battles).values({
-      genre: battleGenre,
-      trackAId: trackA.id,
-      trackBId: trackB.id,
-    }).returning();
-
-    const battle = await storage.getBattle(created.id);
     res.json(sanitizeBattleForPublic(battle as Record<string, unknown>));
   });
 

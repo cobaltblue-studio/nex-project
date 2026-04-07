@@ -1,7 +1,7 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Home, Music, Disc3, LogOut, ChevronDown, Send, Swords, ShieldCheck, Users, CircleUserRound, Sparkles, Video, TrendingUp, Radio } from "lucide-react";
+import { Home, Music, Disc3, LogOut, ChevronDown, Send, Swords, ShieldCheck, Users, CircleUserRound, Sparkles, Video, TrendingUp, Radio, BarChart3 } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -88,6 +88,9 @@ export function Layout({ children }: LayoutProps) {
   });
 
   const isAdmin = user?.role === "admin";
+  /** Admin 계정도 크리에이터 인사이트(본인 스냅샷) 경로를 쓸 수 있게 노출 */
+  const showInsightsLink =
+    isAdmin || isCreatorStudioRole(user?.role) || isCreatorStudioRole(profile?.role);
   const roleLabel = isAdmin
     ? t("layout.roleAdmin")
     : isCreatorStudioRole(user?.role)
@@ -244,6 +247,20 @@ export function Layout({ children }: LayoutProps) {
                         >
                           <CircleUserRound className="w-3 h-3" />
                           {t("layout.viewProfile")}
+                        </div>
+                      </Link>
+                    )}
+                    {showInsightsLink && (
+                      <Link
+                        href="/profile/me/analytics"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <div
+                          data-testid="link-creator-analytics"
+                          className="flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-zinc-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                        >
+                          <BarChart3 className="w-3 h-3" />
+                          {t("layout.creatorAnalytics")}
                         </div>
                       </Link>
                     )}
