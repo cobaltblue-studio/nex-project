@@ -1557,6 +1557,14 @@ export async function registerRoutes(
     res.json({ isAdmin: true });
   });
 
+  app.get("/api/admin/insights", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const out = await storage.getAdminInsightsSnapshot();
+    res.json(out);
+  });
+
   // Admin: get all submitted tracks across all pipeline statuses
   app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
     if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });

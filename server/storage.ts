@@ -266,6 +266,28 @@ export interface IStorage {
     }[];
     generatedAt: string;
   } | null>;
+  getAdminInsightsSnapshot(): Promise<{
+    generatedAt: string;
+    totals: {
+      creators: number;
+      tracks: number;
+      tracksApproved: number;
+      tracksPending: number;
+      tracksChart: number;
+      plays: number;
+      likes: number;
+      listenerVotes: number;
+      battles: number;
+      battleWins: number;
+      activeBoosts: number;
+    };
+    today: {
+      newTracks: number;
+      plays: number;
+      votes: number;
+      battles: number;
+    };
+  }>;
   checkBoostEligibility(params: {
     ownerProfileId: number;
     trackId: number;
@@ -816,6 +838,79 @@ export class DatabaseStorage implements IStorage {
       totals,
       tracks: outTracks,
       generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async getAdminInsightsSnapshot() {
+    const todayStartUtc = new Date();
+    todayStartUtc.setUTCHours(0, 0, 0, 0);
+
+    const [
+      creatorsRow,
+      tracksTotalRow,
+      tracksApprovedRow,
+      tracksPendingRow,
+      tracksChartRow,
+      metricsAggRow,
+      votesTodayRow,
+      playsTodayRow,
+      battlesTodayRow,
+      newTracksTodayRow,
+    ] = await Promise.all([
+      db.select({ c: count() }).from(profiles).where(eq(profiles.role, "creator")),
+      db.select({ c: count() }).from(tracks).where(eq(tracks.isDeleted, false)),
+      db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "APPROVED"))),
+      db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "PENDING"))),
+      db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "CHART"))),
+      db
+        .select({
+          plays: sql<number>`coalesce(sum(${trackMetrics.playsCount}), 0)`,
+          likes: sql<number>`coalesce(sum(${trackMetrics.likesCount}), 0)`,
+          listenerVotes: sql<number>`coalesce(sum(${tracks.listenerVotes}), 0)`,
+          battles: sql<number>`coalesce(sum(${trackMetrics.battleTotalCount}), 0)`,
+          battleWins: sql<number>`coalesce(sum(${trackMetrics.battleWinsCount}), 0)`,
+        })
+        .from(trackMetrics)
+        .leftJoin(tracks, eq(tracks.id, trackMetrics.trackId)),
+      db.select({ c: count() }).from(votes).where(gte(votes.createdAt, todayStartUtc)),
+      db.select({ c: count() }).from(trackPlays).where(gte(trackPlays.playedAt, todayStartUtc)),
+      db.select({ c: count() }).from(battles).where(gte(battles.createdAt, todayStartUtc)),
+      db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), gte(tracks.createdAt, todayStartUtc))),
+    ]);
+
+    let activeBoosts = 0;
+    try {
+      const [activeBoostsRow] = await db
+        .select({ c: count() })
+        .from(boostStatus)
+        .where(eq(boostStatus.isActive, true));
+      activeBoosts = Number(activeBoostsRow?.c ?? 0);
+    } catch (err: any) {
+      if (err?.code !== "42P01") throw err;
+    }
+
+    const m = metricsAggRow[0];
+    return {
+      generatedAt: new Date().toISOString(),
+      totals: {
+        creators: Number(creatorsRow[0]?.c ?? 0),
+        tracks: Number(tracksTotalRow[0]?.c ?? 0),
+        tracksApproved: Number(tracksApprovedRow[0]?.c ?? 0),
+        tracksPending: Number(tracksPendingRow[0]?.c ?? 0),
+        tracksChart: Number(tracksChartRow[0]?.c ?? 0),
+        plays: Number(m?.plays ?? 0),
+        likes: Number(m?.likes ?? 0),
+        listenerVotes: Number(m?.listenerVotes ?? 0),
+        battles: Number(m?.battles ?? 0),
+        battleWins: Number(m?.battleWins ?? 0),
+        activeBoosts,
+      },
+      today: {
+        newTracks: Number(newTracksTodayRow[0]?.c ?? 0),
+        plays: Number(playsTodayRow[0]?.c ?? 0),
+        votes: Number(votesTodayRow[0]?.c ?? 0),
+        battles: Number(battlesTodayRow[0]?.c ?? 0),
+      },
     };
   }
 

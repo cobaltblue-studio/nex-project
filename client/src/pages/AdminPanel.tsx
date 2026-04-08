@@ -52,6 +52,29 @@ type TrackEditRequest = {
   createdAt: string;
 };
 
+type AdminInsights = {
+  generatedAt: string;
+  totals: {
+    creators: number;
+    tracks: number;
+    tracksApproved: number;
+    tracksPending: number;
+    tracksChart: number;
+    plays: number;
+    likes: number;
+    listenerVotes: number;
+    battles: number;
+    battleWins: number;
+    activeBoosts: number;
+  };
+  today: {
+    newTracks: number;
+    plays: number;
+    votes: number;
+    battles: number;
+  };
+};
+
 const STATUS_COLORS: Record<string, string> = {
   PENDING:     "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
   BATTLE_POOL: "text-primary   bg-primary/10   border-primary/30",
@@ -93,6 +116,17 @@ export default function AdminPanel() {
   }, [isAuthenticated, authLoading, user, setLocation]);
 
   // --- Step 2: load submissions only when confirmed admin ---
+  const {
+    data: insights,
+    isLoading: insightsLoading,
+    refetch: refetchInsights,
+  } = useQuery<AdminInsights>({
+    queryKey: ["/api/admin/insights"],
+    enabled: isAdmin,
+    retry: false,
+    staleTime: 0,
+  });
+
   const {
     data: submissions,
     isLoading: subsLoading,
@@ -260,6 +294,7 @@ export default function AdminPanel() {
         </div>
         <button
           onClick={() => {
+            void refetchInsights();
             void refetch();
             void refetchCreatorApps();
             void refetchClaimReq();
@@ -271,6 +306,42 @@ export default function AdminPanel() {
         >
           <RefreshCw className="w-4 h-4" />
         </button>
+      </div>
+
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-4">
+          <BarChart3 className="w-4 h-4 text-emerald-300" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-300">
+            Platform Insights
+          </p>
+        </div>
+        {insightsLoading || !insights ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : (
+          <>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-3">
+              Snapshot: {fmt(insights.generatedAt)}
+            </p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Creators</p><p className="text-xl font-black text-white">{insights.totals.creators}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Tracks</p><p className="text-xl font-black text-white">{insights.totals.tracks}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Approved / Chart</p><p className="text-xl font-black text-white">{insights.totals.tracksApproved} / {insights.totals.tracksChart}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Pending</p><p className="text-xl font-black text-white">{insights.totals.tracksPending}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Total Plays</p><p className="text-xl font-black text-white">{insights.totals.plays}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Likes / Votes</p><p className="text-xl font-black text-white">{insights.totals.likes} / {insights.totals.listenerVotes}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Battles / Wins</p><p className="text-xl font-black text-white">{insights.totals.battles} / {insights.totals.battleWins}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Active Boosts</p><p className="text-xl font-black text-white">{insights.totals.activeBoosts}</p></div>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today New Tracks</p><p className="text-lg font-black text-white">{insights.today.newTracks}</p></div>
+              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Plays</p><p className="text-lg font-black text-white">{insights.today.plays}</p></div>
+              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Votes</p><p className="text-lg font-black text-white">{insights.today.votes}</p></div>
+              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Battles</p><p className="text-lg font-black text-white">{insights.today.battles}</p></div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mb-8 border border-primary/25 rounded-sm bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
