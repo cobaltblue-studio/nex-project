@@ -331,6 +331,9 @@ export function Battle() {
   } | null>(null);
   const [listenedA, setListenedA] = useState(false);
   const [listenedB, setListenedB] = useState(false);
+  /** Bump to remount preview players if server sync fails so the user can retry. */
+  const [listenReplayA, setListenReplayA] = useState(0);
+  const [listenReplayB, setListenReplayB] = useState(0);
   const [showFlash, setShowFlash] = useState(false);
   const [votedId, setVotedId] = useState<number | null>(null);
   const [isVoted, setIsVoted] = useState(false);
@@ -367,6 +370,8 @@ export function Battle() {
     onSuccess: async (res: any) => {
       const data = await res.json();
       setBattle(data);
+      setListenReplayA(0);
+      setListenReplayB(0);
       setPhase("track-a");
     },
     onError: (err: Error) => {
@@ -441,11 +446,62 @@ export function Battle() {
           description: "You can only vote once per battle.",
           variant: "destructive",
         });
+      } else if (String(err?.message ?? "").includes("400")) {
+        const detail = String(err?.message ?? "").replace(/^400:\s*/, "").trim();
+        toast({
+          title: "Cannot vote yet",
+          description: detail || "Listen to both previews first.",
+          variant: "destructive",
+        });
       } else {
         toast({ title: "Vote failed", variant: "destructive" });
       }
     },
   });
+
+  const onBattleTrackAEnded = useCallback(() => {
+    if (!battle) return;
+    void (async () => {
+      try {
+        await apiRequest("POST", `/api/battles/${battle.id}/listen-complete`, {
+          trackId: battle.trackAId,
+        });
+        setListenedA(true);
+        setPhase("track-b");
+      } catch (e: any) {
+        const raw = String(e?.message ?? "").trim();
+        const detail = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
+        toast({
+          title: "Could not save listen progress",
+          description: detail || "Check your connection and try again.",
+          variant: "destructive",
+        });
+        setListenReplayA((n) => n + 1);
+      }
+    })();
+  }, [battle, toast]);
+
+  const onBattleTrackBEnded = useCallback(() => {
+    if (!battle) return;
+    void (async () => {
+      try {
+        await apiRequest("POST", `/api/battles/${battle.id}/listen-complete`, {
+          trackId: battle.trackBId,
+        });
+        setListenedB(true);
+        setPhase("vote");
+      } catch (e: any) {
+        const raw = String(e?.message ?? "").trim();
+        const detail = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
+        toast({
+          title: "Could not save listen progress",
+          description: detail || "Check your connection and try again.",
+          variant: "destructive",
+        });
+        setListenReplayB((n) => n + 1);
+      }
+    })();
+  }, [battle, toast]);
 
   const startBattle = useCallback(
     (genre: string) => {
@@ -466,6 +522,8 @@ export function Battle() {
       setPhase("loading");
       setListenedA(false);
       setListenedB(false);
+      setListenReplayA(0);
+      setListenReplayB(0);
       setIsVoted(false);
       setIsRevealed(false);
       setShowSharePopup(false);
@@ -479,6 +537,8 @@ export function Battle() {
     setVoteResult(null);
     setListenedA(false);
     setListenedB(false);
+    setListenReplayA(0);
+    setListenReplayB(0);
     setIsVoted(false);
     setIsRevealed(false);
     setShowSharePopup(false);
@@ -748,13 +808,11 @@ export function Battle() {
             })()}
             <div className="battle-stage-frame">
               <BattleTrackPlayer
+                key={`battle-${battle.id}-a-${listenReplayA}`}
                 track={battle.trackA}
                 label="Track A"
                 autoplay={true}
-                onEnded={() => {
-                  setListenedA(true);
-                  setPhase("track-b");
-                }}
+                onEnded={onBattleTrackAEnded}
               />
             </div>
           </motion.div>
@@ -782,13 +840,11 @@ export function Battle() {
           >
             <div className="battle-stage-frame">
               <BattleTrackPlayer
+                key={`battle-${battle.id}-b-${listenReplayB}`}
                 track={battle.trackB}
                 label="Track B"
                 autoplay={true}
-                onEnded={() => {
-                  setListenedB(true);
-                  setPhase("vote");
-                }}
+                onEnded={onBattleTrackBEnded}
               />
             </div>
           </motion.div>

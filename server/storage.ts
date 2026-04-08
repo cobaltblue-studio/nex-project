@@ -9,6 +9,7 @@ import {
   trackMetrics,
   battles,
   battleVotes,
+  battleListenCompletions,
   comments,
   trackClaimRequests,
   boostTickets,
@@ -164,7 +165,14 @@ export interface IStorage {
   createBattle(genre: string): Promise<any | null>;
   getBattle(id: number): Promise<any | null>;
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
-  recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }>;
+  /** Idempotent: records that `userId` finished the battle preview for `trackId` (must be track A or B). */
+  recordBattleListenComplete(battleId: number, userId: string, trackId: number): Promise<void>;
+  recordBattleVote(
+    battleId: number,
+    userId: string,
+    trackId: number,
+    opts?: { skipListenCheck?: boolean },
+  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }>;
   getRisingTracks(q?: string): Promise<any[]>;
   addComment(userId: string, trackId: number, content: string): Promise<void>;
   listTrackComments(
@@ -1441,13 +1449,55 @@ export class DatabaseStorage implements IStorage {
     return !!r;
   }
 
-  async recordBattleVote(battleId: number, userId: string, trackId: number): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }> {
-    const already = await this.hasBattleVoted(battleId, userId);
-    if (already) throw new Error("ALREADY_VOTED");
-
+  async recordBattleListenComplete(battleId: number, userId: string, trackId: number): Promise<void> {
     const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
     if (!battle) throw new Error("BATTLE_NOT_FOUND");
+    if (trackId !== battle.trackAId && trackId !== battle.trackBId) throw new Error("TRACK_NOT_IN_BATTLE");
+    await db
+      .insert(battleListenCompletions)
+      .values({ battleId, userId, trackId })
+      .onConflictDoNothing({
+        target: [battleListenCompletions.userId, battleListenCompletions.battleId, battleListenCompletions.trackId],
+      });
+  }
+
+  private async assertBothBattleTracksListened(battle: Battle, userId: string): Promise<void> {
+    const rows = await db
+      .select({ trackId: battleListenCompletions.trackId })
+      .from(battleListenCompletions)
+      .where(
+        and(
+          eq(battleListenCompletions.battleId, battle.id),
+          eq(battleListenCompletions.userId, userId),
+          inArray(battleListenCompletions.trackId, [battle.trackAId, battle.trackBId]),
+        ),
+      );
+    const heard = new Set(rows.map((r) => r.trackId));
+    if (!heard.has(battle.trackAId) || !heard.has(battle.trackBId)) {
+      throw new Error("BATTLE_LISTEN_INCOMPLETE");
+    }
+  }
+
+  async recordBattleVote(
+    battleId: number,
+    userId: string,
+    trackId: number,
+    opts?: { skipListenCheck?: boolean },
+  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }> {
+    const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
+    if (!battle) throw new Error("BATTLE_NOT_FOUND");
+
+    if (!opts?.skipListenCheck) {
+      await this.assertBothBattleTracksListened(battle, userId);
+    }
+
+    const already = await this.hasBattleVoted(battleId, userId);
+    if (already) throw new Error("ALREADY_VOTED");
     const prevWinnerId = battle.winnerId;
+
+    if (trackId !== battle.trackAId && trackId !== battle.trackBId) {
+      throw new Error("TRACK_NOT_IN_BATTLE");
+    }
 
     // Record vote
     await db.insert(battleVotes).values({ battleId, userId, trackId });

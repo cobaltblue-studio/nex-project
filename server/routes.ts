@@ -1472,6 +1472,25 @@ export async function registerRoutes(
     res.json(sanitizeBattleForPublic(battle as Record<string, unknown>));
   });
 
+  // After finishing a battle track preview (client-enforced duration); server records eligibility to vote.
+  app.post("/api/battles/:id/listen-complete", isAuthenticated, async (req: any, res) => {
+    const battleId = Number(req.params.id);
+    const { trackId } = req.body;
+    if (!trackId) {
+      return res.status(400).json({ message: apiMsg("trackId가 필요합니다", "trackId is required") });
+    }
+    try {
+      await storage.recordBattleListenComplete(battleId, getUserId(req), Number(trackId));
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err?.message === "BATTLE_NOT_FOUND")
+        return res.status(404).json({ message: apiMsg("배틀을 찾을 수 없습니다", "Battle not found") });
+      if (err?.message === "TRACK_NOT_IN_BATTLE")
+        return res.status(400).json({ message: apiMsg("이 배틀의 곡이 아닙니다", "Track is not in this battle") });
+      throw err;
+    }
+  });
+
   // Vote in a battle
   app.post("/api/battles/:id/vote", isAuthenticated, async (req: any, res) => {
     const battleId = Number(req.params.id);
@@ -1479,7 +1498,8 @@ export async function registerRoutes(
     if (!trackId) return res.status(400).json({ message: apiMsg("trackId가 필요합니다", "trackId is required") });
     try {
       const userId = getUserId(req);
-      if (!(await canBypassVoteLimits(req))) {
+      const bypass = await canBypassVoteLimits(req);
+      if (!bypass) {
         const used = await storage.getDailyBattleVoteCount(userId);
         if (used >= MAX_BATTLE_ROUNDS) {
           return res.status(429).json({
@@ -1487,10 +1507,10 @@ export async function registerRoutes(
         });
         }
       }
-      if (await canBypassVoteLimits(req)) {
+      if (bypass) {
         await db.delete(battleVotes).where(and(eq(battleVotes.userId, userId), eq(battleVotes.battleId, battleId)));
       }
-      const result = await storage.recordBattleVote(battleId, userId, Number(trackId));
+      const result = await storage.recordBattleVote(battleId, userId, Number(trackId), { skipListenCheck: bypass });
       res.json(result);
     } catch (err: any) {
       if (err?.message === "ALREADY_VOTED")
@@ -1499,6 +1519,15 @@ export async function registerRoutes(
         });
       if (err?.message === "BATTLE_NOT_FOUND")
         return res.status(404).json({ message: apiMsg("배틀을 찾을 수 없습니다", "Battle not found") });
+      if (err?.message === "BATTLE_LISTEN_INCOMPLETE")
+        return res.status(400).json({
+          message: apiMsg(
+            "양쪽 트랙 프리뷰를 모두 들은 뒤 투표할 수 있습니다",
+            "Listen to both tracks before voting",
+          ),
+        });
+      if (err?.message === "TRACK_NOT_IN_BATTLE")
+        return res.status(400).json({ message: apiMsg("이 배틀의 곡이 아닙니다", "Track is not in this battle") });
       throw err;
     }
   });
@@ -1514,7 +1543,8 @@ export async function registerRoutes(
       const parsedBattleId = Number(battleId);
       const parsedTrackId = Number(trackId);
       const userId = getUserId(req);
-      if (!(await canBypassVoteLimits(req))) {
+      const bypass = await canBypassVoteLimits(req);
+      if (!bypass) {
         const used = await storage.getDailyBattleVoteCount(userId);
         if (used >= MAX_BATTLE_ROUNDS) {
           return res.status(429).json({
@@ -1522,10 +1552,10 @@ export async function registerRoutes(
         });
         }
       }
-      if (await canBypassVoteLimits(req)) {
+      if (bypass) {
         await db.delete(battleVotes).where(and(eq(battleVotes.userId, userId), eq(battleVotes.battleId, parsedBattleId)));
       }
-      const result = await storage.recordBattleVote(parsedBattleId, userId, parsedTrackId);
+      const result = await storage.recordBattleVote(parsedBattleId, userId, parsedTrackId, { skipListenCheck: bypass });
       res.json(result);
     } catch (err: any) {
       if (err?.message === "ALREADY_VOTED")
@@ -1534,6 +1564,15 @@ export async function registerRoutes(
         });
       if (err?.message === "BATTLE_NOT_FOUND")
         return res.status(404).json({ message: apiMsg("배틀을 찾을 수 없습니다", "Battle not found") });
+      if (err?.message === "BATTLE_LISTEN_INCOMPLETE")
+        return res.status(400).json({
+          message: apiMsg(
+            "양쪽 트랙 프리뷰를 모두 들은 뒤 투표할 수 있습니다",
+            "Listen to both tracks before voting",
+          ),
+        });
+      if (err?.message === "TRACK_NOT_IN_BATTLE")
+        return res.status(400).json({ message: apiMsg("이 배틀의 곡이 아닙니다", "Track is not in this battle") });
       throw err;
     }
   });

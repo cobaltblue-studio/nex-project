@@ -187,6 +187,19 @@ export const battleVotes = pgTable("battle_votes", {
   votedAt: timestamp("voted_at").defaultNow().notNull(),
 });
 
+/** Server-side proof that a user finished the battle preview for a given track (before voting). */
+export const battleListenCompletions = pgTable(
+  "battle_listen_completions",
+  {
+    id: serial("id").primaryKey(),
+    battleId: integer("battle_id").references(() => battles.id).notNull(),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    trackId: integer("track_id").references(() => tracks.id).notNull(),
+    completedAt: timestamp("completed_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("battle_listen_user_battle_track_unique").on(t.userId, t.battleId, t.trackId)],
+);
+
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -200,10 +213,15 @@ export const battlesRelations = relations(battles, ({ one, many }) => ({
   trackB: one(tracks, { fields: [battles.trackBId], references: [tracks.id] }),
   winner: one(tracks, { fields: [battles.winnerId], references: [tracks.id] }),
   votes: many(battleVotes),
+  listenCompletions: many(battleListenCompletions),
 }));
 
 export const battleVotesRelations = relations(battleVotes, ({ one }) => ({
   battle: one(battles, { fields: [battleVotes.battleId], references: [battles.id] }),
+}));
+
+export const battleListenCompletionsRelations = relations(battleListenCompletions, ({ one }) => ({
+  battle: one(battles, { fields: [battleListenCompletions.battleId], references: [battles.id] }),
 }));
 
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
