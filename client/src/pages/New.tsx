@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Clock, Loader2, Dna, Search } from "lucide-react";
+import { Clock, Loader2, Search } from "lucide-react";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
@@ -149,7 +149,7 @@ export function New() {
 
                 <div className="min-w-0 flex-1">
                   <p
-                    className="text-[0.65rem] sm:text-[0.7rem] font-bold text-white uppercase tracking-wider truncate leading-tight"
+                    className="text-[0.68rem] sm:text-[0.75rem] font-bold text-white tracking-wide line-clamp-2 leading-tight break-words"
                     data-testid={`text-new-track-title-${track.id}`}
                   >
                     {track.title}
@@ -165,39 +165,10 @@ export function New() {
                       {track.genre}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 mt-1.5 md:hidden">
-                    <div className="relative group/dna shrink-0">
-                      <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm flex items-center gap-1">
-                        <Dna className="w-3 h-3 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
-                        <span className="text-[7px] font-mono font-bold text-cyan-400 uppercase tracking-wider">[AI_DNA]</span>
-                      </button>
-                      <div className="absolute bottom-full left-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                        <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white"
-                          style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,128,0.4)", boxShadow: "0 0 12px rgba(0,255,128,0.15)" }}>
-                          <p>{track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 sm:gap-4 shrink-0 ml-auto">
-                <div className="hidden md:flex items-center gap-2">
-                  <div className="relative group/dna shrink-0">
-                    <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm flex items-center gap-1" data-testid={`badge-ai-dna-${track.id}`}>
-                      <Dna className="w-3 h-3 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
-                      <span className="text-[7px] font-mono font-bold text-cyan-400 uppercase tracking-wider">[AI_DNA]</span>
-                    </button>
-                    <div className="absolute bottom-full right-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                      <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white max-w-[min(90vw,280px)]"
-                        style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,128,0.4)", boxShadow: "0 0 12px rgba(0,190,255,0.15)" }}>
-                        <p>{track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="hidden sm:flex flex-col items-end text-right min-w-[52px]">
                   <p className="text-xs font-bold text-zinc-300">{(track.playCount ?? 0).toLocaleString()}</p>
                   <p className="text-[7px] uppercase tracking-widest text-zinc-600">Plays</p>

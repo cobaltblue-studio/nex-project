@@ -1,12 +1,7 @@
 import { motion } from "framer-motion";
 import type { Profile, Track } from "@shared/schema";
-import { Play, Youtube, Dna } from "lucide-react";
+import { Play, Youtube } from "lucide-react";
 import { Link } from "wouter";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface WorkCardProps {
   work: Track & { creator: Profile };
@@ -25,17 +20,6 @@ export function WorkCard({ work, index }: WorkCardProps) {
         <div className="flex items-center gap-6 flex-1 min-w-0">
           <div className="w-12 h-12 bg-zinc-900 rounded-sm flex items-center justify-center flex-shrink-0 group-hover:bg-primary/10 transition-colors relative">
             <Play className="w-5 h-5 text-zinc-700 group-hover:text-primary group-hover:scale-110 transition-all" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1 py-0.5 bg-black/70 border border-primary/20 rounded-sm text-[7px] font-bold uppercase tracking-wider text-primary/80 cursor-default backdrop-blur-sm" data-testid={`badge-ai-dna-${work.id}`}>
-                  <Dna className="w-2.5 h-2.5" />
-                  AI DNA
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="font-mono text-[10px] text-white" style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
-                {work.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}
-              </TooltipContent>
-            </Tooltip>
           </div>
           
           <div className="flex-1 min-w-0">

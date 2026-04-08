@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Video, Loader2, Dna, Search } from "lucide-react";
+import { Video, Loader2, Search } from "lucide-react";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
@@ -163,22 +163,11 @@ export function MusicVideo() {
                     <div className="min-w-0 flex-1 py-0.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p
-                          className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider truncate"
+                          className="text-xs sm:text-sm font-bold text-white tracking-wide line-clamp-2 leading-tight break-words"
                           data-testid={`text-mv-title-${track.id}`}
                         >
                           {track.title}
                         </p>
-                        <div className="relative group/dna shrink-0">
-                          <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm" data-testid={`icon-mv-dna-${track.id}`}>
-                            <Dna className="w-3.5 h-3.5 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
-                          </button>
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap"
-                              style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,200,0.4)", boxShadow: "0 0 12px rgba(0,255,200,0.15)" }}>
-                              <p className="text-cyan-300">[MODEL: NEX_LYRIA] [SEED: 7721] [STYLE: AI_SOUL]</p>
-                            </div>
-                          </div>
-                        </div>
                       </div>
                       <span
                         className="text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate block mt-0.5"

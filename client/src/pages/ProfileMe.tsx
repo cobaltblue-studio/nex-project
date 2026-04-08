@@ -142,6 +142,7 @@ export function ProfileMe() {
   const totalVotes = creatorTracks.reduce((acc, t) => acc + (t.votes || 0), 0);
   const totalLikes = creatorTracks.reduce((acc, t) => acc + (t.likesCount || 0), 0);
   const totalPlays = creatorTracks.reduce((acc, t) => acc + (t.playsCount || t.playCount || 0), 0);
+  const totalBattleWins = creatorTracks.reduce((acc, t) => acc + (t.wins || 0), 0);
   // Phase 4: creator profile cards should no longer surface historic Music Chart rank.
   const bestRank: number | null = null;
 
@@ -429,7 +430,7 @@ export function ProfileMe() {
       )}
 
       {/* STATS GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
         <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm space-y-2 text-center">
           <div className="flex justify-center mb-1"><Music className="w-4 h-4 text-primary/60" /></div>
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">TRACKS</p>
@@ -454,6 +455,11 @@ export function ProfileMe() {
           <div className="flex justify-center mb-1"><Users className="w-4 h-4 text-primary/60" /></div>
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">FOLLOWERS</p>
           <p className="text-3xl font-display font-bold text-primary">{followerCount}</p>
+        </div>
+        <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm space-y-2 text-center">
+          <div className="flex justify-center mb-1"><Zap className="w-4 h-4 text-primary/60" /></div>
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">BATTLE WINS</p>
+          <p className="text-3xl font-display font-bold text-primary">{totalBattleWins}</p>
         </div>
         <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm space-y-2 text-center">
           <div className="flex justify-center mb-1"><Trophy className="w-4 h-4 text-primary/60" /></div>
@@ -582,6 +588,7 @@ export function ProfileMe() {
                         <p className="text-[11px] font-bold text-white">{track.votes} <span className="text-[9px] text-zinc-600">votes</span></p>
                         <p className="text-[11px] font-bold text-white">{track.likesCount ?? 0} <span className="text-[9px] text-zinc-600">likes</span></p>
                         <p className="text-[11px] font-bold text-white">{track.playsCount ?? track.playCount ?? 0} <span className="text-[9px] text-zinc-600">plays</span></p>
+                        <p className="text-[11px] font-bold text-white">{track.wins ?? 0} <span className="text-[9px] text-zinc-600">wins</span></p>
                       </div>
                     </motion.div>
                   </Link>

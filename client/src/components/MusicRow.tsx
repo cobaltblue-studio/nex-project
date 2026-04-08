@@ -6,11 +6,6 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface MusicRowProps {
   track: any;
@@ -102,14 +97,6 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
             {track.aiTool}
           </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wider cursor-default" style={{ color: "#00FF80" }} data-testid={`badge-ai-dna-${track.id}`}>[AI_DNA]</span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="font-mono text-[10px] text-white" style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
-              {track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}
-            </TooltipContent>
-          </Tooltip>
           {track.winStreak > 0 && (
             <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] border border-orange-500/20" data-testid={`text-streak-${track.id}`}>
               🔥 WIN STREAK: {track.winStreak}
@@ -123,14 +110,6 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           <span className="px-1 py-0.5 bg-white/5 rounded-xs text-[7px] border border-white/10 shrink-0">
             {track.aiTool}
           </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="px-0.5 text-[6px] font-mono font-bold uppercase tracking-wider cursor-default shrink-0" style={{ color: "#00FF80" }} data-testid={`badge-ai-dna-mobile-${track.id}`}>[AI_DNA]</span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="font-mono text-[10px] text-white" style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
-              {track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}
-            </TooltipContent>
-          </Tooltip>
           {track.winStreak > 0 && (
             <span className="px-1 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[6px] border border-orange-500/20 shrink-0" data-testid={`text-streak-mobile-${track.id}`}>
               🔥 {track.winStreak}

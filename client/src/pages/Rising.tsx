@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, Loader2, Flame, Clock, Dna, Search } from "lucide-react";
+import { TrendingUp, Loader2, Flame, Clock, Search } from "lucide-react";
 import { Link } from "wouter";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
@@ -152,7 +152,7 @@ export function Rising() {
                 </button>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.65rem] sm:text-sm font-bold text-white uppercase tracking-wider truncate" data-testid={`text-rising-title-${track.id}`}>
+                  <p className="text-[0.68rem] sm:text-[0.75rem] font-bold text-white tracking-wide line-clamp-2 leading-tight break-words" data-testid={`text-rising-title-${track.id}`}>
                     {track.title}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -167,20 +167,6 @@ export function Rising() {
               </div>
 
               <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto">
-                <div className="hidden md:flex items-center gap-2">
-                  <div className="relative group/dna shrink-0">
-                    <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm flex items-center gap-1">
-                      <Dna className="w-3 h-3 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
-                    </button>
-                    <div className="absolute bottom-full right-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                      <div className="px-3 py-2.5 rounded-md font-mono text-[9px] text-white max-w-[240px]"
-                        style={{ background: "rgba(0,0,0,0.9)", border: "1px solid rgba(0,255,128,0.4)" }}>
-                        {track.aiPrompt || "[AI_DNA]"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="flex flex-col items-end text-right min-w-[52px]">
                   <p className="text-xs sm:text-sm font-bold text-zinc-100" data-testid={`text-rising-plays-${track.id}`}>
                     {(track.playCount ?? 0).toLocaleString()}

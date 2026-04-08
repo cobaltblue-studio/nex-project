@@ -181,6 +181,9 @@ function TrackSocialActions({
   const likeMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/tracks/${trackId}/like`, {}),
     onSuccess: () => {
+      invalidateTrackQueries(trackId);
+      void queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
       toast({ title: "Liked", description: " saved to your picks." });
     },
     onError: () => {
@@ -457,7 +460,7 @@ export function TrackAdminActions({ track, compact, deleteRedirectTo = null, onC
   });
 
   const showManageTools = isAuthenticated && isAdmin;
-  const showRequestEdit = isAuthenticated && !isAdmin && !profileLoading && isOwner;
+  const showRequestEdit = isAuthenticated && !isAdmin && !profileLoading && isOwner && !compact;
   const showCreatorIntentEdit = showRequestEdit;
 
   const editCount = track.aiPromptEditCount ?? 0;

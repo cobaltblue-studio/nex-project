@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Music as MusicIcon, Loader2, Crown, Star, TrendingUp, Dna, Search } from "lucide-react";
+import { Music as MusicIcon, Loader2, Crown, Star, TrendingUp, Search } from "lucide-react";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
@@ -197,7 +197,7 @@ export function Music() {
 
                       <div className="min-w-0 flex-1">
                         <p
-                          className="text-[0.6rem] sm:text-[0.65rem] font-bold text-white uppercase tracking-wider truncate leading-tight"
+                          className="text-[0.66rem] sm:text-[0.72rem] font-bold text-white tracking-wide line-clamp-2 leading-tight break-words"
                           data-testid={`text-chart-title-${track.id}`}
                         >
                           {track.title}
@@ -226,18 +226,6 @@ export function Music() {
                         <span className="text-[7px] text-zinc-700 uppercase tracking-[0.2em] border border-white/5 px-1 py-0.5 rounded-xs">
                           {track.genre}
                         </span>
-                        <div className="relative group/dna shrink-0">
-                          <button type="button" aria-label="AI DNA info" className="focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 rounded-sm flex items-center gap-1" data-testid={`icon-dna-${track.id}`}>
-                            <Dna className="w-3 h-3 text-cyan-400" style={{ filter: "drop-shadow(0 0 4px rgba(0,255,200,0.6))" }} />
-                            <span className="text-[7px] font-mono font-bold text-cyan-400 uppercase tracking-wider">[AI_DNA]</span>
-                          </button>
-                          <div className="absolute bottom-full right-0 mb-2 hidden group-hover/dna:block group-focus-within/dna:block z-50 pointer-events-none" role="tooltip">
-                            <div className="px-3 py-2.5 rounded-md font-mono text-[9px] leading-relaxed whitespace-nowrap text-white max-w-[min(90vw,280px)]"
-                              style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,255,128,0.4)", boxShadow: "0 0 12px rgba(0,255,128,0.15)" }}>
-                              <p>{track.aiPrompt || "[RAW_DATA_SYNCED | SEED: 7721]"}</p>
-                            </div>
-                          </div>
-                        </div>
                         {track.winStreak > 0 && (
                           <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[7px] font-bold border border-orange-500/20" data-testid={`text-chart-streak-${track.id}`}>
                             🔥 {track.winStreak}
