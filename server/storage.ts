@@ -1051,10 +1051,17 @@ export class DatabaseStorage implements IStorage {
 
   private async getBoostMultiplierByTrackIds(trackIds: number[]): Promise<Map<number, number>> {
     if (trackIds.length === 0) return new Map();
-    const rows = await db
-      .select({ trackId: boostStatus.trackId })
-      .from(boostStatus)
-      .where(and(eq(boostStatus.isActive, true), inArray(boostStatus.trackId, trackIds)));
+    let rows: { trackId: number }[] = [];
+    try {
+      rows = await db
+        .select({ trackId: boostStatus.trackId })
+        .from(boostStatus)
+        .where(and(eq(boostStatus.isActive, true), inArray(boostStatus.trackId, trackIds)));
+    } catch (err: any) {
+      // Fallback for environments where boost_status migration is not applied yet.
+      if (err?.code === "42P01") return new Map();
+      throw err;
+    }
     const out = new Map<number, number>();
     for (const row of rows) {
       out.set(row.trackId, 3);
