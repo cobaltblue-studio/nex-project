@@ -353,6 +353,8 @@ export async function registerRoutes(
         aiCraftScore: t.aiCraftScore,
         neoScore: t.neoScore,
         playCount: t.playCount,
+        playsCount: t.playsCount ?? t.playCount ?? 0,
+        likesCount: t.likesCount ?? 0,
         rankingScore: t.rankingScore,
         trackType: t.trackType,
         status: t.status,

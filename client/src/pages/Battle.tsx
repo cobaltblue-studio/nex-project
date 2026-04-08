@@ -253,14 +253,16 @@ function BattleTrackPlayer({
       <span className="battle-preview-label md:hidden text-zinc-600 uppercase">
         (20S PREVIEW)
       </span>
-      <div className={`border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium battle-player-container ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "32vh" }}>
+      <div className={`relative border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium battle-player-container ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "32vh" }}>
         {ytId ? (
-          <YoutubePlayer
-            videoId={ytId}
-            autoplay={autoplay}
-            battleMode={true}
-            onEnded={onEnded}
-          />
+          <div className="w-full h-full pointer-events-none select-none">
+            <YoutubePlayer
+              videoId={ytId}
+              autoplay={autoplay}
+              battleMode={true}
+              onEnded={onEnded}
+            />
+          </div>
         ) : isDirectAudio ? (
           <div className="w-full aspect-[21/9] flex items-center justify-center bg-black/60" style={{ maxHeight: "32vh" }}>
             <audio
@@ -288,7 +290,7 @@ function BattleTrackPlayer({
                 <iframe
                   key={battleIframeSrc}
                   src={battleIframeSrc}
-                  className="w-full h-full min-h-[120px]"
+                  className="w-full h-full min-h-[120px] pointer-events-none"
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   allowFullScreen
                   title={track.title}
@@ -307,6 +309,11 @@ function BattleTrackPlayer({
             <Music2 className="w-8 h-8" />
           </div>
         )}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 backdrop-blur-md">
+          <span className="rounded-md border border-primary/35 bg-black/40 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.25em] text-primary/90">
+            Blind Preview
+          </span>
+        </div>
       </div>
       <PreviewProgressBar active={autoplay} />
     </div>

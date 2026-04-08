@@ -746,12 +746,18 @@ export class DatabaseStorage implements IStorage {
 
   async getTracksByCreator(creatorId: number): Promise<any[]> {
     const results = await db
-      .select({ track: tracks, creator: profiles })
+      .select({ track: tracks, creator: profiles, metrics: trackMetrics })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
       .where(and(eq(tracks.creatorId, creatorId), eq(tracks.isDeleted, false)))
       .orderBy(desc(tracks.rankingScore));
-    return results.map(r => ({ ...r.track, creator: r.creator }));
+    return results.map((r) => ({
+      ...r.track,
+      creator: r.creator,
+      likesCount: r.metrics?.likesCount ?? 0,
+      playsCount: r.metrics?.playsCount ?? r.track.playCount ?? 0,
+    }));
   }
 
   async getCreatorAnalyticsSnapshot(profileId: number) {

@@ -140,6 +140,8 @@ export function ProfileMe() {
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
 
   const totalVotes = creatorTracks.reduce((acc, t) => acc + (t.votes || 0), 0);
+  const totalLikes = creatorTracks.reduce((acc, t) => acc + (t.likesCount || 0), 0);
+  const totalPlays = creatorTracks.reduce((acc, t) => acc + (t.playsCount || t.playCount || 0), 0);
   // Phase 4: creator profile cards should no longer surface historic Music Chart rank.
   const bestRank: number | null = null;
 
@@ -427,7 +429,7 @@ export function ProfileMe() {
       )}
 
       {/* STATS GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm space-y-2 text-center">
           <div className="flex justify-center mb-1"><Music className="w-4 h-4 text-primary/60" /></div>
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">TRACKS</p>
@@ -437,6 +439,16 @@ export function ProfileMe() {
           <div className="flex justify-center mb-1"><TrendingUp className="w-4 h-4 text-primary/60" /></div>
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">TOTAL VOTES</p>
           <p className="text-3xl font-display font-bold text-primary">{totalVotes}</p>
+        </div>
+        <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm space-y-2 text-center">
+          <div className="flex justify-center mb-1"><Heart className="w-4 h-4 text-primary/60" /></div>
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">TOTAL LIKES</p>
+          <p className="text-3xl font-display font-bold text-primary">{totalLikes}</p>
+        </div>
+        <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm space-y-2 text-center">
+          <div className="flex justify-center mb-1"><TrendingUp className="w-4 h-4 text-primary/60" /></div>
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">TOTAL PLAYS</p>
+          <p className="text-3xl font-display font-bold text-primary">{totalPlays}</p>
         </div>
         <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm space-y-2 text-center">
           <div className="flex justify-center mb-1"><Users className="w-4 h-4 text-primary/60" /></div>
@@ -566,9 +578,10 @@ export function ProfileMe() {
                           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">{track.aiTool} · {track.genre}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-white">{track.votes}</p>
-                        <p className="text-[10px] text-zinc-600 uppercase tracking-widest">VOTES</p>
+                      <div className="text-right space-y-0.5">
+                        <p className="text-[11px] font-bold text-white">{track.votes} <span className="text-[9px] text-zinc-600">votes</span></p>
+                        <p className="text-[11px] font-bold text-white">{track.likesCount ?? 0} <span className="text-[9px] text-zinc-600">likes</span></p>
+                        <p className="text-[11px] font-bold text-white">{track.playsCount ?? track.playCount ?? 0} <span className="text-[9px] text-zinc-600">plays</span></p>
                       </div>
                     </motion.div>
                   </Link>

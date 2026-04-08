@@ -214,30 +214,8 @@ export function TrackDetail() {
     }
   };
 
-  if (isTrackLoading) {
-    return (
-      <div className="p-20 flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-primary/60">Loading Neural Data...</p>
-      </div>
-    );
-  }
-
-  if (!track) {
-    return (
-      <div className="p-20 text-center space-y-6">
-        <div className="font-display text-2xl uppercase tracking-widest text-zinc-500 border border-white/5 border-dashed p-12">
-          Track Not Found
-        </div>
-        <Link href="/music" className="inline-block text-primary font-bold uppercase tracking-widest hover:underline">
-          Return to Music Board
-        </Link>
-      </div>
-    );
-  }
-
-  const claimable = !!(track as { claimableByCreators?: boolean }).claimableByCreators;
-  const trackOwnerId = (track as { creatorId?: number }).creatorId;
+  const claimable = !!(track as { claimableByCreators?: boolean } | null)?.claimableByCreators;
+  const trackOwnerId = (track as { creatorId?: number } | null)?.creatorId;
   const isTrackOwner =
     isAuthenticated &&
     myProfile?.id != null &&
@@ -305,13 +283,13 @@ export function TrackDetail() {
   };
 
   const activeBoostForTrack = boostMe?.logs?.find(
-    (l) => l.trackId === track.id && l.status === "ACTIVE",
+    (l) => l.trackId === currentTrackId && l.status === "ACTIVE",
   );
 
   const boostActivateMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/boost/activate", {
-        trackId: track.id,
+        trackId: currentTrackId,
         targetImpressions: 1000,
       });
     },
@@ -333,10 +311,10 @@ export function TrackDetail() {
     trackOwnerId != null &&
     myProfile.id !== trackOwnerId;
 
-  const mvYtId = extractYoutubeId(track.mvUrl);
-  const audioYtId = extractYoutubeId(track.audioUrl);
+  const mvYtId = extractYoutubeId(track?.mvUrl);
+  const audioYtId = extractYoutubeId(track?.audioUrl);
   const ytId = mvYtId || audioYtId;
-  const isWidePlayer = !!(mvYtId || (track.mvUrl?.trim() && !mvYtId));
+  const isWidePlayer = !!(mvYtId || (track?.mvUrl?.trim() && !mvYtId));
   const embedKind = classifyStreamingSource(rawForStreaming ?? undefined);
   const iframeFrameClass =
     embedKind === "soundcloud"
@@ -348,19 +326,49 @@ export function TrackDetail() {
           : "aspect-square";
 
   const adminTrack = {
-    id: track.id,
-    creatorId: (track as { creatorId?: number }).creatorId,
-    title: track.title,
-    creatorName: (track as { artistName?: string | null }).artistName || track.creatorName,
-    genre: track.genre,
-    coverImageUrl: track.coverImageUrl,
-    audioUrl: track.audioUrl,
-    mvUrl: track.mvUrl ?? null,
-    trackType: track.trackType ?? "audio",
-    aiPrompt: (track as { aiPrompt?: string | null }).aiPrompt ?? null,
-    aiPromptEditCount: (track as { aiPromptEditCount?: number }).aiPromptEditCount ?? 0,
-    aiPromptLastEditedAt: (track as { aiPromptLastEditedAt?: string | null }).aiPromptLastEditedAt ?? null,
+    id: track?.id ?? currentTrackId,
+    creatorId: (track as { creatorId?: number } | null)?.creatorId,
+    title: track?.title ?? "",
+    creatorName: (track as { artistName?: string | null } | null)?.artistName || track?.creatorName || "",
+    genre: track?.genre ?? "",
+    coverImageUrl: track?.coverImageUrl ?? null,
+    audioUrl: track?.audioUrl ?? "",
+    mvUrl: track?.mvUrl ?? null,
+    trackType: track?.trackType ?? "audio",
+    aiPrompt: (track as { aiPrompt?: string | null } | null)?.aiPrompt ?? null,
+    aiPromptEditCount: (track as { aiPromptEditCount?: number } | null)?.aiPromptEditCount ?? 0,
+    aiPromptLastEditedAt: (track as { aiPromptLastEditedAt?: string | null } | null)?.aiPromptLastEditedAt ?? null,
   };
+
+  const creatorProfileSlug = (() => {
+    const fromCreator = (trackData as { creator?: { username?: string } } | null)?.creator?.username;
+    if (typeof fromCreator === "string" && fromCreator.trim()) return fromCreator.trim();
+    const fromName = track?.creatorName;
+    if (typeof fromName === "string" && fromName.trim()) return fromName.trim().toLowerCase();
+    return "unknown";
+  })();
+
+  if (isTrackLoading) {
+    return (
+      <div className="p-20 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-primary/60">Loading Neural Data...</p>
+      </div>
+    );
+  }
+
+  if (!track) {
+    return (
+      <div className="p-20 text-center space-y-6">
+        <div className="font-display text-2xl uppercase tracking-widest text-zinc-500 border border-white/5 border-dashed p-12">
+          Track Not Found
+        </div>
+        <Link href="/music" className="inline-block text-primary font-bold uppercase tracking-widest hover:underline">
+          Return to Music Board
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
@@ -584,7 +592,7 @@ export function TrackDetail() {
                 <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none neon-text-strong neon-text-green">
                   {track.title}
                 </h1>
-                <Link href={`/profile/${track.creatorName.toLowerCase()}`}>
+                <Link href={`/profile/${encodeURIComponent(creatorProfileSlug)}`}>
                   <p className="text-primary font-bold uppercase tracking-[0.4em] cursor-pointer hover:text-white transition-colors mt-4" style={{ fontSize: "10px" }}>
                     BY {track.creatorName}
                   </p>
