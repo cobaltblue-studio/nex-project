@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { TrendingUp, Loader2, Flame, Clock, Search } from "lucide-react";
+import { BattleWinsIndicator } from "@/components/BattleWinsIndicator";
 import { Link } from "wouter";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
@@ -19,10 +20,11 @@ interface RisingTrack {
   aiPromptEditCount?: number;
   aiPromptLastEditedAt?: string | null;
   playCount?: number;
+  likesCount?: number;
+  claimableByCreators?: boolean;
   rankingScore: number;
   totalBattles: number;
   wins: number;
-  winRate: number;
   coverImageUrl?: string | null;
   musicVideoUrl?: string | null;
   trackType?: string;
@@ -59,6 +61,9 @@ export function Rising() {
         mvUrl={playing?.musicVideoUrl}
         trackType={playing?.trackType}
         aiPrompt={playing?.aiPrompt}
+        trackId={playing?.id ?? null}
+        claimableByCreators={!!playing?.claimableByCreators}
+        trackOwnerProfileId={playing?.creatorId ?? null}
       />
       <TrackFeedModal
         open={feed != null}
@@ -174,12 +179,7 @@ export function Rising() {
                   <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Plays</p>
                 </div>
 
-                <div className="hidden sm:flex flex-col items-end text-right min-w-[48px]">
-                  <p className="text-xs sm:text-lg font-display font-bold text-primary" data-testid={`text-rising-winrate-${track.id}`}>
-                    {track.winRate}%
-                  </p>
-                  <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Win</p>
-                </div>
+                <BattleWinsIndicator wins={track.wins ?? 0} showFrom="sm" testId={`text-rising-wins-${track.id}`} />
 
                 <TrackAdminActions
                   compact
@@ -196,6 +196,7 @@ export function Rising() {
                     aiPrompt: track.aiPrompt,
                     aiPromptEditCount: track.aiPromptEditCount,
                     aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                    likesCount: track.likesCount,
                   }}
                   onCommentClick={() =>
                     setFeed({

@@ -2,11 +2,10 @@ import { useRoute, Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, KeyRound, Send, Zap } from "lucide-react";
+import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, Zap } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
 import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
@@ -14,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { TrackClaimSection } from "@/components/TrackClaimSection";
 
 export function TrackDetail() {
   const { t } = useTranslation();
@@ -27,8 +27,6 @@ export function TrackDetail() {
   const [autoPlayNext, setAutoPlayNext] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
-  const [claimSecret, setClaimSecret] = useState("");
-  const [claimInfo, setClaimInfo] = useState("");
   const playerKey = useRef(0); // forces iframe remount on track change
   const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playCountedRef = useRef<Set<number>>(new Set()); // tracks recorded this session
@@ -161,37 +159,6 @@ export function TrackDetail() {
     if (autoPlayNext) goToNext();
   }, [autoPlayNext, currentTrackId, goToNext, isAuthenticated]);
 
-  const claimRequestMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentTrackId) throw new Error("No track");
-      await apiRequest("POST", `/api/tracks/${currentTrackId}/claim-request`, { claimInfo });
-    },
-    onSuccess: () => {
-      setClaimInfo("");
-      toast({ title: "Request sent", description: "An admin will review your ownership request." });
-      void queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(currentTrackId)] });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Could not submit", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const claimInstantMutation = useMutation({
-    mutationFn: async (secret: string) => {
-      if (!currentTrackId) throw new Error("No track");
-      await apiRequest("POST", `/api/tracks/${currentTrackId}/claim-instant`, { secret });
-    },
-    onSuccess: () => {
-      setClaimSecret("");
-      toast({ title: "Track claimed", description: "This track is now linked to your creator account." });
-      void queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(currentTrackId)] });
-      void queryClient.invalidateQueries({ queryKey: ["/api/tracks/my"] });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Claim failed", description: err.message, variant: "destructive" });
-    },
-  });
-
   const handleVote = async () => {
     if (!track || isVoting) return;
     const votedTracks = JSON.parse(localStorage.getItem("nex_voted_tracks") || "[]");
@@ -303,14 +270,6 @@ export function TrackDetail() {
     },
   });
 
-  const canClaimTrack =
-    isAuthenticated &&
-    user?.role === "creator" &&
-    claimable &&
-    myProfile?.id != null &&
-    trackOwnerId != null &&
-    myProfile.id !== trackOwnerId;
-
   const mvYtId = extractYoutubeId(track?.mvUrl);
   const audioYtId = extractYoutubeId(track?.audioUrl);
   const ytId = mvYtId || audioYtId;
@@ -379,53 +338,12 @@ export function TrackDetail() {
         <TrackAdminActions track={adminTrack} deleteRedirectTo="/music" />
       </div>
 
-      {canClaimTrack ? (
-        <div className="rounded-sm border border-primary/30 bg-primary/5 p-4 sm:p-5 space-y-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Claim this track</p>
-          <p className="text-[11px] text-zinc-400 leading-relaxed">
-            This release was seeded by NEX staff. If you are the artist, request ownership so you can edit or archive it. Staff can approve your request, or use the instant claim code if you were given one.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <button
-              type="button"
-              disabled={claimRequestMutation.isPending || claimInfo.trim().length < 10}
-              onClick={() => claimRequestMutation.mutate()}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-primary text-black hover:brightness-110 disabled:opacity-40"
-            >
-              <Send className="w-3.5 h-3.5" />
-              {claimRequestMutation.isPending ? "Sending…" : "Request admin approval"}
-            </button>
-          </div>
-          <textarea
-            value={claimInfo}
-            onChange={(e) => setClaimInfo(e.target.value)}
-            placeholder="Artist verification info (min 10 chars): release proof, channel/account link, etc."
-            className="w-full bg-black/40 border border-white/10 rounded-sm px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-primary/40 focus:outline-none resize-none min-h-[88px]"
-          />
-          <div className="pt-2 border-t border-white/10 space-y-2">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
-              <KeyRound className="w-3 h-3" /> Instant claim (secret code)
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="password"
-                autoComplete="off"
-                placeholder="Enter code from staff"
-                value={claimSecret}
-                onChange={(e) => setClaimSecret(e.target.value)}
-                className="flex-1 bg-black/50 border border-white/15 rounded-sm px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-primary/40 focus:outline-none"
-              />
-              <button
-                type="button"
-                disabled={claimInstantMutation.isPending || !claimSecret.trim()}
-                onClick={() => claimInstantMutation.mutate(claimSecret)}
-                className="px-4 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-40"
-              >
-                {claimInstantMutation.isPending ? "…" : "Claim now"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {currentTrackId && trackOwnerId != null ? (
+        <TrackClaimSection
+          trackId={currentTrackId}
+          claimableByCreators={claimable}
+          trackOwnerProfileId={trackOwnerId}
+        />
       ) : null}
 
       {isTrackOwner ? (

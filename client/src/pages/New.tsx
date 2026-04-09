@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Clock, Loader2, Search } from "lucide-react";
+import { BattleWinsIndicator } from "@/components/BattleWinsIndicator";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
@@ -14,6 +15,8 @@ interface NewTrack {
   creatorName: string;
   genre: string;
   playCount: number;
+  likesCount?: number;
+  claimableByCreators?: boolean;
   aiPrompt?: string | null;
   aiPromptEditCount?: number;
   aiPromptLastEditedAt?: string | null;
@@ -22,7 +25,7 @@ interface NewTrack {
   audioUrl?: string;
   musicVideoUrl?: string | null;
   trackType?: string;
-  winRate?: number;
+  wins?: number;
 }
 
 const LIST_LIMIT = 100;
@@ -60,6 +63,9 @@ export function New() {
         mvUrl={playing?.musicVideoUrl}
         trackType={playing?.trackType}
         aiPrompt={playing?.aiPrompt}
+        trackId={playing?.id ?? null}
+        claimableByCreators={!!playing?.claimableByCreators}
+        trackOwnerProfileId={playing?.creatorId ?? null}
       />
       <TrackFeedModal
         open={feed != null}
@@ -174,12 +180,7 @@ export function New() {
                   <p className="text-[7px] uppercase tracking-widest text-zinc-600">Plays</p>
                 </div>
 
-                {track.winRate != null && (
-                  <div className="hidden md:flex flex-col items-end text-right min-w-[48px]">
-                    <p className="text-xs font-display font-bold text-primary">{track.winRate}%</p>
-                    <p className="text-[7px] uppercase tracking-widest text-zinc-600">Win</p>
-                  </div>
-                )}
+                <BattleWinsIndicator wins={track.wins ?? 0} />
 
                 <TrackAdminActions
                   compact
@@ -196,6 +197,7 @@ export function New() {
                     aiPrompt: track.aiPrompt,
                     aiPromptEditCount: track.aiPromptEditCount,
                     aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                    likesCount: track.likesCount,
                   }}
                   onCommentClick={() =>
                     setFeed({

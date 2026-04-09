@@ -278,6 +278,8 @@ export interface IStorage {
     generatedAt: string;
     totals: {
       creators: number;
+      /** Registered auth accounts (`users` table). */
+      userSignups: number;
       tracks: number;
       tracksApproved: number;
       tracksPending: number;
@@ -291,6 +293,7 @@ export interface IStorage {
     };
     today: {
       newTracks: number;
+      newUserSignups: number;
       plays: number;
       votes: number;
       battles: number;
@@ -691,9 +694,11 @@ export class DatabaseStorage implements IStorage {
     creatorId?: number;
     q?: string;
   }): Promise<any[]> {
-    let query = db.select({ track: tracks, creator: profiles })
+    let query = db
+      .select({ track: tracks, creator: profiles, metrics: trackMetrics })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
       .$dynamic();
     const filters = [];
     if (status) {
@@ -732,7 +737,11 @@ export class DatabaseStorage implements IStorage {
     }
     if (limit) query = query.limit(limit);
     const results = await query;
-    return results.map(r => ({ ...r.track, creator: r.creator }));
+    return results.map((r) => ({
+      ...r.track,
+      creator: r.creator,
+      likesCount: r.metrics?.likesCount ?? 0,
+    }));
   }
 
   async getTrack(id: number): Promise<any | undefined> {
@@ -861,6 +870,7 @@ export class DatabaseStorage implements IStorage {
 
     const [
       creatorsRow,
+      usersTotalRow,
       tracksTotalRow,
       tracksApprovedRow,
       tracksPendingRow,
@@ -870,8 +880,10 @@ export class DatabaseStorage implements IStorage {
       playsTodayRow,
       battlesTodayRow,
       newTracksTodayRow,
+      newUsersTodayRow,
     ] = await Promise.all([
       db.select({ c: count() }).from(profiles).where(eq(profiles.role, "creator")),
+      db.select({ c: count() }).from(users),
       db.select({ c: count() }).from(tracks).where(eq(tracks.isDeleted, false)),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "APPROVED"))),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "PENDING"))),
@@ -890,6 +902,7 @@ export class DatabaseStorage implements IStorage {
       db.select({ c: count() }).from(trackPlays).where(gte(trackPlays.playedAt, todayStartUtc)),
       db.select({ c: count() }).from(battles).where(gte(battles.createdAt, todayStartUtc)),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), gte(tracks.createdAt, todayStartUtc))),
+      db.select({ c: count() }).from(users).where(gte(users.createdAt, todayStartUtc)),
     ]);
 
     let activeBoosts = 0;
@@ -908,6 +921,7 @@ export class DatabaseStorage implements IStorage {
       generatedAt: new Date().toISOString(),
       totals: {
         creators: Number(creatorsRow[0]?.c ?? 0),
+        userSignups: Number(usersTotalRow[0]?.c ?? 0),
         tracks: Number(tracksTotalRow[0]?.c ?? 0),
         tracksApproved: Number(tracksApprovedRow[0]?.c ?? 0),
         tracksPending: Number(tracksPendingRow[0]?.c ?? 0),
@@ -921,6 +935,7 @@ export class DatabaseStorage implements IStorage {
       },
       today: {
         newTracks: Number(newTracksTodayRow[0]?.c ?? 0),
+        newUserSignups: Number(newUsersTodayRow[0]?.c ?? 0),
         plays: Number(playsTodayRow[0]?.c ?? 0),
         votes: Number(votesTodayRow[0]?.c ?? 0),
         battles: Number(battlesTodayRow[0]?.c ?? 0),
@@ -1300,9 +1315,10 @@ export class DatabaseStorage implements IStorage {
     }
 
     const rows = await db
-      .select({ track: tracks, creator: profiles })
+      .select({ track: tracks, creator: profiles, metrics: trackMetrics })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
       .where(and(...conds))
       .orderBy(desc(tracks.playCount), desc(tracks.createdAt))
       .limit(100);
@@ -1316,6 +1332,7 @@ export class DatabaseStorage implements IStorage {
       return {
         ...t,
         creatorName: t.artistName || r.creator.username,
+        likesCount: r.metrics?.likesCount ?? 0,
         totalBattles: s?.totalBattles ?? 0,
         wins: s?.wins ?? 0,
         winRate: s?.winRate ?? 0,
@@ -1599,7 +1616,8 @@ export class DatabaseStorage implements IStorage {
       coverImageUrl: data.coverImageUrl?.trim() || null,
       creatorId: data.creatorId,
       trackType: data.trackType,
-      status: "APPROVED",
+      // New submissions must be reviewed by admin before public chart/battle exposure.
+      status: "PENDING",
       aiTool: "submitted",
       aiPrompt: data.aiPrompt || null,
       description: data.portfolioLink?.trim() || null,

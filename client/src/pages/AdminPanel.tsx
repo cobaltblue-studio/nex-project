@@ -56,6 +56,8 @@ type AdminInsights = {
   generatedAt: string;
   totals: {
     creators: number;
+    /** Present after server deploy; old API omit → UI shows "—". */
+    userSignups?: number;
     tracks: number;
     tracksApproved: number;
     tracksPending: number;
@@ -69,6 +71,7 @@ type AdminInsights = {
   };
   today: {
     newTracks: number;
+    newUserSignups?: number;
     plays: number;
     votes: number;
     battles: number;
@@ -324,8 +327,9 @@ export default function AdminPanel() {
             <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-3">
               Snapshot: {fmt(insights.generatedAt)}
             </p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Creators</p><p className="text-xl font-black text-white">{insights.totals.creators}</p></div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Total signups</p><p className="text-xl font-black text-white">{insights.totals.userSignups ?? "—"}</p><p className="text-[8px] text-zinc-600 mt-1 leading-normal">Auth accounts · all roles</p></div>
               <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Tracks</p><p className="text-xl font-black text-white">{insights.totals.tracks}</p></div>
               <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Approved / Chart</p><p className="text-xl font-black text-white">{insights.totals.tracksApproved} / {insights.totals.tracksChart}</p></div>
               <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Pending</p><p className="text-xl font-black text-white">{insights.totals.tracksPending}</p></div>
@@ -334,7 +338,8 @@ export default function AdminPanel() {
               <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Battles / Wins</p><p className="text-xl font-black text-white">{insights.totals.battles} / {insights.totals.battleWins}</p></div>
               <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Active Boosts</p><p className="text-xl font-black text-white">{insights.totals.activeBoosts}</p></div>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mt-3">
+              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today signups</p><p className="text-lg font-black text-white">{insights.today.newUserSignups ?? "—"}</p><p className="text-[8px] text-emerald-400/50 mt-1">UTC midnight → now</p></div>
               <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today New Tracks</p><p className="text-lg font-black text-white">{insights.today.newTracks}</p></div>
               <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Plays</p><p className="text-lg font-black text-white">{insights.today.plays}</p></div>
               <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Votes</p><p className="text-lg font-black text-white">{insights.today.votes}</p></div>

@@ -280,8 +280,12 @@ function SubmitTrackForm() {
       <div className="flex items-center gap-2 mb-8 text-[9px] font-bold uppercase tracking-widest">
         {form.watch("trackType") === "video" ? (
           <>
-            <span className="px-2 py-1 rounded-sm bg-primary/10 border border-primary/30 text-primary">
-              APPROVED
+            <span className="px-2 py-1 rounded-sm bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">
+              PENDING
+            </span>
+            <span className="text-zinc-700">→</span>
+            <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
+              ADMIN REVIEW
             </span>
             <span className="text-zinc-700">→</span>
             <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
@@ -290,8 +294,12 @@ function SubmitTrackForm() {
           </>
         ) : (
           <>
-            <span className="px-2 py-1 rounded-sm bg-primary/10 border border-primary/30 text-primary">
-              APPROVED
+            <span className="px-2 py-1 rounded-sm bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">
+              PENDING
+            </span>
+            <span className="text-zinc-700">→</span>
+            <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
+              ADMIN REVIEW
             </span>
             <span className="text-zinc-700">→</span>
             <span className="px-2 py-1 rounded-sm bg-white/5 border border-white/10 text-zinc-500">
@@ -321,29 +329,29 @@ function SubmitTrackForm() {
               Success
             </p>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-6">
-              Your {submittedTrackType === "video" ? "music video" : "track"} is approved and saved · ID #{trackId}
+              Your {submittedTrackType === "video" ? "music video" : "track"} is submitted and pending review · ID #{trackId}
             </p>
             <div className="text-left border border-white/5 rounded-sm p-4 bg-black/30 mb-6 text-[10px] text-zinc-400 uppercase tracking-widest space-y-2">
               {submittedTrackType === "video" ? (
                 <>
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Status</span>
-                    <span className="text-primary font-bold">APPROVED</span>
+                    <span className="text-yellow-400 font-bold">PENDING</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Pipeline</span>
-                    <span>Music Video Page (MV)</span>
+                    <span>Admin review → MV page</span>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Status</span>
-                    <span className="text-primary font-bold">APPROVED</span>
+                    <span className="text-yellow-400 font-bold">PENDING</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Battle entry</span>
-                    <span>Immediately eligible</span>
+                    <span>After admin approval (BATTLE_POOL)</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Chart entry</span>
@@ -676,8 +684,8 @@ function SubmitTrackForm() {
               {/* Info box */}
               <div className="border border-white/5 rounded-sm p-4 bg-white/2 text-[9px] text-zinc-600 uppercase tracking-widest space-y-1.5">
                 <p className="text-zinc-500 font-bold mb-2">How it works</p>
-                <p>① Submit → Status: APPROVED</p>
-                <p>② Audio tracks become battle-eligible immediately</p>
+                <p>① Submit → Status: PENDING</p>
+                <p>② Admin approves → Status: BATTLE_POOL (battle eligible)</p>
                 <p>③ 10+ battles · 55%+ win rate → Status: CHART</p>
                 <p>
                   ④ Chart: max 100 tracks ranked by votes + plays + battle wins

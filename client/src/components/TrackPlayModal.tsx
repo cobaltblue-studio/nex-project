@@ -12,6 +12,8 @@ import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { buildIntentOverlay } from "@/lib/intentOverlay";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { TrackClaimSection } from "@/components/TrackClaimSection";
+import { Link } from "wouter";
 
 type Props = {
   open: boolean;
@@ -22,6 +24,10 @@ type Props = {
   mvUrl?: string | null;
   trackType?: string | null;
   aiPrompt?: string | null;
+  /** When set with owner id, modal shows the same ownership claim flow as the track detail page. */
+  trackId?: number | null;
+  claimableByCreators?: boolean;
+  trackOwnerProfileId?: number | null;
 };
 
 /** Quick play dialog — title size tuned down (~40%) vs full detail page for mobile. */
@@ -34,6 +40,9 @@ export function TrackPlayModal({
   mvUrl,
   trackType,
   aiPrompt,
+  trackId = null,
+  claimableByCreators = false,
+  trackOwnerProfileId = null,
 }: Props) {
   const { t } = useTranslation();
   const mediaShellRef = useRef<HTMLDivElement>(null);
@@ -167,6 +176,24 @@ export function TrackPlayModal({
             </p>
           </div>
         </div>
+
+        {trackId != null && trackOwnerProfileId != null ? (
+          <div className="space-y-3">
+            <TrackClaimSection
+              trackId={trackId}
+              claimableByCreators={claimableByCreators}
+              trackOwnerProfileId={trackOwnerProfileId}
+              compact
+            />
+            <Link
+              href={`/track/${trackId}`}
+              className="block text-center text-[10px] font-bold uppercase tracking-widest text-primary/80 hover:text-primary border border-white/10 rounded-sm py-2 hover:bg-white/5"
+              onClick={() => onOpenChange(false)}
+            >
+              Open full track page
+            </Link>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

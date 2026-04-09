@@ -137,6 +137,8 @@ export type TrackAdminListItem = {
   aiPrompt?: string | null;
   aiPromptEditCount?: number | null;
   aiPromptLastEditedAt?: string | null;
+  /** From track_metrics when available (list APIs). */
+  likesCount?: number | null;
 };
 
 type EditForm = z.infer<typeof editSchema>;
@@ -166,10 +168,12 @@ type Props = {
 function TrackSocialActions({
   trackId,
   compact,
+  likesCount,
   onCommentClick,
 }: {
   trackId: number;
   compact?: boolean;
+  likesCount?: number | null;
   onCommentClick?: () => void;
 }) {
   const { toast } = useToast();
@@ -216,6 +220,7 @@ function TrackSocialActions({
   const size = compact
     ? `${iconBtn} text-[8px] px-2 py-1 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/30`
     : `${iconBtn} text-[9px] px-3 py-2 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/20`;
+  const likeCount = likesCount ?? 0;
 
   const onLike = () => {
     if (!isAuthenticated) {
@@ -246,11 +251,11 @@ function TrackSocialActions({
           onClick={onLike}
           disabled={likeMutation.isPending}
           className={size}
-          title="LIKE"
+          title={`${likeCount} likes`}
           data-testid={`button-track-like-${trackId}`}
         >
           <Heart className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
-          <span className="hidden sm:inline">Like</span>
+          <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{likeCount}</span>
         </button>
         <button
           type="button"
@@ -487,6 +492,7 @@ export function TrackAdminActions({ track, compact, deleteRedirectTo = null, onC
         <TrackSocialActions
           trackId={track.id}
           compact={compact}
+          likesCount={track.likesCount}
           onCommentClick={onCommentClick}
         />
         {showManageTools ? (

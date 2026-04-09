@@ -428,6 +428,8 @@ export async function registerRoutes(
         aiPromptEditCount: t.aiPromptEditCount,
         aiPromptLastEditedAt: t.aiPromptLastEditedAt,
         createdAt: t.createdAt,
+        likesCount: (t as { likesCount?: number }).likesCount ?? 0,
+        claimableByCreators: !!(t as { claimableByCreators?: boolean }).claimableByCreators,
         ...(battleStats[t.id]
           ? {
               totalBattles: battleStats[t.id].totalBattles,
@@ -1101,6 +1103,7 @@ export async function registerRoutes(
       aiPromptEditCount: t.aiPromptEditCount,
       aiPromptLastEditedAt: t.aiPromptLastEditedAt,
       createdAt: t.createdAt,
+      likesCount: t.likesCount ?? 0,
     }));
     res.json(formatted);
   });

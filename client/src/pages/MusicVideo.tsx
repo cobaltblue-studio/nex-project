@@ -22,6 +22,8 @@ interface MVTrack {
   rankingScore: number;
   winStreak: number;
   playCount?: number;
+  likesCount?: number;
+  claimableByCreators?: boolean;
 }
 
 const TOTAL_SLOTS = 100;
@@ -69,6 +71,9 @@ export function MusicVideo() {
         mvUrl={playing?.musicVideoUrl}
         trackType={playing?.trackType ?? "video"}
         aiPrompt={playing?.aiPrompt}
+        trackId={playing?.id ?? null}
+        claimableByCreators={!!playing?.claimableByCreators}
+        trackOwnerProfileId={playing?.creatorId ?? null}
       />
       <TrackFeedModal
         open={feed != null}
@@ -205,6 +210,7 @@ export function MusicVideo() {
                         aiPrompt: track.aiPrompt,
                         aiPromptEditCount: track.aiPromptEditCount,
                         aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                        likesCount: track.likesCount,
                       }}
                       onCommentClick={() =>
                         setFeed({

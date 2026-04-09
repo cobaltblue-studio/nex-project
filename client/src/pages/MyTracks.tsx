@@ -172,6 +172,7 @@ export function MyTracks() {
                       aiPrompt: track.aiPrompt,
                       aiPromptEditCount: track.aiPromptEditCount,
                       aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                      likesCount: track.likesCount,
                     }}
                   />
                 </div>
