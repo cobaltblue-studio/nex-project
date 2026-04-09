@@ -868,6 +868,8 @@ export class DatabaseStorage implements IStorage {
     const todayStartUtc = new Date();
     todayStartUtc.setUTCHours(0, 0, 0, 0);
 
+    const memberRoleFilter = notInArray(profiles.role, ["admin", "founder", "nex"]);
+
     const [
       creatorsRow,
       usersTotalRow,
@@ -883,7 +885,8 @@ export class DatabaseStorage implements IStorage {
       newUsersTodayRow,
     ] = await Promise.all([
       db.select({ c: count() }).from(profiles).where(eq(profiles.role, "creator")),
-      db.select({ c: count() }).from(users),
+      // "Pure signups": completed member profiles (exclude internal/admin legacy roles).
+      db.select({ c: count() }).from(profiles).where(memberRoleFilter),
       db.select({ c: count() }).from(tracks).where(eq(tracks.isDeleted, false)),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "APPROVED"))),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "PENDING"))),
@@ -902,7 +905,7 @@ export class DatabaseStorage implements IStorage {
       db.select({ c: count() }).from(trackPlays).where(gte(trackPlays.playedAt, todayStartUtc)),
       db.select({ c: count() }).from(battles).where(gte(battles.createdAt, todayStartUtc)),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), gte(tracks.createdAt, todayStartUtc))),
-      db.select({ c: count() }).from(users).where(gte(users.createdAt, todayStartUtc)),
+      db.select({ c: count() }).from(profiles).where(and(memberRoleFilter, gte(profiles.createdAt, todayStartUtc))),
     ]);
 
     let activeBoosts = 0;
