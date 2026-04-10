@@ -23,7 +23,7 @@ import {
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, asc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull } from "drizzle-orm";
+import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull } from "drizzle-orm";
 
 const RANKING_WEIGHT_BATTLE = 0.5;
 const RANKING_WEIGHT_LIKES = 0.2;
@@ -195,8 +195,6 @@ export interface IStorage {
   getTodayStats(): Promise<{ totalVotesToday: number; battlesPlayedToday: number; tracksInPool: number; newTracksToday: number }>;
   trackUrlExists(url: string): Promise<boolean>;
   getCreators(): Promise<Profile[]>;
-  /** Admin: profiles with role creator, for public /profile/:username links (same set as insights “Creators” count). */
-  getAdminCreatorProfileLinks(): Promise<{ profileId: number; username: string }[]>;
   getPendingCreatorApplications(): Promise<{ profile: Profile; email: string | null }[]>;
   transferTrackOwnershipFromClaim(trackId: number, newCreatorProfileId: number): Promise<Track | null>;
   createTrackClaimRequest(trackId: number, requesterProfileId: number): Promise<{ created: boolean; duplicate: boolean }>;
@@ -666,14 +664,6 @@ export class DatabaseStorage implements IStorage {
   async updateProfile(id: number, data: Partial<Profile>): Promise<Profile> {
     const [updated] = await db.update(profiles).set(data).where(eq(profiles.id, id)).returning();
     return updated;
-  }
-
-  async getAdminCreatorProfileLinks(): Promise<{ profileId: number; username: string }[]> {
-    return db
-      .select({ profileId: profiles.id, username: profiles.username })
-      .from(profiles)
-      .where(eq(profiles.role, "creator"))
-      .orderBy(asc(profiles.username));
   }
 
   async getPendingCreatorApplications(): Promise<{ profile: Profile; email: string | null }[]> {

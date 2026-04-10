@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
   Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3,
-  Link2, Copy, Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -51,11 +50,6 @@ type TrackEditRequest = {
   detail: string;
   proposedLink: string | null;
   createdAt: string;
-};
-
-type CreatorProfileLinkRow = {
-  profileId: number;
-  username: string;
 };
 
 type AdminInsights = {
@@ -114,16 +108,6 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [claimableTrackId, setClaimableTrackId] = useState("");
-  const [creatorLinkFilter, setCreatorLinkFilter] = useState("");
-
-  function creatorProfilePath(username: string) {
-    return `/profile/${encodeURIComponent(username)}`;
-  }
-
-  function creatorProfileAbsUrl(username: string) {
-    if (typeof window === "undefined") return creatorProfilePath(username);
-    return `${window.location.origin}${creatorProfilePath(username)}`;
-  }
 
   const isAdmin = user?.role === "admin";
 
@@ -148,17 +132,6 @@ export default function AdminPanel() {
   });
 
   const {
-    data: creatorLinkRows,
-    isLoading: creatorLinksLoading,
-    refetch: refetchCreatorLinks,
-  } = useQuery<CreatorProfileLinkRow[]>({
-    queryKey: ["/api/admin/creator-links"],
-    enabled: isAdmin,
-    retry: false,
-    staleTime: 0,
-  });
-
-  const {
     data: submissions,
     isLoading: subsLoading,
     refetch,
@@ -171,7 +144,10 @@ export default function AdminPanel() {
   const reviewMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       apiRequest("POST", `/api/admin/tracks/${id}/review`, { status }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/submissions"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["/api/admin/submissions"] });
+      void qc.invalidateQueries({ queryKey: ["/api/admin/insights"] });
+    },
   });
 
   const {
@@ -312,7 +288,7 @@ export default function AdminPanel() {
 
   // ---- Render: full admin panel ----
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
+    <div className="max-w-4xl mx-auto px-4 py-10">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -327,7 +303,6 @@ export default function AdminPanel() {
         <button
           onClick={() => {
             void refetchInsights();
-            void refetchCreatorLinks();
             void refetch();
             void refetchCreatorApps();
             void refetchClaimReq();
@@ -348,8 +323,7 @@ export default function AdminPanel() {
             Platform Insights
           </p>
         </div>
-        <div className="flex flex-col xl:flex-row xl:items-start gap-6">
-          <div className="flex-1 min-w-0">
+        <div>
             {insightsLoading || !insights ? (
               <div className="border border-white/5 rounded-sm p-8 flex justify-center">
                 <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
@@ -379,84 +353,6 @@ export default function AdminPanel() {
                 </div>
               </>
             )}
-          </div>
-
-          <div className="w-full xl:w-[min(100%,22rem)] shrink-0 border border-white/10 rounded-sm bg-black/25 flex flex-col max-h-[min(70vh,520px)] xl:max-h-[min(85vh,640px)] xl:sticky xl:top-4">
-            <div className="p-3 border-b border-white/10 flex items-start gap-2">
-              <Link2 className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">Creator profile links</p>
-                <p className="text-[9px] text-zinc-500 mt-0.5 leading-normal">
-                  Same set as “Creators” count · /profile/username
-                </p>
-              </div>
-            </div>
-            <div className="p-2 border-b border-white/5">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
-                <input
-                  type="search"
-                  value={creatorLinkFilter}
-                  onChange={(e) => setCreatorLinkFilter(e.target.value)}
-                  placeholder="Filter by username…"
-                  className="w-full bg-black/40 border border-white/10 rounded-sm pl-8 pr-2 py-2 text-[11px] text-white placeholder:text-zinc-600"
-                />
-              </div>
-            </div>
-            <div className="flex-1 min-h-[12rem] overflow-y-auto p-2">
-              {creatorLinksLoading ? (
-                <div className="flex justify-center py-10">
-                  <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
-                </div>
-              ) : !creatorLinkRows?.length ? (
-                <p className="text-[10px] text-zinc-600 text-center py-8 uppercase tracking-widest">No creator profiles</p>
-              ) : (
-                <ul className="space-y-1">
-                  {creatorLinkRows
-                    .filter((r) => {
-                      const q = creatorLinkFilter.trim().toLowerCase();
-                      if (!q) return true;
-                      return r.username.toLowerCase().includes(q);
-                    })
-                    .map((row) => (
-                      <li
-                        key={row.profileId}
-                        className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 hover:bg-white/5 group"
-                      >
-                        <Link
-                          href={creatorProfilePath(row.username)}
-                          className="flex-1 min-w-0 text-[11px] font-medium text-zinc-200 hover:text-primary truncate"
-                        >
-                          @{row.username}
-                        </Link>
-                        <a
-                          href={creatorProfileAbsUrl(row.username)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-zinc-600 hover:text-sky-400 shrink-0"
-                          title="Open in new tab"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                        <button
-                          type="button"
-                          className="p-1.5 text-zinc-600 hover:text-emerald-400 shrink-0"
-                          title="Copy full URL"
-                          onClick={() => {
-                            const url = creatorProfileAbsUrl(row.username);
-                            void navigator.clipboard.writeText(url).then(() => {
-                              toast({ title: "Copied", description: url });
-                            });
-                          }}
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -505,8 +401,9 @@ export default function AdminPanel() {
             <CheckCircle className="w-8 h-8 text-zinc-700 mx-auto mb-3" strokeWidth={1} />
             <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending tracks</p>
             <p className="text-[11px] text-zinc-500 mt-3 leading-relaxed normal-case max-w-lg mx-auto">
-              Submissions with status PENDING or SUBMITTED (legacy) appear in this queue — not under Creator applications.
-              If a new upload is missing, click refresh (top right) or confirm the track is not already BATTLE_POOL / CHART.
+              You are looking in the right place. If both this list and Platform Insights “Pending” show 0, the database has no tracks
+              waiting for review — they were already approved or never stored as PENDING/SUBMITTED. Check the track on its /track/… page for status;
+              remember the NEW page lists audio only (not MV).
             </p>
           </div>
         ) : (
