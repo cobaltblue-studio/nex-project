@@ -23,7 +23,7 @@ import {
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray } from "drizzle-orm";
+import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull } from "drizzle-orm";
 
 const RANKING_WEIGHT_BATTLE = 0.5;
 const RANKING_WEIGHT_LIKES = 0.2;
@@ -869,6 +869,7 @@ export class DatabaseStorage implements IStorage {
     todayStartUtc.setUTCHours(0, 0, 0, 0);
 
     const memberRoleFilter = notInArray(profiles.role, ["admin", "founder", "nex"]);
+    const realSignupFilter = and(memberRoleFilter, isNotNull(users.email));
 
     const [
       creatorsRow,
@@ -885,8 +886,8 @@ export class DatabaseStorage implements IStorage {
       newUsersTodayRow,
     ] = await Promise.all([
       db.select({ c: count() }).from(profiles).where(eq(profiles.role, "creator")),
-      // "Pure signups": completed member profiles (exclude internal/admin legacy roles).
-      db.select({ c: count() }).from(profiles).where(memberRoleFilter),
+      // Profiles linked to a real auth row with email (excludes seeded/internal accounts without login).
+      db.select({ c: count() }).from(profiles).innerJoin(users, eq(users.id, profiles.userId)).where(realSignupFilter),
       db.select({ c: count() }).from(tracks).where(eq(tracks.isDeleted, false)),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "APPROVED"))),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "PENDING"))),
@@ -905,7 +906,11 @@ export class DatabaseStorage implements IStorage {
       db.select({ c: count() }).from(trackPlays).where(gte(trackPlays.playedAt, todayStartUtc)),
       db.select({ c: count() }).from(battles).where(gte(battles.createdAt, todayStartUtc)),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), gte(tracks.createdAt, todayStartUtc))),
-      db.select({ c: count() }).from(profiles).where(and(memberRoleFilter, gte(profiles.createdAt, todayStartUtc))),
+      db
+        .select({ c: count() })
+        .from(profiles)
+        .innerJoin(users, eq(users.id, profiles.userId))
+        .where(and(realSignupFilter, gte(profiles.createdAt, todayStartUtc))),
     ]);
 
     let activeBoosts = 0;
