@@ -869,7 +869,16 @@ export class DatabaseStorage implements IStorage {
     todayStartUtc.setUTCHours(0, 0, 0, 0);
 
     const memberRoleFilter = notInArray(profiles.role, ["admin", "founder", "nex"]);
-    const realSignupFilter = and(memberRoleFilter, isNotNull(users.email));
+    /** Real humans: not seed rows, not auto-created artist placeholders from import scripts. */
+    const organicSignupFilter = and(
+      memberRoleFilter,
+      isNotNull(users.email),
+      sql`trim(coalesce(${users.email}, '')) <> ''`,
+      sql`${users.id} not like 'seed_user_%'`,
+      sql`${users.id} not like 'artist_%'`,
+      sql`lower(${users.email}) not like '%@artist.local'`,
+      sql`lower(${users.email}) not like '%@neo.ai'`,
+    );
 
     const [
       creatorsRow,
@@ -886,8 +895,8 @@ export class DatabaseStorage implements IStorage {
       newUsersTodayRow,
     ] = await Promise.all([
       db.select({ c: count() }).from(profiles).where(eq(profiles.role, "creator")),
-      // Profiles linked to a real auth row with email (excludes seeded/internal accounts without login).
-      db.select({ c: count() }).from(profiles).innerJoin(users, eq(users.id, profiles.userId)).where(realSignupFilter),
+      // Profiles linked to a real auth row (excludes synthetic seed/artist import users).
+      db.select({ c: count() }).from(profiles).innerJoin(users, eq(users.id, profiles.userId)).where(organicSignupFilter),
       db.select({ c: count() }).from(tracks).where(eq(tracks.isDeleted, false)),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "APPROVED"))),
       db.select({ c: count() }).from(tracks).where(and(eq(tracks.isDeleted, false), eq(tracks.status, "PENDING"))),
@@ -910,7 +919,7 @@ export class DatabaseStorage implements IStorage {
         .select({ c: count() })
         .from(profiles)
         .innerJoin(users, eq(users.id, profiles.userId))
-        .where(and(realSignupFilter, gte(profiles.createdAt, todayStartUtc))),
+        .where(and(organicSignupFilter, gte(profiles.createdAt, todayStartUtc))),
     ]);
 
     let activeBoosts = 0;
