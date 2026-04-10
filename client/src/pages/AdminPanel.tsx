@@ -20,7 +20,7 @@ type Submission = {
   genre: string;
   trackLink: string;
   portfolioLink?: string | null;
-  status: "PENDING" | "BATTLE_POOL" | "REJECTED" | "CHART";
+  status: "PENDING" | "SUBMITTED" | "BATTLE_POOL" | "REJECTED" | "CHART" | "MV";
   createdAt: string;
 };
 
@@ -86,6 +86,7 @@ type AdminInsights = {
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING:     "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+  SUBMITTED:   "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
   BATTLE_POOL: "text-primary   bg-primary/10   border-primary/30",
   REJECTED:    "text-red-400   bg-red-400/10   border-red-400/30",
   CHART:       "text-purple-400 bg-purple-400/10 border-purple-400/30",
@@ -269,8 +270,9 @@ export default function AdminPanel() {
       toast({ title: "Update failed", description: e.message, variant: "destructive" }),
   });
 
-  const pending   = submissions?.filter((s) => s.status === "PENDING")   ?? [];
-  const processed = submissions?.filter((s) => s.status !== "PENDING")   ?? [];
+  const isAwaitingReview = (s: Submission) => s.status === "PENDING" || s.status === "SUBMITTED";
+  const pending   = submissions?.filter(isAwaitingReview)   ?? [];
+  const processed = submissions?.filter((s) => !isAwaitingReview(s))   ?? [];
 
   // ---- Render: loading ----
   if (authLoading) {
@@ -733,7 +735,10 @@ export default function AdminPanel() {
       {/* Pipeline counters */}
       <div className="grid grid-cols-4 gap-3 mb-8">
         {(["PENDING","BATTLE_POOL","REJECTED","CHART"] as const).map((s) => {
-          const cnt = submissions?.filter((t) => t.status === s).length ?? 0;
+          const cnt =
+            s === "PENDING"
+              ? submissions?.filter((t) => t.status === "PENDING" || t.status === "SUBMITTED").length ?? 0
+              : submissions?.filter((t) => t.status === s).length ?? 0;
           return (
             <div
               key={s}
@@ -823,7 +828,7 @@ export default function AdminPanel() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <StatusBadge status="PENDING" />
+                    <StatusBadge status={track.status} />
                     <button
                       onClick={() => reviewMutation.mutate({ id: track.id, status: "BATTLE_POOL" })}
                       disabled={reviewMutation.isPending}

@@ -645,6 +645,11 @@ export async function registerRoutes(
     }
 
     const resolvedTrackType = trackType === "video" ? "video" : "audio";
+    // Listener submissions = creator registration request; always surfaces in admin (applications + pending tracks).
+    if (!(await isAdmin(req)) && p.role === "listener") {
+      await storage.updateProfile(p.id, { creatorApplicationStatus: "pending" });
+    }
+
     const t = await storage.submitTrack({
       title,
       artistName,
@@ -1171,7 +1176,7 @@ export async function registerRoutes(
       description: description || null,
       lyrics: lyrics || null,
       creatorId: p.id,
-      status: "SUBMITTED",
+      status: "PENDING",
       aiCraftScore: 0,
       listenerVotes: 0,
       neoScore: 0,
@@ -1582,7 +1587,7 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/creators — NEX/founder profiles plus anyone with chart-eligible tracks
+  // GET /api/creators — studio roles plus profiles with at least one chart/NEW-eligible track
   app.get("/api/creators", async (_req, res) => {
     const creators = await storage.getCreators();
     res.json(creators.map((p) => sanitizePublicProfileForDirectory(p)));
@@ -1621,7 +1626,7 @@ export async function registerRoutes(
   app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
     if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
 
-    const statuses = ["PENDING", "BATTLE_POOL", "REJECTED", "CHART", "MV"];
+    const statuses = ["PENDING", "SUBMITTED", "BATTLE_POOL", "REJECTED", "CHART", "MV"];
     const all: any[] = [];
     for (const status of statuses) {
       const ts = await storage.getTracks({ status });

@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
@@ -127,6 +127,8 @@ function makeSubmitSchema(t: TFunction) {
 
 type FormData = z.infer<ReturnType<typeof makeSubmitSchema>>;
 
+type MeProfile = { id: number; role: string };
+
 function SubmitTrackForm() {
   const { t } = useTranslation();
   const schema = useMemo(() => makeSubmitSchema(t), [t]);
@@ -139,6 +141,14 @@ function SubmitTrackForm() {
   const [duplicateUrl, setDuplicateUrl] = useState(false);
 
   const maySubmit = isAuthenticated;
+
+  const { data: meProfile } = useQuery<MeProfile>({
+    queryKey: ["/api/profiles/me"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const showListenerSubmitNotice = isAuthenticated && meProfile?.role === "listener";
 
   useEffect(() => {
     if (authLoading) return;
@@ -274,6 +284,14 @@ function SubmitTrackForm() {
         <p className="text-[11px] text-zinc-500 mt-3 leading-relaxed normal-case">
           {t("submitTrack.adminBlurb")}
         </p>
+        {showListenerSubmitNotice ? (
+          <p
+            className="text-[11px] text-amber-200/90 mt-3 p-3 rounded-sm border border-amber-500/25 bg-amber-500/5 leading-relaxed normal-case"
+            data-testid="text-listener-submit-notice"
+          >
+            {t("submitTrack.listenerSubmitNotice")}
+          </p>
+        ) : null}
       </div>
 
       {/* Status path */}

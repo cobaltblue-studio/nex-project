@@ -56,6 +56,7 @@
     "requestFailed": "Suno resolve request failed."
   },
   "submitTrack": {
+    "listenerSubmitNotice": "Listener accounts: submitting a track also requests creator registration. The song stays on your profile only until an admin approves it — then it appears on NEW, Music chart lanes, and battles.",
     "adminBlurb": "Official registration within 24 hours after admin approval; creator access is granted on approval.",
     "linkPlaceholder": "YouTube · SoundCloud · Suno (share link)",
     "sunoHelp": "Suno: on the song page, ⋯ (more) → Copy link. URLs with /song/… work as-is. Short suno.com/s/… links are converted to UUID on our server.",

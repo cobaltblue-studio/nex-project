@@ -56,6 +56,7 @@
     "requestFailed": "Suno 링크 확인 요청에 실패했습니다"
   },
   "submitTrack": {
+    "listenerSubmitNotice": "리스너 계정으로 제출하면 크리에이터 등록 요청과 함께 처리됩니다. 관리자 승인 전까지는 프로필에만 보이고, 승인 후에 뉴·차트·배틀에 노출됩니다.",
     "adminBlurb": "Admin 승인 후 24시간 이내에 정식 등록되며, 승인 시 크리에이터 권한이 부여됩니다",
     "linkPlaceholder": "YouTube · SoundCloud · Suno (공유 링크)",
     "sunoHelp": "Suno: 곡 페이지에서 ⋯(더보기) → 링크 복사 — 주소에 /song/… 가 들어 있으면 그대로 OK. 짧은 suno.com/s/… 링크도 넥스가 서버에서 UUID로 바꿉니다.",

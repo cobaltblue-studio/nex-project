@@ -2341,14 +2341,22 @@ export class DatabaseStorage implements IStorage {
     return this.getBattle(battle.id);
   }
 
-  /** Every studio-role profile plus anyone who owns at least one track (full creator directory). */
+  /**
+   * Studio-role profiles plus anyone who owns at least one **publicly listed** track
+   * (same statuses as chart/NEW — excludes pending review-only uploads).
+   */
   async getCreators(): Promise<Profile[]> {
     const directoryRoles = ["creator", "nex", "founder", "admin"] as const;
     const byRole = await db.select().from(profiles).where(inArray(profiles.role, [...directoryRoles]));
     const trackCreatorIds = await db
       .selectDistinct({ creatorId: tracks.creatorId })
       .from(tracks)
-      .where(eq(tracks.isDeleted, false));
+      .where(
+        and(
+          eq(tracks.isDeleted, false),
+          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+        ),
+      );
     const ids = Array.from(new Set(trackCreatorIds.map((r) => r.creatorId)));
     const fromTracks =
       ids.length > 0 ? await db.select().from(profiles).where(inArray(profiles.id, ids)) : [];
