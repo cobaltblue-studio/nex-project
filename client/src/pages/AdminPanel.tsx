@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
   Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3,
+  Link2, Copy, Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -50,6 +51,11 @@ type TrackEditRequest = {
   detail: string;
   proposedLink: string | null;
   createdAt: string;
+};
+
+type CreatorProfileLinkRow = {
+  profileId: number;
+  username: string;
 };
 
 type AdminInsights = {
@@ -107,6 +113,16 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [claimableTrackId, setClaimableTrackId] = useState("");
+  const [creatorLinkFilter, setCreatorLinkFilter] = useState("");
+
+  function creatorProfilePath(username: string) {
+    return `/profile/${encodeURIComponent(username)}`;
+  }
+
+  function creatorProfileAbsUrl(username: string) {
+    if (typeof window === "undefined") return creatorProfilePath(username);
+    return `${window.location.origin}${creatorProfilePath(username)}`;
+  }
 
   const isAdmin = user?.role === "admin";
 
@@ -125,6 +141,17 @@ export default function AdminPanel() {
     refetch: refetchInsights,
   } = useQuery<AdminInsights>({
     queryKey: ["/api/admin/insights"],
+    enabled: isAdmin,
+    retry: false,
+    staleTime: 0,
+  });
+
+  const {
+    data: creatorLinkRows,
+    isLoading: creatorLinksLoading,
+    refetch: refetchCreatorLinks,
+  } = useQuery<CreatorProfileLinkRow[]>({
+    queryKey: ["/api/admin/creator-links"],
     enabled: isAdmin,
     retry: false,
     staleTime: 0,
@@ -283,7 +310,7 @@ export default function AdminPanel() {
 
   // ---- Render: full admin panel ----
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10">
+    <div className="max-w-7xl mx-auto px-4 py-10">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -298,6 +325,7 @@ export default function AdminPanel() {
         <button
           onClick={() => {
             void refetchInsights();
+            void refetchCreatorLinks();
             void refetch();
             void refetchCreatorApps();
             void refetchClaimReq();
@@ -318,35 +346,116 @@ export default function AdminPanel() {
             Platform Insights
           </p>
         </div>
-        {insightsLoading || !insights ? (
-          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
-            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+        <div className="flex flex-col xl:flex-row xl:items-start gap-6">
+          <div className="flex-1 min-w-0">
+            {insightsLoading || !insights ? (
+              <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+                <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+              </div>
+            ) : (
+              <>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-3">
+                  Snapshot: {fmt(insights.generatedAt)}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Creators</p><p className="text-xl font-black text-white">{insights.totals.creators}</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Total signups</p><p className="text-xl font-black text-white">{insights.totals.userSignups ?? "—"}</p><p className="text-[8px] text-zinc-600 mt-1 leading-normal">Real accounts · excl. admin/founder/nex, auto seed/artist rows</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Tracks</p><p className="text-xl font-black text-white">{insights.totals.tracks}</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Approved / Chart</p><p className="text-xl font-black text-white">{insights.totals.tracksApproved} / {insights.totals.tracksChart}</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Pending</p><p className="text-xl font-black text-white">{insights.totals.tracksPending}</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Total Plays</p><p className="text-xl font-black text-white">{insights.totals.plays}</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Likes / Votes</p><p className="text-xl font-black text-white">{insights.totals.likes} / {insights.totals.listenerVotes}</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Battles / Wins</p><p className="text-xl font-black text-white">{insights.totals.battles} / {insights.totals.battleWins}</p></div>
+                  <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Active Boosts</p><p className="text-xl font-black text-white">{insights.totals.activeBoosts}</p></div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mt-3">
+                  <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today signups</p><p className="text-lg font-black text-white">{insights.today.newUserSignups ?? "—"}</p><p className="text-[8px] text-emerald-400/50 mt-1">UTC midnight → now</p></div>
+                  <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today New Tracks</p><p className="text-lg font-black text-white">{insights.today.newTracks}</p></div>
+                  <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Plays</p><p className="text-lg font-black text-white">{insights.today.plays}</p></div>
+                  <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Votes</p><p className="text-lg font-black text-white">{insights.today.votes}</p></div>
+                  <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Battles</p><p className="text-lg font-black text-white">{insights.today.battles}</p></div>
+                </div>
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-3">
-              Snapshot: {fmt(insights.generatedAt)}
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Creators</p><p className="text-xl font-black text-white">{insights.totals.creators}</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Total signups</p><p className="text-xl font-black text-white">{insights.totals.userSignups ?? "—"}</p><p className="text-[8px] text-zinc-600 mt-1 leading-normal">Real accounts · excl. admin/founder/nex, auto seed/artist rows</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Tracks</p><p className="text-xl font-black text-white">{insights.totals.tracks}</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Approved / Chart</p><p className="text-xl font-black text-white">{insights.totals.tracksApproved} / {insights.totals.tracksChart}</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Pending</p><p className="text-xl font-black text-white">{insights.totals.tracksPending}</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Total Plays</p><p className="text-xl font-black text-white">{insights.totals.plays}</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Likes / Votes</p><p className="text-xl font-black text-white">{insights.totals.likes} / {insights.totals.listenerVotes}</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Battles / Wins</p><p className="text-xl font-black text-white">{insights.totals.battles} / {insights.totals.battleWins}</p></div>
-              <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Active Boosts</p><p className="text-xl font-black text-white">{insights.totals.activeBoosts}</p></div>
+
+          <div className="w-full xl:w-[min(100%,22rem)] shrink-0 border border-white/10 rounded-sm bg-black/25 flex flex-col max-h-[min(70vh,520px)] xl:max-h-[min(85vh,640px)] xl:sticky xl:top-4">
+            <div className="p-3 border-b border-white/10 flex items-start gap-2">
+              <Link2 className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">Creator profile links</p>
+                <p className="text-[9px] text-zinc-500 mt-0.5 leading-normal">
+                  Same set as “Creators” count · /profile/username
+                </p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mt-3">
-              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today signups</p><p className="text-lg font-black text-white">{insights.today.newUserSignups ?? "—"}</p><p className="text-[8px] text-emerald-400/50 mt-1">UTC midnight → now</p></div>
-              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today New Tracks</p><p className="text-lg font-black text-white">{insights.today.newTracks}</p></div>
-              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Plays</p><p className="text-lg font-black text-white">{insights.today.plays}</p></div>
-              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Votes</p><p className="text-lg font-black text-white">{insights.today.votes}</p></div>
-              <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Battles</p><p className="text-lg font-black text-white">{insights.today.battles}</p></div>
+            <div className="p-2 border-b border-white/5">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
+                <input
+                  type="search"
+                  value={creatorLinkFilter}
+                  onChange={(e) => setCreatorLinkFilter(e.target.value)}
+                  placeholder="Filter by username…"
+                  className="w-full bg-black/40 border border-white/10 rounded-sm pl-8 pr-2 py-2 text-[11px] text-white placeholder:text-zinc-600"
+                />
+              </div>
             </div>
-          </>
-        )}
+            <div className="flex-1 min-h-[12rem] overflow-y-auto p-2">
+              {creatorLinksLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+                </div>
+              ) : !creatorLinkRows?.length ? (
+                <p className="text-[10px] text-zinc-600 text-center py-8 uppercase tracking-widest">No creator profiles</p>
+              ) : (
+                <ul className="space-y-1">
+                  {creatorLinkRows
+                    .filter((r) => {
+                      const q = creatorLinkFilter.trim().toLowerCase();
+                      if (!q) return true;
+                      return r.username.toLowerCase().includes(q);
+                    })
+                    .map((row) => (
+                      <li
+                        key={row.profileId}
+                        className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 hover:bg-white/5 group"
+                      >
+                        <Link
+                          href={creatorProfilePath(row.username)}
+                          className="flex-1 min-w-0 text-[11px] font-medium text-zinc-200 hover:text-primary truncate"
+                        >
+                          @{row.username}
+                        </Link>
+                        <a
+                          href={creatorProfileAbsUrl(row.username)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-zinc-600 hover:text-sky-400 shrink-0"
+                          title="Open in new tab"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          type="button"
+                          className="p-1.5 text-zinc-600 hover:text-emerald-400 shrink-0"
+                          title="Copy full URL"
+                          onClick={() => {
+                            const url = creatorProfileAbsUrl(row.username);
+                            void navigator.clipboard.writeText(url).then(() => {
+                              toast({ title: "Copied", description: url });
+                            });
+                          }}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mb-8 border border-primary/25 rounded-sm bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
