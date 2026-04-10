@@ -460,6 +460,163 @@ export default function AdminPanel() {
         </div>
       </div>
 
+      {/* Track submission pipeline — keep above long queues so admins see it without scrolling */}
+      <div className="mb-10 border border-yellow-500/15 rounded-sm bg-yellow-500/[0.03] p-4">
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-yellow-400/90 mb-3">
+          Track submissions · Pending review
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {(["PENDING","BATTLE_POOL","REJECTED","CHART"] as const).map((s) => {
+            const cnt =
+              s === "PENDING"
+                ? submissions?.filter((t) => t.status === "PENDING" || t.status === "SUBMITTED").length ?? 0
+                : submissions?.filter((t) => t.status === s).length ?? 0;
+            return (
+              <div
+                key={s}
+                className="border border-white/5 rounded-sm p-3 bg-black/20 text-center"
+                data-testid={`stat-${s.toLowerCase().replace("_","-")}`}
+              >
+                <p className="text-lg font-black text-white">{subsLoading ? "—" : cnt}</p>
+                <StatusBadge status={s} />
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-3 mb-4">
+          <Clock className="w-4 h-4 text-yellow-400" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-400" id="admin-pending-review">
+            Pending Review
+          </p>
+          {pending.length > 0 && (
+            <span className="text-[9px] font-bold text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-2 py-0.5 rounded-sm">
+              {pending.length}
+            </span>
+          )}
+        </div>
+
+        {subsLoading ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : pending.length === 0 ? (
+          <div className="border border-white/5 rounded-sm p-8 text-center bg-black/10">
+            <CheckCircle className="w-8 h-8 text-zinc-700 mx-auto mb-3" strokeWidth={1} />
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending tracks</p>
+            <p className="text-[11px] text-zinc-500 mt-3 leading-relaxed normal-case max-w-lg mx-auto">
+              Submissions with status PENDING or SUBMITTED (legacy) appear in this queue — not under Creator applications.
+              If a new upload is missing, click refresh (top right) or confirm the track is not already BATTLE_POOL / CHART.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <AnimatePresence initial={false}>
+              {pending.map((track) => (
+                <motion.div
+                  key={track.id}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="border border-yellow-400/10 bg-black/30 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                  data-testid={`row-pending-${track.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">#{track.id}</span>
+                      <span className="text-[9px] font-bold text-zinc-700 px-1.5 py-0.5 border border-white/5 rounded-sm uppercase tracking-widest">
+                        {track.genre}
+                      </span>
+                    </div>
+                    <p className="font-bold text-white text-sm truncate" data-testid={`text-title-${track.id}`}>
+                      {track.title}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+                      {track.creatorName}
+                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <a
+                        href={track.trackLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[9px] text-primary/70 hover:text-primary flex items-center gap-1 uppercase tracking-widest transition-colors"
+                        data-testid={`link-track-${track.id}`}
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        Open Track
+                      </a>
+                      <span className="text-[9px] text-zinc-700 uppercase tracking-widest">{fmt(track.createdAt)}</span>
+                    </div>
+                    {track.portfolioLink ? (
+                      <a
+                        href={track.portfolioLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[9px] text-cyan-400/80 hover:text-cyan-300 flex items-center gap-1 uppercase tracking-widest transition-colors mt-2"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        Social / Portfolio
+                      </a>
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <StatusBadge status={track.status} />
+                    <button
+                      onClick={() => reviewMutation.mutate({ id: track.id, status: "BATTLE_POOL" })}
+                      disabled={reviewMutation.isPending}
+                      data-testid={`button-approve-${track.id}`}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => reviewMutation.mutate({ id: track.id, status: "REJECTED" })}
+                      disabled={reviewMutation.isPending}
+                      data-testid={`button-reject-${track.id}`}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Reject
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {processed.length > 0 && (
+          <div className="mt-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-4">Processed</p>
+            <div className="space-y-1.5">
+              {processed.map((track) => (
+                <div
+                  key={track.id}
+                  className="border border-white/5 bg-black/15 rounded-sm px-4 py-3 flex items-center gap-4"
+                  data-testid={`row-processed-${track.id}`}
+                >
+                  <span className="text-[9px] font-bold text-zinc-600 w-8">#{track.id}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-zinc-300 truncate">{track.title}</p>
+                    <p className="text-[9px] text-zinc-600 uppercase tracking-widest">{track.creatorName} · {track.genre}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-[9px] text-zinc-700 hidden sm:block">{fmt(track.createdAt)}</span>
+                    <StatusBadge status={track.status} />
+                    <a href={track.trackLink} target="_blank" rel="noopener noreferrer" className="text-zinc-600 hover:text-primary transition-colors">
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mb-8 border border-primary/25 rounded-sm bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-start gap-3">
           <BarChart3 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -731,158 +888,6 @@ export default function AdminPanel() {
           </div>
         )}
       </div>
-
-      {/* Pipeline counters */}
-      <div className="grid grid-cols-4 gap-3 mb-8">
-        {(["PENDING","BATTLE_POOL","REJECTED","CHART"] as const).map((s) => {
-          const cnt =
-            s === "PENDING"
-              ? submissions?.filter((t) => t.status === "PENDING" || t.status === "SUBMITTED").length ?? 0
-              : submissions?.filter((t) => t.status === s).length ?? 0;
-          return (
-            <div
-              key={s}
-              className="border border-white/5 rounded-sm p-3 bg-black/20 text-center"
-              data-testid={`stat-${s.toLowerCase().replace("_","-")}`}
-            >
-              <p className="text-lg font-black text-white">{subsLoading ? "—" : cnt}</p>
-              <StatusBadge status={s} />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Pending queue */}
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <Clock className="w-4 h-4 text-yellow-400" />
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-400">
-            Pending Review
-          </p>
-          {pending.length > 0 && (
-            <span className="text-[9px] font-bold text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-2 py-0.5 rounded-sm">
-              {pending.length}
-            </span>
-          )}
-        </div>
-
-        {subsLoading ? (
-          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
-            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
-          </div>
-        ) : pending.length === 0 ? (
-          <div className="border border-white/5 rounded-sm p-8 text-center bg-black/10">
-            <CheckCircle className="w-8 h-8 text-zinc-700 mx-auto mb-3" strokeWidth={1} />
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending tracks</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <AnimatePresence initial={false}>
-              {pending.map((track) => (
-                <motion.div
-                  key={track.id}
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="border border-yellow-400/10 bg-black/30 rounded-sm p-4 flex flex-col sm:flex-row sm:items-center gap-4"
-                  data-testid={`row-pending-${track.id}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">#{track.id}</span>
-                      <span className="text-[9px] font-bold text-zinc-700 px-1.5 py-0.5 border border-white/5 rounded-sm uppercase tracking-widest">
-                        {track.genre}
-                      </span>
-                    </div>
-                    <p className="font-bold text-white text-sm truncate" data-testid={`text-title-${track.id}`}>
-                      {track.title}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
-                      {track.creatorName}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <a
-                        href={track.trackLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[9px] text-primary/70 hover:text-primary flex items-center gap-1 uppercase tracking-widest transition-colors"
-                        data-testid={`link-track-${track.id}`}
-                      >
-                        <ExternalLink className="w-2.5 h-2.5" />
-                        Open Track
-                      </a>
-                      <span className="text-[9px] text-zinc-700 uppercase tracking-widest">{fmt(track.createdAt)}</span>
-                    </div>
-                    {track.portfolioLink ? (
-                      <a
-                        href={track.portfolioLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[9px] text-cyan-400/80 hover:text-cyan-300 flex items-center gap-1 uppercase tracking-widest transition-colors mt-2"
-                      >
-                        <ExternalLink className="w-2.5 h-2.5" />
-                        Social / Portfolio
-                      </a>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <StatusBadge status={track.status} />
-                    <button
-                      onClick={() => reviewMutation.mutate({ id: track.id, status: "BATTLE_POOL" })}
-                      disabled={reviewMutation.isPending}
-                      data-testid={`button-approve-${track.id}`}
-                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
-                    >
-                      <CheckCircle className="w-3 h-3" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => reviewMutation.mutate({ id: track.id, status: "REJECTED" })}
-                      disabled={reviewMutation.isPending}
-                      data-testid={`button-reject-${track.id}`}
-                      className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
-                    >
-                      <XCircle className="w-3 h-3" />
-                      Reject
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
-
-      {/* Processed tracks */}
-      {processed.length > 0 && (
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-4">Processed</p>
-          <div className="space-y-1.5">
-            {processed.map((track) => (
-              <div
-                key={track.id}
-                className="border border-white/5 bg-black/15 rounded-sm px-4 py-3 flex items-center gap-4"
-                data-testid={`row-processed-${track.id}`}
-              >
-                <span className="text-[9px] font-bold text-zinc-600 w-8">#{track.id}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-zinc-300 truncate">{track.title}</p>
-                  <p className="text-[9px] text-zinc-600 uppercase tracking-widest">{track.creatorName} · {track.genre}</p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-[9px] text-zinc-700 hidden sm:block">{fmt(track.createdAt)}</span>
-                  <StatusBadge status={track.status} />
-                  <a href={track.trackLink} target="_blank" rel="noopener noreferrer" className="text-zinc-600 hover:text-primary transition-colors">
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* System flow */}
       <div className="mt-10 border border-white/5 rounded-sm p-4 text-[9px] text-zinc-600 uppercase tracking-widest">
