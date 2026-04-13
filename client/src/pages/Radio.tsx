@@ -124,8 +124,17 @@ export default function NexRadio() {
       });
       toast({ title: "Liked!", description: "Added to your liked tracks." });
     },
-    onError: () =>
-      toast({ title: "Login required", description: "Log in to like tracks.", variant: "destructive" }),
+    onError: (err: Error) => {
+      if (String(err?.message ?? "").startsWith("409")) {
+        toast({
+          title: "Already liked today",
+          description: "You can like each track once per day. Try again tomorrow.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Login required", description: "Log in to like tracks.", variant: "destructive" });
+    },
   });
 
   const handleLike = () => {

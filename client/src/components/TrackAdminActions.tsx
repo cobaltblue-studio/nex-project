@@ -190,7 +190,15 @@ function TrackSocialActions({
       void queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
       toast({ title: "Liked", description: " saved to your picks." });
     },
-    onError: () => {
+    onError: (err: Error) => {
+      if (String(err?.message ?? "").startsWith("409")) {
+        toast({
+          title: "Already liked today",
+          description: "You can like each track once per day. Try again tomorrow.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: "Login required",
         description: "Sign in to like tracks.",
