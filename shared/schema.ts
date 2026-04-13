@@ -126,6 +126,7 @@ export const likes = pgTable("likes", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   trackId: integer("track_id").references(() => tracks.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const votes = pgTable("votes", {

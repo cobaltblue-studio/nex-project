@@ -1220,8 +1220,17 @@ export async function registerRoutes(
   });
 
   app.post(api.tracks.like.path, isAuthenticated, async (req: any, res) => {
-    await storage.likeTrack(getUserId(req), Number(req.params.id));
-    res.json({ message: apiMsg("좋아요를 반영했습니다", "Track liked") });
+    try {
+      await storage.likeTrack(getUserId(req), Number(req.params.id));
+      res.json({ message: apiMsg("좋아요를 반영했습니다", "Track liked") });
+    } catch (err: any) {
+      if (err?.message === "ALREADY_LIKED_TODAY") {
+        return res.status(409).json({
+          message: apiMsg("좋아요는 트랙당 하루 1회만 가능합니다", "You can like each track once per day"),
+        });
+      }
+      throw err;
+    }
   });
 
   // Legacy submit endpoint: kept for backward compatibility

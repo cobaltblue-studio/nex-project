@@ -1054,8 +1054,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async likeTrack(userId: string, trackId: number): Promise<void> {
-    const inserted = await db.insert(likes).values({ userId, trackId }).onConflictDoNothing().returning({ id: likes.id });
-    if (inserted.length === 0) return;
+    const todayStartUtc = new Date();
+    todayStartUtc.setUTCHours(0, 0, 0, 0);
+
+    try {
+      const [alreadyToday] = await db
+        .select({ id: likes.id })
+        .from(likes)
+        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId), gte(likes.createdAt, todayStartUtc)))
+        .limit(1);
+      if (alreadyToday) throw new Error("ALREADY_LIKED_TODAY");
+    } catch (e: any) {
+      // Backward compatibility: older DBs may not yet have likes.created_at.
+      if (e?.code !== "42703") throw e;
+      const [legacyLike] = await db
+        .select({ id: likes.id })
+        .from(likes)
+        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
+        .limit(1);
+      if (legacyLike) throw new Error("ALREADY_LIKED_TODAY");
+    }
+
+    await db.insert(likes).values({ userId, trackId });
     await this.ensureTrackMetricsRow(trackId);
     await db.update(trackMetrics).set({
       likesCount: sql`${trackMetrics.likesCount} + 1`,
