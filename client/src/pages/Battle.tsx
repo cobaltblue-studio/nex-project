@@ -99,7 +99,7 @@ function BattleBlindCard({
   onVote: () => void;
   dataTestIdPrefix: string;
 }) {
-  const maskedLabel = "[ ????? ]  🤫 UNLOCK AFTER VOTE";
+  const maskedLabel = "[ HIDDEN ] 🤫 UNLOCK AFTER VOTE";
   return (
     <motion.div
       className={[
@@ -160,7 +160,7 @@ function BattleBlindCard({
           </>
         ) : (
           <p
-            className="font-bold text-white text-[11px] uppercase tracking-[0.14em] transition-premium whitespace-pre"
+            className="font-bold text-white text-[11px] uppercase tracking-[0.12em] transition-premium whitespace-normal break-words leading-relaxed"
             data-testid={`text-${dataTestIdPrefix}-title`}
           >
             {maskedLabel}
