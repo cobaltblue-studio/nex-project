@@ -3,12 +3,27 @@ import { motion } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
 import { Loader2, ArrowLeft, Youtube, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
 
 export function MVDetail() {
   const [, params] = useRoute("/mv/:id");
   const { data: trackData, isLoading: isTrackLoading } = useWork(params?.id || "");
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
+  const { data: chartTracks, isLoading: isChartTracksLoading } = useQuery<any[]>({
+    queryKey: ["/api/tracks", "chart-rank-video", "status-CHART", "video"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("status", "CHART");
+      params.set("trackType", "video");
+      params.set("sortBy", "rankingScore");
+      params.set("limit", "100");
+      const res = await fetch(`/api/tracks?${params.toString()}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    retry: false,
+  });
 
   // Normalize track data based on the API response structure { ...track, creator }
   const track = useMemo(() => {
@@ -54,8 +69,12 @@ export function MVDetail() {
 
   const mvUrl = track.mvUrl;
   const videoId = extractYoutubeId(mvUrl || "");
-  const rankIndex = sortedTracks.findIndex(st => st.id === track.id);
-  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
+  const chartRank = track.status === "CHART"
+    ? (() => {
+        const idx = (chartTracks ?? []).findIndex((st) => st.id === track.id);
+        return idx >= 0 ? idx + 1 : null;
+      })()
+    : null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-6xl mx-auto space-y-12 pb-20">
@@ -121,7 +140,7 @@ export function MVDetail() {
               <div className="space-y-1">
                 <div className="text-zinc-700">RANK</div>
                 <div className="text-white">
-                  {rank ? `NEX #${String(rank).padStart(3, "0")}` : (areTracksLoading ? '...' : '-')}
+                  {chartRank ? `NEX #${String(chartRank).padStart(3, "0")}` : ((areTracksLoading || isChartTracksLoading) ? '...' : '-')}
                 </div>
               </div>
               <div className="space-y-1">

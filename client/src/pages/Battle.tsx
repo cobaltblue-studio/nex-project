@@ -76,7 +76,6 @@ function BattleBlindCard({
   track,
   badge,
   accentClass,
-  buttonClassName,
   canVote,
   disabled,
   isVoted,
@@ -89,7 +88,6 @@ function BattleBlindCard({
   track: BattleTrack;
   badge: string;
   accentClass: string;
-  buttonClassName: string;
   canVote: boolean;
   disabled: boolean;
   isVoted: boolean;
@@ -99,15 +97,34 @@ function BattleBlindCard({
   onVote: () => void;
   dataTestIdPrefix: string;
 }) {
-  const maskedLabel = "[ HIDDEN ] 🤫 UNLOCK AFTER VOTE";
+  const maskedLabel = "[HIDDEN] · UNLOCK AFTER VOTE";
+  const selectStateLabel = isVoted
+    ? `VOTED TRACK ${badge}`
+    : voteReady
+      ? `TAP TO VOTE TRACK ${badge}`
+      : "LISTEN FIRST";
+
+  const onSelect = () => {
+    if (!disabled) onVote();
+  };
   return (
     <motion.div
       className={[
         "premium-card p-4 flex flex-col gap-3 transition-premium battle-blind-card",
-        canVote ? "" : "opacity-60",
+        canVote ? "cursor-pointer" : "opacity-60",
         isVoted && isWinner ? "battle-winner-focus" : "",
         isVoted && !isWinner ? "battle-loser-dimmed" : "",
       ].join(" ")}
+      onClick={onSelect}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      onKeyDown={(e) => {
+        if (disabled) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onVote();
+        }
+      }}
       animate={{
         opacity: isVoted && !isWinner ? 0.3 : 1,
         scale: isVoted && isWinner ? 1.02 : 1,
@@ -159,29 +176,17 @@ function BattleBlindCard({
             </p>
           </>
         ) : (
-          <p
-            className="font-bold text-white text-[11px] uppercase tracking-[0.12em] transition-premium whitespace-normal break-words leading-relaxed"
-            data-testid={`text-${dataTestIdPrefix}-title`}
-          >
+          <p className="font-bold text-white text-[11px] uppercase tracking-[0.08em] transition-premium whitespace-normal break-words leading-relaxed" data-testid={`text-${dataTestIdPrefix}-title`}>
             {maskedLabel}
           </p>
         )}
       </div>
-      <button
-        onClick={onVote}
-        disabled={disabled}
+      <div
         data-testid={`button-vote-${dataTestIdPrefix.replace("vote-", "")}`}
-        className={`${buttonClassName} relative overflow-hidden ${voteReady && !isVoted ? "battle-vote-ready-glow" : ""}`}
+        className={`w-full py-2 text-center rounded-xl border uppercase tracking-[0.18em] text-[10px] font-bold transition-premium ${voteReady && !isVoted ? "battle-vote-ready-glow border-primary/50 text-primary" : "border-white/15 text-zinc-500"}`}
       >
-        {!isVoted && <span className="battle-vote-lock-fill" style={{ width: `${voteReady ? 100 : 0}%` }} aria-hidden="true" />}
-        <span className="relative z-[1]">
-          {isVoted
-            ? `VOTED TRACK ${badge}`
-            : voteReady
-              ? `VOTE TRACK ${badge}`
-              : "LISTEN FIRST"}
-        </span>
-      </button>
+        {selectStateLabel}
+      </div>
     </motion.div>
   );
 }
@@ -690,7 +695,7 @@ export function Battle() {
           />
         )}
       </AnimatePresence>
-      <div className="mb-3 text-center pt-2">
+      <div className={`mb-3 text-center ${phase === "vote" ? "pt-0" : "pt-2"}`}>
         <p
           className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-[10px] md:mt-0"
           data-testid="battle-progress-indicator"
@@ -700,6 +705,7 @@ export function Battle() {
         </p>
       </div>
 
+      {phase !== "vote" && (
       <div className="mb-3 premium-card p-3 battle-stats-panel" data-testid="panel-today-stats">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400">
@@ -729,6 +735,7 @@ export function Battle() {
           </div>
         </div>
       </div>
+      )}
 
       <AnimatePresence mode="wait">
         {phase === "genre-select" && (
@@ -917,7 +924,6 @@ export function Battle() {
                 voteReady={voteReady}
                 onVote={() => castVote(battle.trackAId)}
                 dataTestIdPrefix="vote-track-a"
-                buttonClassName={`w-full py-2.5 glass-button text-primary text-[11px] font-bold uppercase tracking-[0.25em] rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed ${votedId === battle.trackAId ? "animate-vote-pulse brightness-150 ring-2 ring-primary/60" : ""}`}
               />
 
               <BattleBlindCard
@@ -932,7 +938,6 @@ export function Battle() {
                 voteReady={voteReady}
                 onVote={() => castVote(battle.trackBId)}
                 dataTestIdPrefix="vote-track-b"
-                buttonClassName={`w-full py-2.5 rounded-xl transition-premium disabled:opacity-40 disabled:cursor-not-allowed text-blue-400 text-[11px] font-bold uppercase tracking-[0.25em] battle-vote-button-b ${votedId === battle.trackBId ? "animate-vote-pulse brightness-150 ring-2 ring-blue-400/60" : ""}`}
               />
             </div>
             <AnimatePresence>

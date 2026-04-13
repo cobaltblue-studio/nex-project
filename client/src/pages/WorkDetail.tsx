@@ -95,6 +95,20 @@ export function TrackDetail() {
     retry: false,
   });
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
+  const { data: chartTracks, isLoading: isChartTracksLoading } = useQuery<any[]>({
+    queryKey: ["/api/tracks", "chart-rank-audio", "status-CHART", "audio"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("status", "CHART");
+      params.set("trackType", "audio");
+      params.set("sortBy", "rankingScore");
+      params.set("limit", "100");
+      const res = await fetch(`/api/tracks?${params.toString()}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    retry: false,
+  });
 
   // Normalize raw API response
   const track = useMemo(() => {
@@ -112,11 +126,14 @@ export function TrackDetail() {
     [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
   , [allTracks]);
 
-  const rankIndex = useMemo(() =>
-    track ? sortedTracks.findIndex(st => st.id === track.id) : -1
-  , [sortedTracks, track]);
+  const rankIndex = useMemo(() => (track ? sortedTracks.findIndex(st => st.id === track.id) : -1), [sortedTracks, track]);
 
-  const rank = rankIndex !== -1 ? rankIndex + 1 : null;
+  // Show rank only when this track is truly in CHART status.
+  const chartRank = useMemo(() => {
+    if (!track || track.status !== "CHART") return null;
+    const idx = (chartTracks ?? []).findIndex((st) => st.id === track.id);
+    return idx >= 0 ? idx + 1 : null;
+  }, [chartTracks, track]);
 
   const nextTrack = useMemo(() => {
     if (sortedTracks.length === 0 || rankIndex === -1) return null;
@@ -523,7 +540,7 @@ export function TrackDetail() {
               <div className="space-y-1">
                 <div className="text-zinc-600">RANK</div>
                 <div className="text-white text-xs">
-                  {rank ? `NEX #${String(rank).padStart(3, "0")}` : (areTracksLoading ? "..." : "-")}
+                  {chartRank ? `NEX #${String(chartRank).padStart(3, "0")}` : ((areTracksLoading || isChartTracksLoading) ? "..." : "-")}
                 </div>
               </div>
               <div className="space-y-1">

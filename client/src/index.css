@@ -535,11 +535,17 @@
   }
 
   .battle-vote-stage .battle-vote-grid {
-    gap: 0.75rem !important;
+    gap: 0.5rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .battle-vote-stage .premium-card {
-    padding: 0.75rem !important;
+    padding: 0.55rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .battle-vote-stage .battle-cover-shell {
+    aspect-ratio: 4 / 3 !important;
   }
 
   .battle-stage-frame,
