@@ -1692,6 +1692,34 @@ export async function registerRoutes(
     );
   });
 
+  app.post("/api/admin/creators/deactivate", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+    if (!username) {
+      return res.status(400).json({
+        message: apiMsg("비활성화할 크리에이터 username을 입력해 주세요", "Creator username is required"),
+      });
+    }
+
+    const result = await storage.deactivateCreatorByUsername(username);
+    if (!result.ok) {
+      if (result.reason === "NOT_FOUND") {
+        return res.status(404).json({ message: apiMsg("해당 username의 프로필을 찾을 수 없습니다", "Creator profile not found") });
+      }
+      if (result.reason === "PROTECTED_ROLE") {
+        return res.status(400).json({ message: apiMsg("admin/founder 계정은 비활성화할 수 없습니다", "Cannot deactivate admin/founder profile") });
+      }
+      return res.status(400).json({ message: apiMsg("비활성화 요청을 처리할 수 없습니다", "Could not deactivate creator") });
+    }
+
+    res.json({
+      ok: true,
+      profileId: result.profileId,
+      archivedTrackCount: result.archivedTrackCount ?? 0,
+      message: apiMsg("크리에이터를 비활성화하고 소유 트랙을 숨겼습니다", "Creator deactivated and owned tracks archived"),
+    });
+  });
+
   app.post("/api/admin/profiles/:id/approve-creator", isAuthenticated, async (req: any, res) => {
     if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
     const id = Number(req.params.id);

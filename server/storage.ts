@@ -119,6 +119,8 @@ export interface IStorage {
   getProfile(id: number): Promise<(Profile & { tracks: Track[]; followerCount: number }) | undefined>;
   createProfile(p: any): Promise<Profile>;
   updateProfile(id: number, data: Partial<Profile>): Promise<Profile>;
+  /** Admin safety action: hide creator + archive owned tracks by current username. */
+  deactivateCreatorByUsername(username: string): Promise<{ ok: boolean; reason?: string; profileId?: number; archivedTrackCount?: number }>;
   getTracks(filter: {
     status?: string;
     featured?: boolean;
@@ -664,6 +666,55 @@ export class DatabaseStorage implements IStorage {
   async updateProfile(id: number, data: Partial<Profile>): Promise<Profile> {
     const [updated] = await db.update(profiles).set(data).where(eq(profiles.id, id)).returning();
     return updated;
+  }
+
+  async deactivateCreatorByUsername(username: string): Promise<{ ok: boolean; reason?: string; profileId?: number; archivedTrackCount?: number }> {
+    const normalized = username.trim().toLowerCase();
+    if (!normalized) return { ok: false, reason: "INVALID_USERNAME" };
+
+    const [target] = await db.select().from(profiles).where(eq(profiles.username, normalized));
+    if (!target) return { ok: false, reason: "NOT_FOUND" };
+    if (target.role === "admin" || target.role === "founder") return { ok: false, reason: "PROTECTED_ROLE" };
+
+    return db.transaction(async (tx) => {
+      const [countRow] = await tx
+        .select({ c: count() })
+        .from(tracks)
+        .where(and(eq(tracks.creatorId, target.id), eq(tracks.isDeleted, false)));
+      const archivedTrackCount = Number(countRow?.c ?? 0);
+
+      if (archivedTrackCount > 0) {
+        await tx
+          .update(tracks)
+          .set({ isDeleted: true, archivedAt: new Date() })
+          .where(and(eq(tracks.creatorId, target.id), eq(tracks.isDeleted, false)));
+      }
+
+      let tombstone = `deleted_${target.id}`;
+      let suffix = 1;
+      for (;;) {
+        const [dup] = await tx.select().from(profiles).where(eq(profiles.username, tombstone));
+        if (!dup || dup.id === target.id) break;
+        suffix += 1;
+        tombstone = `deleted_${target.id}_${suffix}`;
+      }
+
+      await tx
+        .update(profiles)
+        .set({
+          username: tombstone,
+          role: "listener",
+          creatorApplicationStatus: "rejected",
+          bio: null,
+          aiToolUsed: null,
+          nexNumber: null,
+          totalScore: 0,
+          isVerified: false,
+        })
+        .where(eq(profiles.id, target.id));
+
+      return { ok: true, profileId: target.id, archivedTrackCount };
+    });
   }
 
   async getPendingCreatorApplications(): Promise<{ profile: Profile; email: string | null }[]> {

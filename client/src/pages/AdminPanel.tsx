@@ -6,7 +6,7 @@ import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
-  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3,
+  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3, AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -108,6 +108,7 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [claimableTrackId, setClaimableTrackId] = useState("");
+  const [deactivateUsername, setDeactivateUsername] = useState("");
 
   const isAdmin = user?.role === "admin";
 
@@ -174,6 +175,23 @@ export default function AdminPanel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/creator-applications"] });
     },
+  });
+
+  const deactivateCreatorMutation = useMutation({
+    mutationFn: (username: string) =>
+      apiRequest("POST", "/api/admin/creators/deactivate", { username }).then((r) => r.json()),
+    onSuccess: (out: { archivedTrackCount?: number }) => {
+      setDeactivateUsername("");
+      toast({
+        title: "Creator deactivated",
+        description: `Archived tracks: ${out?.archivedTrackCount ?? 0}`,
+      });
+      void qc.invalidateQueries({ queryKey: ["/api/admin/submissions"] });
+      void qc.invalidateQueries({ queryKey: ["/api/admin/insights"] });
+      void qc.invalidateQueries({ queryKey: ["/api/creators"] });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Deactivate failed", description: e.message, variant: "destructive" }),
   });
 
   const {
@@ -597,6 +615,34 @@ export default function AdminPanel() {
             </AnimatePresence>
           </div>
         )}
+      </div>
+
+      <div className="mb-10 border border-red-500/20 rounded-sm bg-red-500/[0.04] p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-300">Creator Cleanup (Danger)</p>
+            <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+              Deactivate one creator by username. This hides all of their owned tracks (archives them) and removes the profile from public creator listings.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <input
+            value={deactivateUsername}
+            onChange={(e) => setDeactivateUsername(e.target.value)}
+            placeholder="username (e.g. divineverseai)"
+            className="flex-1 bg-black border border-red-400/20 rounded-sm px-3 py-2 text-sm text-white"
+          />
+          <button
+            type="button"
+            disabled={deactivateCreatorMutation.isPending || !deactivateUsername.trim()}
+            onClick={() => deactivateCreatorMutation.mutate(deactivateUsername.trim())}
+            className="px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-300 hover:bg-red-500/10 disabled:opacity-40"
+          >
+            {deactivateCreatorMutation.isPending ? "Processing..." : "Deactivate creator"}
+          </button>
+        </div>
       </div>
 
       {/* Track ownership claims */}
