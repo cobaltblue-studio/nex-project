@@ -43,8 +43,17 @@ interface Props {
 }
 
 const BATTLE_PREVIEW_SECONDS = 20;
-/** Start at 0 for immediate audio (30s offset caused long buffering / perceived delay). */
-const BATTLE_START_OFFSET = 0;
+
+/** Exported for battle direct-audio / iframe preview windows (same rule as YouTube battle). */
+export function randomMiddlePreviewStart(durationSec: number, previewLen: number): number {
+  if (!Number.isFinite(durationSec) || durationSec <= previewLen + 2) return 0;
+  const low = Math.max(0, durationSec * 0.25);
+  const high = Math.max(
+    low,
+    Math.min(durationSec * 0.75 - previewLen, durationSec - previewLen),
+  );
+  return low + Math.random() * (high - low);
+}
 
 export function YoutubePlayer({
   videoId,
@@ -65,14 +74,62 @@ export function YoutubePlayer({
   useEffect(() => {
     if (!videoId || !wrapperRef.current) return;
     let destroyed = false;
+    let battlePollTimer: ReturnType<typeof setTimeout> | null = null;
 
     const inner = document.createElement("div");
     const uid = `yt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     inner.id = uid;
     wrapperRef.current.appendChild(inner);
 
-    const startTime = battleMode ? BATTLE_START_OFFSET : 0;
-    const endTime = battleMode ? BATTLE_START_OFFSET + BATTLE_PREVIEW_SECONDS : undefined;
+    const battleAutoplay = battleMode && autoplay;
+
+    const clearBattlePoll = () => {
+      if (battlePollTimer) {
+        clearTimeout(battlePollTimer);
+        battlePollTimer = null;
+      }
+    };
+
+    const armBattleEndTimer = () => {
+      if (battleTimerRef.current) clearTimeout(battleTimerRef.current);
+      battleTimerRef.current = setTimeout(() => {
+        try {
+          playerRef.current?.pauseVideo();
+        } catch {}
+        onEndedRef.current?.();
+      }, BATTLE_PREVIEW_SECONDS * 1000);
+    };
+
+    /** getDuration() is often 0 on onReady; wait until the player reports a real length. */
+    const startBattleFromRandomMiddle = (p: any) => {
+      let attempts = 0;
+      const maxAttempts = 50;
+      const tick = () => {
+        if (destroyed) return;
+        const rawDur = typeof p.getDuration === "function" ? p.getDuration() : 0;
+        const dur = Number(rawDur);
+        if (Number.isFinite(dur) && dur > BATTLE_PREVIEW_SECONDS + 2) {
+          clearBattlePoll();
+          try {
+            const start = randomMiddlePreviewStart(dur, BATTLE_PREVIEW_SECONDS);
+            if (start > 0) p.seekTo(start, true);
+            p.playVideo?.();
+          } catch {}
+          armBattleEndTimer();
+          return;
+        }
+        if (++attempts >= maxAttempts) {
+          clearBattlePoll();
+          try {
+            p.playVideo?.();
+          } catch {}
+          armBattleEndTimer();
+          return;
+        }
+        battlePollTimer = setTimeout(tick, 64);
+      };
+      tick();
+    };
 
     loadYTApi(() => {
       if (destroyed) return;
@@ -81,9 +138,8 @@ export function YoutubePlayer({
         height: "100%",
         videoId,
         playerVars: {
-          autoplay: autoplay ? 1 : 0,
-          start: startTime,
-          ...(endTime ? { end: endTime } : {}),
+          // Battle: avoid autoplay=1 before seek (audible start at 0:00 + long buffer on deep start=).
+          autoplay: battleAutoplay ? 0 : autoplay ? 1 : 0,
           rel: 0,
           modestbranding: 1,
           controls: battleMode ? 0 : 1,
@@ -100,17 +156,8 @@ export function YoutubePlayer({
           },
           onReady: (ev: { target: any }) => {
             const p = ev.target;
-            if (battleMode && autoplay) {
-              try {
-                if (startTime > 0) p.seekTo(startTime, true);
-                p.playVideo?.();
-              } catch {}
-              battleTimerRef.current = setTimeout(() => {
-                try {
-                  playerRef.current?.pauseVideo();
-                } catch {}
-                onEndedRef.current?.();
-              }, BATTLE_PREVIEW_SECONDS * 1000);
+            if (battleAutoplay) {
+              startBattleFromRandomMiddle(p);
             } else if (autoplay) {
               try {
                 p.playVideo?.();
@@ -123,6 +170,7 @@ export function YoutubePlayer({
 
     return () => {
       destroyed = true;
+      clearBattlePoll();
       if (battleTimerRef.current) clearTimeout(battleTimerRef.current);
       try {
         playerRef.current?.destroy();

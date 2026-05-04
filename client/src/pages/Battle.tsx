@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -22,6 +22,7 @@ import {
   YoutubePlayer,
   extractYoutubeId,
   warmYoutubeIframeApi,
+  randomMiddlePreviewStart,
 } from "@/components/YoutubePlayer";
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
@@ -210,15 +211,18 @@ function BattleTrackPlayer({
   track,
   label,
   autoplay = false,
+  blindMode = true,
   onEnded,
 }: {
   track: BattleTrack;
   label: string;
   autoplay?: boolean;
+  blindMode?: boolean;
   onEnded?: () => void;
 }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [iframeGuessSeek, setIframeGuessSeek] = useState(0);
 
   useEffect(() => {
     if (!autoplay) return;
@@ -239,10 +243,29 @@ function BattleTrackPlayer({
   const ytId = extractYoutubeId(rawUrl);
   const isDirectAudio = isDirectAudioUrl(rawUrl, ytId);
   const iframeKind = rawUrl && !ytId ? classifyStreamingSource(rawUrl) : "other";
+
+  useEffect(() => {
+    if (!autoplay || ytId || isDirectAudio || !rawUrl) {
+      setIframeGuessSeek(0);
+      return;
+    }
+    setIframeGuessSeek(Math.floor(45 + Math.random() * 135));
+  }, [autoplay, rawUrl, ytId, isDirectAudio, track.id]);
+
   const { iframeSrc: battleIframeSrc, loading: battleStreamLoading } = usePlayableStreamingSrc(
     rawUrl && !ytId && !isDirectAudio ? rawUrl : undefined,
-    { autoplay, enableJsApi: false },
+    {
+      autoplay,
+      enableJsApi: false,
+      embedSeekSeconds: iframeGuessSeek > 0 ? iframeGuessSeek : undefined,
+    },
   );
+
+  useLayoutEffect(() => {
+    const el = audioRef.current;
+    if (!el || !autoplay || !isDirectAudio) return;
+    void el.play().catch(() => {});
+  }, [autoplay, isDirectAudio, rawUrl]);
 
   return (
     <div className="flex flex-col gap-2 battle-player-stage">
@@ -280,8 +303,8 @@ function BattleTrackPlayer({
               onLoadedMetadata={(e) => {
                 const audio = e.currentTarget;
                 if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-                audio.currentTime = Math.max(0, audio.duration * 0.5);
-                if (autoplay) audio.play().catch(() => {});
+                audio.currentTime = randomMiddlePreviewStart(audio.duration, PREVIEW_DURATION);
+                if (autoplay) void audio.play().catch(() => {});
               }}
             />
             <Music2 className="w-8 h-8 text-primary animate-pulse" />
@@ -314,11 +337,13 @@ function BattleTrackPlayer({
             <Music2 className="w-8 h-8" />
           </div>
         )}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 backdrop-blur-md">
-          <span className="rounded-md border border-primary/35 bg-black/40 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.25em] text-primary/90">
-            Blind Preview
-          </span>
-        </div>
+        {blindMode ? (
+          <div className="pointer-events-none absolute top-2 left-2 z-20">
+            <span className="rounded-md border border-primary/35 bg-black/60 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.22em] text-primary/90">
+              Blind Mode
+            </span>
+          </div>
+        ) : null}
       </div>
       <PreviewProgressBar active={autoplay} />
     </div>
@@ -350,6 +375,7 @@ export function Battle() {
   const [votedId, setVotedId] = useState<number | null>(null);
   const [isVoted, setIsVoted] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [blindMode, setBlindMode] = useState(true);
   const [showSharePopup, setShowSharePopup] = useState(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultPhaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -376,6 +402,24 @@ export function Battle() {
   const limitReachedRef = useRef(limitReached);
   limitReachedRef.current = limitReached;
 
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("nex.battle.blindMode");
+      if (saved === "off") setBlindMode(false);
+      else if (saved === "on") setBlindMode(true);
+    } catch {
+      /* ignore localStorage read errors */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("nex.battle.blindMode", blindMode ? "on" : "off");
+    } catch {
+      /* ignore localStorage write errors */
+    }
+  }, [blindMode]);
+
   const createBattleMutation = useMutation({
     mutationFn: (genre: string) =>
       apiRequest("POST", "/api/battles/new", { genre }),
@@ -391,7 +435,7 @@ export function Battle() {
       if (msg.startsWith("401")) {
         toast({
           title: "Login required",
-          description: "Sign in to start a battle. Use the LOGIN button, then “Continue to login”.",
+          description: "Start with Google to enter battles. Tap START WITH GOOGLE, then Continue with Google.",
           variant: "destructive",
         });
       } else if (msg.startsWith("409")) {
@@ -473,13 +517,16 @@ export function Battle() {
 
   const onBattleTrackAEnded = useCallback(() => {
     if (!battle) return;
+    const battleId = battle.id;
+    const trackId = battle.trackAId;
+    // Optimistic step transition for snappier UX; rollback only if sync fails.
+    setListenedA(true);
+    setPhase("track-b");
     void (async () => {
       try {
-        await apiRequest("POST", `/api/battles/${battle.id}/listen-complete`, {
-          trackId: battle.trackAId,
+        await apiRequest("POST", `/api/battles/${battleId}/listen-complete`, {
+          trackId,
         });
-        setListenedA(true);
-        setPhase("track-b");
       } catch (e: any) {
         const raw = String(e?.message ?? "").trim();
         const detail = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
@@ -488,6 +535,8 @@ export function Battle() {
           description: detail || "Check your connection and try again.",
           variant: "destructive",
         });
+        setListenedA(false);
+        setPhase("track-a");
         setListenReplayA((n) => n + 1);
       }
     })();
@@ -495,13 +544,16 @@ export function Battle() {
 
   const onBattleTrackBEnded = useCallback(() => {
     if (!battle) return;
+    const battleId = battle.id;
+    const trackId = battle.trackBId;
+    // Optimistic step transition for snappier UX; rollback only if sync fails.
+    setListenedB(true);
+    setPhase("vote");
     void (async () => {
       try {
-        await apiRequest("POST", `/api/battles/${battle.id}/listen-complete`, {
-          trackId: battle.trackBId,
+        await apiRequest("POST", `/api/battles/${battleId}/listen-complete`, {
+          trackId,
         });
-        setListenedB(true);
-        setPhase("vote");
       } catch (e: any) {
         const raw = String(e?.message ?? "").trim();
         const detail = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
@@ -510,6 +562,8 @@ export function Battle() {
           description: detail || "Check your connection and try again.",
           variant: "destructive",
         });
+        setListenedB(false);
+        setPhase("track-b");
         setListenReplayB((n) => n + 1);
       }
     })();
@@ -520,7 +574,7 @@ export function Battle() {
       if (!isAuthenticated) {
         toast({
           title: "Login required",
-          description: "Battles need a signed-in account. Tap LOGIN, open “Continue to login”, then try again.",
+          description: "Battles require a NEX account. Tap START WITH GOOGLE, then Continue with Google.",
           variant: "destructive",
         });
         setPhase("genre-select");
@@ -703,6 +757,20 @@ export function Battle() {
         >
           {`TODAY'S BATTLES ${displayCount} / ${dailyMax} (DAILY LIMIT ${dailyMax})`}
         </p>
+        <div className="mt-2 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setBlindMode((v) => !v)}
+            data-testid="toggle-battle-blind-mode"
+            className={`px-3 py-1 rounded-md border text-[9px] font-bold uppercase tracking-[0.2em] transition-premium ${
+              blindMode
+                ? "border-primary/40 text-primary bg-primary/10"
+                : "border-white/20 text-zinc-400 bg-white/5"
+            }`}
+          >
+            Blind Mode: {blindMode ? "ON" : "OFF"}
+          </button>
+        </div>
       </div>
 
       {phase !== "vote" && (
@@ -754,14 +822,14 @@ export function Battle() {
             ) : !isAuthenticated ? (
               <div className="flex flex-col items-center gap-4 max-w-md text-center">
                 <p className="text-sm text-zinc-400">
-                  Sign in to start battles and vote. After Google, you&apos;ll return here.
+                  Start with Google to battle and vote. We&apos;ll return you here right after.
                 </p>
                 <a
                   href={battleLoginHref}
                   data-testid="button-battle-login"
                   className="px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105 inline-block"
                 >
-                  LOGIN TO BATTLE
+                  START WITH GOOGLE
                 </a>
               </div>
             ) : (
@@ -826,6 +894,7 @@ export function Battle() {
                 track={battle.trackA}
                 label="Track A"
                 autoplay={true}
+                blindMode={blindMode}
                 onEnded={onBattleTrackAEnded}
               />
             </div>
@@ -858,6 +927,7 @@ export function Battle() {
                 track={battle.trackB}
                 label="Track B"
                 autoplay={true}
+                blindMode={blindMode}
                 onEnded={onBattleTrackBEnded}
               />
             </div>
@@ -920,7 +990,7 @@ export function Battle() {
                 disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
                 isVoted={isVoted}
                 isWinner={voteResult?.winnerId === battle.trackAId}
-                isRevealed={isRevealed}
+                isRevealed={isRevealed || !blindMode}
                 voteReady={voteReady}
                 onVote={() => castVote(battle.trackAId)}
                 dataTestIdPrefix="vote-track-a"
@@ -934,7 +1004,7 @@ export function Battle() {
                 disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
                 isVoted={isVoted}
                 isWinner={voteResult?.winnerId === battle.trackBId}
-                isRevealed={isRevealed}
+                isRevealed={isRevealed || !blindMode}
                 voteReady={voteReady}
                 onVote={() => castVote(battle.trackBId)}
                 dataTestIdPrefix="vote-track-b"

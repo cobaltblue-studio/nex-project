@@ -104,6 +104,68 @@ function weightedPickTwo<T extends { rankingScore: number; id: number }>(
   return [items[idxA], items[idxB]];
 }
 
+/** Fair matchmaking: two different creators when the pool allows (fallback: same creator). */
+function weightedPickTwoDifferentCreators<T extends { rankingScore: number; id: number; creatorId: number }>(
+  items: T[],
+  opts?: { multiplierByTrackId?: Map<number, number> },
+): [T, T] {
+  const weights = items.map((t) => {
+    const base = Math.max(1, t.rankingScore);
+    const multiplier = opts?.multiplierByTrackId?.get(t.id) ?? 1;
+    return Math.max(1e-9, base * multiplier);
+  });
+  const totalAll = weights.reduce((sum, w) => sum + w, 0);
+
+  const pickFirstIndex = (): number => {
+    let r = Math.random() * totalAll;
+    for (let i = 0; i < items.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return i;
+    }
+    return items.length - 1;
+  };
+
+  const pickIndexExcluding = (excludeIdx: number, wts: number[]): number => {
+    const adjustedTotal = wts.reduce((sum, w, i) => sum + (i === excludeIdx ? 0 : w), 0);
+    let r = Math.random() * adjustedTotal;
+    for (let i = 0; i < items.length; i++) {
+      if (i === excludeIdx) continue;
+      r -= wts[i];
+      if (r <= 0) return i;
+    }
+    return items.length - 1 === excludeIdx ? items.length - 2 : items.length - 1;
+  };
+
+  const idxA = pickFirstIndex();
+  const creatorA = items[idxA].creatorId;
+  const totalDifferentCreator = weights.reduce(
+    (sum, w, i) => sum + (i === idxA || items[i].creatorId === creatorA ? 0 : w),
+    0,
+  );
+  if (totalDifferentCreator <= 1e-9) {
+    const idxB = pickIndexExcluding(idxA, weights);
+    return [items[idxA], items[idxB]];
+  }
+  let rB = Math.random() * totalDifferentCreator;
+  for (let i = 0; i < items.length; i++) {
+    if (i === idxA || items[i].creatorId === creatorA) continue;
+    rB -= weights[i];
+    if (rB <= 0) return [items[idxA], items[i]];
+  }
+  for (let i = 0; i < items.length; i++) {
+    if (i !== idxA && items[i].creatorId !== creatorA) return [items[idxA], items[i]];
+  }
+  const idxB = pickIndexExcluding(idxA, weights);
+  return [items[idxA], items[idxB]];
+}
+
+/** Last N battles: tracks here get a lower selection weight (rotation). */
+const BATTLE_FAIRNESS_RECENT_BATTLE_COUNT = 32;
+/** Multiplier applied to ranking weight when the track appeared in a recent battle (0–1). */
+const BATTLE_FAIRNESS_RECENT_WEIGHT_MUL = 0.16;
+/** When the user who started the battle owns the track (same profile id), extra down-weight. */
+const BATTLE_FAIRNESS_REQUESTER_OWN_MUL = 0.38;
+
 export interface IStorage {
   getProfileByUserId(userId: string): Promise<Profile | undefined>;
   createUser(u: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<any>;
@@ -164,7 +226,7 @@ export interface IStorage {
   isFollowing(followerId: string, creatorProfileId: number): Promise<boolean>;
   getFollowerCount(creatorProfileId: number): Promise<number>;
   getAvailableBattleGenres(): Promise<string[]>;
-  createBattle(genre: string): Promise<any | null>;
+  createBattle(genre: string, requesterProfileId?: number | null): Promise<any | null>;
   getBattle(id: number): Promise<any | null>;
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
   /** Idempotent: records that `userId` finished the battle preview for `trackId` (must be track A or B). */
@@ -1281,7 +1343,7 @@ export class DatabaseStorage implements IStorage {
     return out;
   }
 
-  async createBattle(genre: string): Promise<any | null> {
+  async createBattle(genre: string, requesterProfileId?: number | null): Promise<any | null> {
     const eligibleSql = and(
       sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
       eq(tracks.isDeleted, false),
@@ -1298,6 +1360,17 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (pool.length < 2) return null;
+
+    const recentBattleRows = await db
+      .select({ trackAId: battles.trackAId, trackBId: battles.trackBId })
+      .from(battles)
+      .orderBy(desc(battles.id))
+      .limit(BATTLE_FAIRNESS_RECENT_BATTLE_COUNT);
+    const recentTrackIds = new Set<number>();
+    for (const row of recentBattleRows) {
+      recentTrackIds.add(row.trackAId);
+      recentTrackIds.add(row.trackBId);
+    }
 
     const allBattles = await db.select().from(battles).where(sql`${battles.winnerId} IS NOT NULL`);
     const battleStats: Record<number, { battles: number; wins: number }> = {};
@@ -1340,6 +1413,20 @@ export class DatabaseStorage implements IStorage {
     }
 
     const boostMultiplierByTrackId = await this.getBoostMultiplierByTrackIds(pool.map((t) => t.id));
+    const fairnessMultiplierByTrackId = new Map<number, number>();
+    for (const t of pool) {
+      let m = boostMultiplierByTrackId.get(t.id) ?? 1;
+      if (recentTrackIds.has(t.id)) m *= BATTLE_FAIRNESS_RECENT_WEIGHT_MUL;
+      if (
+        requesterProfileId != null &&
+        Number.isFinite(requesterProfileId) &&
+        t.creatorId === requesterProfileId
+      ) {
+        m *= BATTLE_FAIRNESS_REQUESTER_OWN_MUL;
+      }
+      fairnessMultiplierByTrackId.set(t.id, m);
+    }
+
     const pools = [newPool, risingPool, chartPool];
     const startIdx = Math.floor(Math.random() * 3);
 
@@ -1349,13 +1436,17 @@ export class DatabaseStorage implements IStorage {
     for (let attempt = 0; attempt < 3; attempt++) {
       const currentPool = pools[(startIdx + attempt) % 3];
       if (currentPool.length >= 2) {
-        [trackA, trackB] = weightedPickTwo(currentPool, { multiplierByTrackId: boostMultiplierByTrackId });
+        [trackA, trackB] = weightedPickTwoDifferentCreators(currentPool, {
+          multiplierByTrackId: fairnessMultiplierByTrackId,
+        });
         break;
       }
     }
 
     if (!trackA || !trackB) {
-      [trackA, trackB] = weightedPickTwo(pool, { multiplierByTrackId: boostMultiplierByTrackId });
+      [trackA, trackB] = weightedPickTwoDifferentCreators(pool, {
+        multiplierByTrackId: fairnessMultiplierByTrackId,
+      });
     }
 
     const battleGenre = (genre && genre !== "ALL") ? genre : trackA.genre;

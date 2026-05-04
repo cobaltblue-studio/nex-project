@@ -100,7 +100,7 @@
     "removeQueueTitle": "Remove from queue after you saved the track"
   },
   "layout": {
-    "login": "[LOGIN]",
+    "login": "[START WITH GOOGLE]",
     "myPage": "MY PAGE",
     "viewProfile": "View profile",
     "creatorAnalytics": "Insights",
@@ -125,7 +125,7 @@
   },
   "creatorAnalytics": {
     "loading": "Loading analytics…",
-    "loginRequired": "Sign in to view insights",
+    "loginRequired": "Start with Google to view insights",
     "creatorOnly": "Insights are available for creator accounts",
     "loadFailed": "Could not load analytics",
     "backProfile": "Back to profile",

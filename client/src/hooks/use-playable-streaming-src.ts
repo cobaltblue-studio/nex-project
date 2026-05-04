@@ -6,7 +6,7 @@ import {
   urlLooksLikeSunoShare,
 } from "@/lib/streamingEmbed";
 
-type Opts = { autoplay?: boolean; enableJsApi?: boolean };
+type Opts = { autoplay?: boolean; enableJsApi?: boolean; embedSeekSeconds?: number };
 
 /**
  * Builds a third-party iframe `src`. Suno `/s/…` short links need a server hop to get the song UUID.
@@ -15,10 +15,14 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
   const { t } = useTranslation();
   const autoplay = !!opts.autoplay;
   const enableJsApi = !!opts.enableJsApi;
+  const embedSeekSeconds =
+    typeof opts.embedSeekSeconds === "number" && opts.embedSeekSeconds > 0
+      ? opts.embedSeekSeconds
+      : undefined;
 
   const syncSrc = useMemo(
-    () => buildStreamingIframeSrc(rawUrl, { autoplay, enableJsApi }),
-    [rawUrl, autoplay, enableJsApi],
+    () => buildStreamingIframeSrc(rawUrl, { autoplay, enableJsApi, embedSeekSeconds }),
+    [rawUrl, autoplay, enableJsApi, embedSeekSeconds],
   );
 
   const [resolvedSunoSrc, setResolvedSunoSrc] = useState<string | null>(null);

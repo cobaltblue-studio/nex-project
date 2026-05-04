@@ -39,12 +39,10 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
     retry: false,
-    staleTime: 0,
-    // Keep auth state synchronized across tabs/routes and after redirects.
-    refetchOnMount: "always",
+    staleTime: 60_000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 
   const logoutMutation = useMutation({

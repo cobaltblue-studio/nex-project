@@ -45,8 +45,8 @@ export function MyTracks() {
     return (
       <div className="py-40 text-center space-y-6">
         <p className="font-display text-2xl uppercase tracking-widest text-zinc-500">Authentication Required</p>
-        <a href="/api/auth/login" className="inline-block border border-primary/30 text-primary px-6 py-3 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-primary/10 transition-all">
-          Login
+        <a href={`/auth?returnTo=${encodeURIComponent("/my-tracks")}`} className="inline-block border border-primary/30 text-primary px-6 py-3 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-primary/10 transition-all">
+          Start with Google
         </a>
       </div>
     );

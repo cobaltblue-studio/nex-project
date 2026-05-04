@@ -100,7 +100,7 @@
     "removeQueueTitle": "반영 후 목록에서 제거 (Remove from queue after you saved the track)"
   },
   "layout": {
-    "login": "[로그인]",
+    "login": "[Google로 시작]",
     "myPage": "마이페이지",
     "viewProfile": "프로필 보기",
     "creatorAnalytics": "인사이트",
@@ -125,7 +125,7 @@
   },
   "creatorAnalytics": {
     "loading": "분석 불러오는 중…",
-    "loginRequired": "로그인 후 인사이트를 볼 수 있습니다",
+    "loginRequired": "Google로 시작하면 인사이트를 볼 수 있습니다",
     "creatorOnly": "크리에이터 계정에서만 인사이트를 제공합니다",
     "loadFailed": "분석을 불러오지 못했습니다",
     "backProfile": "프로필로 돌아가기",

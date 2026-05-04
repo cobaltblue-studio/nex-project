@@ -1471,7 +1471,8 @@ export async function registerRoutes(
       }
     }
 
-    const battle = await storage.createBattle(String(genre));
+    const requesterProfile = await storage.getProfileByUserId(getUserId(req));
+    const battle = await storage.createBattle(String(genre), requesterProfile?.id ?? null);
     if (!battle) {
       return res.status(409).json({
         message: apiMsg(

@@ -85,6 +85,7 @@ export function Layout({ children }: LayoutProps) {
     queryKey: ["/api/profiles/me"],
     enabled: isUserAuthenticated,
     retry: false,
+    staleTime: 60_000,
   });
 
   const isAdmin = user?.role === "admin";
@@ -171,22 +172,19 @@ export function Layout({ children }: LayoutProps) {
           <div className="block">
             <LanguageSwitcher />
           </div>
-          {isLoading && (
-            <span
-              className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 px-3"
+          {isLoading ? (
+            <div
+              className="h-9 min-w-[5.5rem] rounded-sm bg-white/[0.06] animate-pulse"
               aria-hidden
-            >
-              …
-            </span>
-          )}
-          {!isLoading && ui.showLoginButton && (
+            />
+          ) : ui.showLoginButton ? (
             <Link href={loginHref}
               data-testid="button-login"
               className="text-[10px] font-bold uppercase tracking-widest border border-primary/30 text-primary px-5 py-2 rounded-sm bg-primary/5 hover:bg-primary/20 transition-all whitespace-nowrap"
             >
               {t("layout.login")}
             </Link>
-          )}
+          ) : null}
 
           {!isLoading && ui.showUserMenu && (
             <div className="relative">

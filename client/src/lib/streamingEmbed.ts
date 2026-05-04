@@ -142,14 +142,25 @@ export function buildSunoEmbedIframeSrc(
 /**
  * Build an iframe `src` for third-party streaming (and YouTube when not using the JS API player).
  */
+function withDeepLinkTime(url: string, seconds: number): string {
+  if (!url.trim() || !Number.isFinite(seconds) || seconds <= 0) return url;
+  const t = Math.floor(seconds);
+  const noHash = url.split("#")[0];
+  return `${noHash}#t=${t}s`;
+}
+
 export function buildStreamingIframeSrc(
   rawUrl: string | undefined | null,
-  opts: { autoplay?: boolean; enableJsApi?: boolean } = {},
+  opts: { autoplay?: boolean; enableJsApi?: boolean; embedSeekSeconds?: number } = {},
 ): string | null {
   if (!rawUrl?.trim()) return null;
   const url = normalizeStreamingUrl(rawUrl);
   const autoplay = !!opts.autoplay;
   const enableJsApi = !!opts.enableJsApi;
+  const seekSec =
+    typeof opts.embedSeekSeconds === "number" && opts.embedSeekSeconds > 0
+      ? opts.embedSeekSeconds
+      : 0;
 
   const ytMatch = url.match(
     /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/,
@@ -177,12 +188,16 @@ export function buildStreamingIframeSrc(
 
   if (/soundcloud\.com/i.test(url) && !/w\.soundcloud\.com/i.test(url)) {
     const ap = autoplay ? "1" : "0";
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2300f0ff&auto_play=${ap}&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=true`;
+    const timedUrl = seekSec > 0 ? withDeepLinkTime(url, seekSec) : url;
+    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(timedUrl)}&color=%2300f0ff&auto_play=${ap}&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=true`;
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
   if (vimeoMatch) {
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}${autoplay ? "?autoplay=1" : ""}`;
+    const base = `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    const q = autoplay ? "?autoplay=1" : "";
+    const hash = seekSec > 0 ? `#t=${Math.floor(seekSec)}s` : "";
+    return `${base}${q}${hash}`;
   }
 
   if (/udio\.com/i.test(url)) return url;

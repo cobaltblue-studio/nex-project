@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, Copy, LogIn } from "lucide-react";
+import { AlertTriangle, Copy, UserPlus } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import { getLoginUrl } from "@/lib/loginRedirect";
 import { isLikelyInAppBrowser } from "@/lib/inapp-browser";
@@ -35,10 +35,10 @@ export default function Auth() {
       <div className="space-y-3">
         <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-primary">NEX</p>
         <h1 className="text-2xl md:text-3xl font-display font-bold text-white uppercase tracking-tight">
-          Sign in
+          Start with Google
         </h1>
         <p className="text-sm text-zinc-500 leading-relaxed">
-          Continue with your account. After signing in you&apos;ll return to the page you were viewing.
+          One tap to create or sign in to your NEX account. You&apos;ll return to the page you were viewing.
         </p>
       </div>
       {inApp && (
@@ -53,7 +53,7 @@ export default function Auth() {
             </p>
           </div>
           <p className="text-xs text-zinc-300 leading-relaxed">
-            Google login may fail inside Kakao/Instagram/Facebook app browsers.
+            Google sign-up may fail inside Kakao/Instagram/Facebook app browsers.
             Open this page in Chrome, Safari, or Samsung Internet first.
           </p>
           <button
@@ -72,8 +72,8 @@ export default function Auth() {
         data-testid="button-auth-continue"
         className="inline-flex items-center justify-center gap-2 w-full sm:w-auto min-w-[200px] bg-primary text-black font-bold uppercase tracking-widest text-[11px] px-8 py-4 rounded-sm hover:brightness-110 transition-all"
       >
-        <LogIn className="w-4 h-4" />
-        Continue to login
+        <UserPlus className="w-4 h-4" />
+        Continue with Google
       </a>
       <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
         <Link href="/" className="text-zinc-500 hover:text-primary transition-colors">
