@@ -37,8 +37,8 @@ export function OnboardingModal() {
 
   useEffect(() => {
     if (!username) {
-      const firstName = (user as any).firstName || "";
-      const lastName = (user as any).lastName || "";
+      const firstName = (user as any)?.firstName || "";
+      const lastName = (user as any)?.lastName || "";
       const emailPrefix = (user as any)?.email ? String((user as any).email).split("@")[0] : "";
       const seed = sanitizeUsername(`${firstName}${lastName}`) || sanitizeUsername(emailPrefix) || "nexfan";
       setUsername(seed.slice(0, 20));
