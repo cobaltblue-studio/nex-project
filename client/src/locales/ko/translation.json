@@ -100,7 +100,7 @@
     "removeQueueTitle": "반영 후 목록에서 제거 (Remove from queue after you saved the track)"
   },
   "layout": {
-    "login": "[Google로 시작]",
+    "login": "로그인",
     "myPage": "마이페이지",
     "viewProfile": "프로필 보기",
     "creatorAnalytics": "인사이트",
