@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from "react";
+import { buildApiUrl } from "@/lib/apiOrigin";
 
 function getLoginUrl() {
   const params = new URLSearchParams(window.location.search);
   const returnTo = params.get("returnTo") || "/admin";
-  return `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+  return buildApiUrl(`/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
 }
 
 export default function AdminLogin() {

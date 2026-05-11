@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Shield, Zap, Flame, Crown, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
+import { buildApiUrl } from "@/lib/apiOrigin";
 
 export function Join() {
   const leagues = [
@@ -64,7 +65,7 @@ export function Join() {
         
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
           <a
-            href="/api/auth/login"
+            href={buildApiUrl("/api/auth/login")}
             className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary text-black font-bold uppercase tracking-widest px-10 py-4 rounded-sm hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(0,240,255,0.3)]"
           >
             Connect Account <ArrowRight className="w-4 h-4" />

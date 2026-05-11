@@ -1,3 +1,5 @@
+import { buildApiUrl } from "./apiOrigin";
+
 function safeReturnPath(path: string): string {
   const p = path.startsWith("/") && !path.startsWith("//") ? path : "/";
   if (p === "/auth" || p.startsWith("/auth?")) return "/";
@@ -10,7 +12,7 @@ export function getLoginUrl(returnTo?: string): string {
     returnTo ??
     (typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : "/");
   const path = safeReturnPath(raw);
-  return `/api/auth/login?returnTo=${encodeURIComponent(path)}`;
+  return buildApiUrl(`/api/auth/login?returnTo=${encodeURIComponent(path)}`);
 }
 
 export function redirectToLogin(returnTo?: string): void {
