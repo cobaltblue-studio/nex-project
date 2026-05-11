@@ -717,7 +717,7 @@ export function Battle() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <div className="mb-10">
+      <div className="mb-6">
         <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
             <Zap className="w-5 h-5 text-primary shrink-0" />
@@ -779,9 +779,9 @@ export function Battle() {
           />
         )}
       </AnimatePresence>
-      <div className={`mb-3 text-center ${phase === "vote" ? "pt-0" : "pt-2"}`}>
+      <div className={`mb-2 text-center ${phase === "vote" ? "pt-0" : "pt-1"}`}>
         <p
-          className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-[10px] md:mt-0"
+          className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-[4px] md:mt-0"
           data-testid="battle-progress-indicator"
           style={{ letterSpacing: "0.35em" }}
         >
@@ -790,7 +790,7 @@ export function Battle() {
       </div>
 
       {phase !== "vote" && (
-      <div className="mb-3 premium-card p-3 battle-stats-panel" data-testid="panel-today-stats">
+      <div className="mb-2 premium-card p-2.5 battle-stats-panel" data-testid="panel-today-stats">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400">
             🔥 TODAY BATTLE STATS
@@ -1054,17 +1054,17 @@ export function Battle() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className="text-center space-y-4"
+            className="text-center space-y-3"
           >
-            <div className="space-y-2">
-              <Trophy className="w-8 h-8 text-primary mx-auto" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-primary">
+            <div className="flex items-center justify-center gap-2">
+              <Trophy className="w-5 h-5 text-primary shrink-0" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">
                 Battle Result
               </p>
             </div>
 
             {winnerTrack && (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <p className="text-2xl font-display font-black text-white uppercase tracking-tight">
                   {winnerTrack.title}
                 </p>
@@ -1072,7 +1072,7 @@ export function Battle() {
                   by {winnerTrack.creatorName}
                 </p>
                 <p className="text-[8px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
-                <div className="pt-2 flex justify-center">
+                <div className="pt-1.5 flex justify-center">
                   <Link
                     href={`/track/${winnerTrack.id}`}
                     data-testid="button-view-winner-track-detail"
@@ -1084,7 +1084,7 @@ export function Battle() {
               </div>
             )}
 
-            <div className="space-y-3 max-w-md mx-auto w-full flex flex-col items-center">
+            <div className="space-y-2.5 max-w-md mx-auto w-full flex flex-col items-center">
               <div className="space-y-2 w-full">
                 <div className="flex items-center justify-between">
                   <div>
