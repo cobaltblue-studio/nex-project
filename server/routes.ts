@@ -1226,7 +1226,10 @@ export async function registerRoutes(
     } catch (err: any) {
       if (err?.message === "ALREADY_LIKED_TODAY") {
         return res.status(409).json({
-          message: apiMsg("좋아요는 트랙당 하루 1회만 가능합니다", "You can like each track once per day"),
+          message: apiMsg(
+            "오늘은 이미 이 트랙을 응원했어요. 내일 다시 좋아요를 눌러주세요",
+            "You already cheered this track today. You can like it again tomorrow",
+          ),
         });
       }
       throw err;

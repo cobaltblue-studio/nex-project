@@ -193,8 +193,8 @@ function TrackSocialActions({
     onError: (err: Error) => {
       if (String(err?.message ?? "").startsWith("409")) {
         toast({
-          title: "Already liked today",
-          description: "You can like each track once per day. Try again tomorrow.",
+          title: "Thanks for the love",
+          description: "You already cheered this track today. You can tap like again tomorrow.",
           variant: "destructive",
         });
         return;
