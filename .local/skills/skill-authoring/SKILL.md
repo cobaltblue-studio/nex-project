@@ -1,7 +1,7 @@
 ---
-name: skill-authoring
+
+## name: skill-authoring
 description: Create reusable skills that extend agent capabilities. Use when the user asks to create a skill, teach you something reusable, or save instructions for future tasks.
----
 
 # Skill Authoring
 
@@ -45,8 +45,8 @@ Instructions, examples, and workflows go here.
 
 ## Skill Locations
 
-- **`.agents/skills/`** - User and agent-editable skills. Create new skills here. These can be freely modified, updated, and deleted.
-- **`~/.local/skills/`** - Replit-provided skills. These are read-only and managed by the platform.
+- `**.agents/skills/`** - User and agent-editable skills. Create new skills here. These can be freely modified, updated, and deleted.
+- `**~/.local/skills/**` - Replit-provided skills. These are read-only and managed by the platform.
 
 ## Key Considerations
 
@@ -97,3 +97,4 @@ description: Reviews pull requests for code quality and security. Use when the u
 [Approve / Request Changes / Comment]
 \`\`\`
 ```
+

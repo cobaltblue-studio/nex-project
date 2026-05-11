@@ -11,6 +11,8 @@ import {
   Trophy,
   Music2,
   Zap,
+  Eye,
+  EyeOff,
   Vote,
   BarChart3,
   ListMusic,
@@ -716,14 +718,42 @@ export function Battle() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-10">
-        <div className="flex items-center gap-3 mb-2">
-          <Zap className="w-5 h-5 text-primary" />
-          <h1
-            className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
-            data-testid="text-battle-label"
+        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <Zap className="w-5 h-5 text-primary shrink-0" />
+            <h1
+              className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
+              data-testid="text-battle-label"
+            >
+              Arena
+            </h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBlindMode((v) => !v)}
+            data-testid="toggle-battle-blind-mode"
+            aria-pressed={blindMode}
+            title={
+              blindMode
+                ? "Blind mode: track titles stay hidden until you vote. Click to reveal titles sooner."
+                : "Blind mode off. Click for blind judging (titles hidden until vote)."
+            }
+            className={[
+              "inline-flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-lg border text-[9px] font-bold uppercase tracking-[0.18em] transition-premium",
+              blindMode
+                ? "border-primary/40 text-primary bg-primary/10"
+                : "border-white/20 text-zinc-400 bg-white/5 hover:border-white/30 hover:text-zinc-300",
+            ].join(" ")}
           >
-            Arena
-          </h1>
+            {blindMode ? (
+              <EyeOff className="w-3.5 h-3.5 text-current shrink-0" aria-hidden strokeWidth={2.25} />
+            ) : (
+              <Eye className="w-3.5 h-3.5 text-current shrink-0" aria-hidden strokeWidth={2.25} />
+            )}
+            <span className="whitespace-nowrap">
+              Blind <span className="opacity-80">·</span> {blindMode ? "On" : "Off"}
+            </span>
+          </button>
         </div>
         <h2
           className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
@@ -757,20 +787,6 @@ export function Battle() {
         >
           {`TODAY'S BATTLES ${displayCount} / ${dailyMax} (DAILY LIMIT ${dailyMax})`}
         </p>
-        <div className="mt-2 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setBlindMode((v) => !v)}
-            data-testid="toggle-battle-blind-mode"
-            className={`px-3 py-1 rounded-md border text-[9px] font-bold uppercase tracking-[0.2em] transition-premium ${
-              blindMode
-                ? "border-primary/40 text-primary bg-primary/10"
-                : "border-white/20 text-zinc-400 bg-white/5"
-            }`}
-          >
-            Blind Mode: {blindMode ? "ON" : "OFF"}
-          </button>
-        </div>
       </div>
 
       {phase !== "vote" && (

@@ -4,7 +4,9 @@
  *   https://your-service.up.railway.app
  * No trailing slash. Then https://nexmusic.ai/api/* is proxied to that origin.
  */
-const apiOrigin = process.env.NEX_API_PROXY_ORIGIN?.trim().replace(/\/$/, "") ?? "";
+const apiOrigin = (
+  process.env.NEX_API_PROXY_ORIGIN?.trim() || "https://nex-project-production.up.railway.app"
+).replace(/\/$/, "");
 
 const rewrites = apiOrigin
   ? [
