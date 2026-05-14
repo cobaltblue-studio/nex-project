@@ -859,11 +859,18 @@ export class DatabaseStorage implements IStorage {
 
   async getTrack(id: number): Promise<any | undefined> {
     const [r] = await db
-      .select({ track: tracks, creator: profiles })
+      .select({ track: tracks, creator: profiles, metrics: trackMetrics })
       .from(tracks)
       .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
       .where(and(eq(tracks.id, id), eq(tracks.isDeleted, false)));
-    return r ? { ...r.track, creator: r.creator } : undefined;
+    return r
+      ? {
+          ...r.track,
+          creator: r.creator,
+          likesCount: r.metrics?.likesCount ?? 0,
+        }
+      : undefined;
   }
 
   async getTracksByCreator(creatorId: number): Promise<any[]> {

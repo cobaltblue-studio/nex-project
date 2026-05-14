@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiMutationErrorToast, apiRequest, queryClient } from "@/lib/queryClient";
 import { api } from "@shared/routes";
 import {
   Dialog,
@@ -191,19 +191,11 @@ function TrackSocialActions({
       toast({ title: "Liked", description: " saved to your picks." });
     },
     onError: (err: Error) => {
-      if (String(err?.message ?? "").startsWith("409")) {
-        toast({
-          title: "Thanks for the love",
-          description: "You already cheered this track today. You can tap like again tomorrow.",
-          variant: "destructive",
-        });
-        return;
+      if (String(err?.message ?? "").startsWith("401")) {
+        void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       }
-      toast({
-        title: "Login required",
-        description: "Sign in to like tracks.",
-        variant: "destructive",
-      });
+      const { title, description } = apiMutationErrorToast(err);
+      toast({ title, description, variant: "destructive" });
     },
   });
 
@@ -214,12 +206,12 @@ function TrackSocialActions({
       setCommentText("");
       toast({ title: "Comment posted" });
     },
-    onError: () => {
-      toast({
-        title: "Login required",
-        description: "Sign in to leave a comment.",
-        variant: "destructive",
-      });
+    onError: (err: Error) => {
+      if (String(err?.message ?? "").startsWith("401")) {
+        void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      }
+      const { title, description } = apiMutationErrorToast(err);
+      toast({ title, description, variant: "destructive" });
     },
   });
 

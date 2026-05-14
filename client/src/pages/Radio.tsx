@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiMutationErrorToast, apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { clsx } from "clsx";
@@ -125,15 +125,11 @@ export default function NexRadio() {
       toast({ title: "Liked!", description: "Added to your liked tracks." });
     },
     onError: (err: Error) => {
-      if (String(err?.message ?? "").startsWith("409")) {
-        toast({
-          title: "Thanks for the love",
-          description: "You already cheered this track today. You can tap like again tomorrow.",
-          variant: "destructive",
-        });
-        return;
+      if (String(err?.message ?? "").startsWith("401")) {
+        void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       }
-      toast({ title: "Login required", description: "Log in to like tracks.", variant: "destructive" });
+      const { title, description } = apiMutationErrorToast(err);
+      toast({ title, description, variant: "destructive" });
     },
   });
 
@@ -141,8 +137,8 @@ export default function NexRadio() {
     if (!currentTrack) return;
     if (!isAuthenticated) {
       toast({
-        title: "Login required",
-        description: "You need to log in to like tracks.",
+        title: "로그인이 필요해요",
+        description: "좋아요를 누르려면 먼저 로그인해 주세요.",
         variant: "destructive",
       });
       return;
