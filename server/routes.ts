@@ -1192,9 +1192,12 @@ export async function registerRoutes(
   });
 
   app.post(api.tracks.vote.path, isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    }
+    const trackId = Number(req.params.id);
     try {
-      const userId = getUserId(req);
-      const trackId = Number(req.params.id);
       if (await canBypassVoteLimits(req)) {
         await db.delete(votes).where(and(eq(votes.userId, userId), eq(votes.trackId, trackId)));
       }
@@ -1227,8 +1230,12 @@ export async function registerRoutes(
   });
 
   app.post(api.tracks.like.path, isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    }
     try {
-      await storage.likeTrack(getUserId(req), Number(req.params.id));
+      await storage.likeTrack(userId, Number(req.params.id));
       res.json({ message: apiMsg("좋아요를 반영했습니다", "Track liked") });
     } catch (err: any) {
       if (err?.message === "ALREADY_LIKED_TODAY") {
@@ -1239,8 +1246,11 @@ export async function registerRoutes(
           ),
         });
       }
+      if (err?.message === "MISSING_USER_ID") {
+        return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+      }
       console.error("[like] failed", {
-        userId: getUserId(req),
+        userId,
         trackId: req.params.id,
         code: err?.code,
         message: err?.message,

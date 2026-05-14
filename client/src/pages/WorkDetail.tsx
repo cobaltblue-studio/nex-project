@@ -187,20 +187,9 @@ export function TrackDetail() {
       });
       return;
     }
-    const votedTracks: number[] = JSON.parse(localStorage.getItem("nex_voted_tracks") || "[]");
-    if (votedTracks.includes(track.id)) {
-      toast({
-        title: t("trackVote.alreadyLocalTitle"),
-        description: t("trackVote.alreadyLocalDesc"),
-        variant: "destructive",
-      });
-      return;
-    }
     setIsVoting(true);
     try {
       await apiRequest("POST", `/api/tracks/${track.id}/vote`);
-      votedTracks.push(track.id);
-      localStorage.setItem("nex_voted_tracks", JSON.stringify(votedTracks));
       queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(track.id)] });
       queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, track.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
@@ -218,8 +207,6 @@ export function TrackDetail() {
         return;
       }
       if (msg.startsWith("409")) {
-        votedTracks.push(track.id);
-        localStorage.setItem("nex_voted_tracks", JSON.stringify(votedTracks));
         queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(track.id)] });
         queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, track.id] });
         queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });

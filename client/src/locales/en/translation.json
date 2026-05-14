@@ -124,8 +124,6 @@
   "trackVote": {
     "loginTitle": "Sign in to vote",
     "loginDesc": "Listener votes are saved for signed-in accounts. Use LOGIN, then try again.",
-    "alreadyLocalTitle": "Already voted on this device",
-    "alreadyLocalDesc": "This browser already recorded a vote for this track.",
     "alreadyServerTitle": "Already voted",
     "alreadyServerDesc": "Your account already voted for this track. Each account can vote once per track.",
     "sessionTitle": "Please sign in again",

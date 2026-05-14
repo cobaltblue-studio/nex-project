@@ -124,8 +124,6 @@
   "trackVote": {
     "loginTitle": "투표하려면 로그인해 주세요",
     "loginDesc": "리스너 투표는 로그인한 계정에만 저장돼요. 상단에서 로그인한 뒤 다시 눌러 주세요.",
-    "alreadyLocalTitle": "이 기기에서 이미 투표했어요",
-    "alreadyLocalDesc": "이 브라우저에는 이미 이 트랙에 투표한 기록이 있어요.",
     "alreadyServerTitle": "이미 투표했어요",
     "alreadyServerDesc": "이 계정으로는 이 트랙에 한 번만 투표할 수 있어요.",
     "sessionTitle": "다시 로그인해 주세요",

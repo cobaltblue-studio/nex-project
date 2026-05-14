@@ -1147,6 +1147,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async likeTrack(userId: string, trackId: number): Promise<void> {
+    if (!String(userId ?? "").trim()) {
+      throw new Error("MISSING_USER_ID");
+    }
     const todayStartUtc = new Date();
     todayStartUtc.setUTCHours(0, 0, 0, 0);
 

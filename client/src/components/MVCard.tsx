@@ -17,18 +17,10 @@ interface MVCardProps {
   index: number;
 }
 
-function getVotedTracks(): number[] {
-  try { return JSON.parse(localStorage.getItem("nex_voted_tracks") || "[]"); } catch { return []; }
-}
-function markVoted(id: number) {
-  const arr = getVotedTracks();
-  if (!arr.includes(id)) localStorage.setItem("nex_voted_tracks", JSON.stringify([...arr, id]));
-}
-
 export function MVCard({ track, index }: MVCardProps) {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const [hasVoted, setHasVoted] = useState(() => getVotedTracks().includes(track.id));
+  const [hasVoted, setHasVoted] = useState(false);
   const [localVotes, setLocalVotes] = useState<number | null>(null);
 
   const displayVotes = localVotes !== null ? localVotes : track.votes;
@@ -44,7 +36,6 @@ export function MVCard({ track, index }: MVCardProps) {
       }
       setLocalVotes((localVotes ?? track.votes) + 1);
       setHasVoted(true);
-      markVoted(track.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
@@ -53,7 +44,6 @@ export function MVCard({ track, index }: MVCardProps) {
       const is409 = err?.message?.startsWith("409");
       if (is409) {
         setHasVoted(true);
-        markVoted(track.id);
         toast({ title: "Already voted", description: "You've already voted for this track.", variant: "destructive" });
       } else {
         setLocalVotes(null);
