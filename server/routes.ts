@@ -668,10 +668,17 @@ export async function registerRoutes(
     });
   }
 
-  app.get(api.tracks.get.path, async (req, res) => {
-    const t = await storage.getTrack(Number(req.params.id));
+  app.get(api.tracks.get.path, async (req: any, res) => {
+    const trackId = Number(req.params.id);
+    const t = await storage.getTrack(trackId);
     if (!t) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
-    res.json(sanitizeTrackDetailForPublic(t as Record<string, unknown>));
+    const base = sanitizeTrackDetailForPublic(t as Record<string, unknown>);
+    const uid = req.user ? getUserId(req) : "";
+    if (uid) {
+      const viewerHasLikedToday = await storage.hasLikedTrackToday(uid, trackId);
+      return res.json({ ...base, viewerHasLikedToday });
+    }
+    res.json(base);
   });
 
   app.post("/api/tracks/:id/claim-request", isAuthenticated, async (req: any, res) => {

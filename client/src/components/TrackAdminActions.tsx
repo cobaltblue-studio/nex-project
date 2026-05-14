@@ -139,6 +139,8 @@ export type TrackAdminListItem = {
   aiPromptLastEditedAt?: string | null;
   /** From track_metrics when available (list APIs). */
   likesCount?: number | null;
+  /** When logged in: server says you already liked this track today (UTC day). */
+  viewerHasLikedToday?: boolean;
 };
 
 type EditForm = z.infer<typeof editSchema>;
@@ -169,13 +171,17 @@ function TrackSocialActions({
   trackId,
   compact,
   likesCount,
+  viewerHasLikedToday,
   onCommentClick,
 }: {
   trackId: number;
   compact?: boolean;
   likesCount?: number | null;
+  /** From GET /api/tracks/:id when logged in */
+  viewerHasLikedToday?: boolean;
   onCommentClick?: () => void;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const [commentOpen, setCommentOpen] = useState(false);
@@ -188,11 +194,15 @@ function TrackSocialActions({
       invalidateTrackQueries(trackId);
       void queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
-      toast({ title: "Liked", description: " saved to your picks." });
+      toast({ title: t("likes.savedTitle"), description: t("likes.savedDesc") });
     },
     onError: (err: Error) => {
       if (String(err?.message ?? "").startsWith("401")) {
         void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      }
+      if (String(err?.message ?? "").startsWith("409")) {
+        toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
+        return;
       }
       const { title, description } = apiMutationErrorToast(err);
       toast({ title, description, variant: "destructive" });
@@ -221,10 +231,17 @@ function TrackSocialActions({
     ? `${iconBtn} text-[8px] px-2 py-1 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/30`
     : `${iconBtn} text-[9px] px-3 py-2 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/20`;
   const likeCount = likesCount ?? 0;
+  const heartTitle = viewerHasLikedToday
+    ? t("likes.heartTitleYoursToday")
+    : t("likes.heartTitle", { count: likeCount });
 
   const onLike = () => {
     if (!isAuthenticated) {
       setGuestCheerOpen(true);
+      return;
+    }
+    if (viewerHasLikedToday) {
+      toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
       return;
     }
     likeMutation.mutate();
@@ -251,10 +268,12 @@ function TrackSocialActions({
           onClick={onLike}
           disabled={likeMutation.isPending}
           className={size}
-          title={`${likeCount} likes`}
+          title={heartTitle}
           data-testid={`button-track-like-${trackId}`}
         >
-          <Heart className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
+          <Heart
+            className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} ${viewerHasLikedToday ? "fill-primary text-primary" : ""}`}
+          />
           <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{likeCount}</span>
         </button>
         <button
@@ -493,6 +512,7 @@ export function TrackAdminActions({ track, compact, deleteRedirectTo = null, onC
           trackId={track.id}
           compact={compact}
           likesCount={track.likesCount}
+          viewerHasLikedToday={track.viewerHasLikedToday === true}
           onCommentClick={onCommentClick}
         />
         {showManageTools ? (

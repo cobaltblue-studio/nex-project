@@ -201,6 +201,8 @@ export interface IStorage {
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
   likeTrack(userId: string, trackId: number): Promise<void>;
+  /** True if this user already has a like for this track for the current UTC calendar day. */
+  hasLikedTrackToday(userId: string, trackId: number): Promise<boolean>;
   recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }>;
   updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void>;
   updateTrackMetadata(
@@ -1120,6 +1122,28 @@ export class DatabaseStorage implements IStorage {
       neoScore: sql`(${tracks.aiCraftScore} * 0.7) + ((${tracks.listenerVotes} + 1) * 0.3)`,
     }).where(eq(tracks.id, trackId));
     this.scheduleRecomputeTrackRankingScore(trackId);
+  }
+
+  async hasLikedTrackToday(userId: string, trackId: number): Promise<boolean> {
+    if (!userId) return false;
+    const todayStartUtc = new Date();
+    todayStartUtc.setUTCHours(0, 0, 0, 0);
+    try {
+      const [alreadyToday] = await db
+        .select({ id: likes.id })
+        .from(likes)
+        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId), gte(likes.createdAt, todayStartUtc)))
+        .limit(1);
+      return !!alreadyToday;
+    } catch (e: any) {
+      if (e?.code !== "42703") throw e;
+      const [legacyLike] = await db
+        .select({ id: likes.id })
+        .from(likes)
+        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
+        .limit(1);
+      return !!legacyLike;
+    }
   }
 
   async likeTrack(userId: string, trackId: number): Promise<void> {

@@ -315,6 +315,7 @@ export function TrackDetail() {
     aiPromptEditCount: (track as { aiPromptEditCount?: number } | null)?.aiPromptEditCount ?? 0,
     aiPromptLastEditedAt: (track as { aiPromptLastEditedAt?: string | null } | null)?.aiPromptLastEditedAt ?? null,
     likesCount: (track as { likesCount?: number } | null)?.likesCount ?? 0,
+    viewerHasLikedToday: !!(track as { viewerHasLikedToday?: boolean } | null)?.viewerHasLikedToday,
   };
 
   const creatorProfileSlug = (() => {

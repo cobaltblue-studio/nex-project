@@ -122,11 +122,20 @@ export default function NexRadio() {
         next.add(id);
         return next;
       });
-      toast({ title: "Liked!", description: "Added to your liked tracks." });
+      toast({ title: t("likes.savedTitle"), description: t("likes.savedDesc") });
     },
-    onError: (err: Error) => {
+    onError: (err: Error, id: number) => {
       if (String(err?.message ?? "").startsWith("401")) {
         void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      }
+      if (String(err?.message ?? "").startsWith("409")) {
+        setLiked((prev) => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
+        toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
+        return;
       }
       const { title, description } = apiMutationErrorToast(err);
       toast({ title, description, variant: "destructive" });
