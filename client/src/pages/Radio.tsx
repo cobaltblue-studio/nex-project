@@ -137,8 +137,8 @@ export default function NexRadio() {
     if (!currentTrack) return;
     if (!isAuthenticated) {
       toast({
-        title: "로그인이 필요해요",
-        description: "좋아요를 누르려면 먼저 로그인해 주세요.",
+        title: t("apiErrors.loginToLikeTitle"),
+        description: t("apiErrors.loginToLikeDesc"),
         variant: "destructive",
       });
       return;

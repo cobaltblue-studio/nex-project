@@ -99,6 +99,20 @@
     "deleteFailTitle": "Delete failed",
     "removeQueueTitle": "Remove from queue after you saved the track"
   },
+  "apiErrors": {
+    "sessionExpiredTitle": "Please sign in again",
+    "sessionExpiredDesc": "Your session may have expired. Log out, sign in again, then try liking once more.",
+    "alreadyLikedTitle": "You already cheered today",
+    "alreadyLikedDesc": "You can like this track once per day. Try again tomorrow.",
+    "serverTitle": "Please try again in a moment",
+    "serverDesc": "Something went wrong on our side. Wait a minute and tap like again.",
+    "forbiddenTitle": "Action not allowed",
+    "forbiddenDesc": "You don't have permission for this action.",
+    "genericLikeTitle": "Couldn't save your like",
+    "genericLikeDesc": "Please try again in a moment.",
+    "loginToLikeTitle": "Sign in required",
+    "loginToLikeDesc": "Log in to like tracks."
+  },
   "layout": {
     "login": "LOGIN",
     "myPage": "MY PAGE",

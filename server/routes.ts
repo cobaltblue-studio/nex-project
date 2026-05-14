@@ -1232,6 +1232,12 @@ export async function registerRoutes(
           ),
         });
       }
+      console.error("[like] failed", {
+        userId: getUserId(req),
+        trackId: req.params.id,
+        code: err?.code,
+        message: err?.message,
+      });
       throw err;
     }
   });

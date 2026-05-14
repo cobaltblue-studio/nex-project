@@ -1134,6 +1134,7 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
       if (alreadyToday) throw new Error("ALREADY_LIKED_TODAY");
     } catch (e: any) {
+      if (e?.message === "ALREADY_LIKED_TODAY") throw e;
       // Backward compatibility: older DBs may not yet have likes.created_at.
       if (e?.code !== "42703") throw e;
       const [legacyLike] = await db
@@ -1144,7 +1145,28 @@ export class DatabaseStorage implements IStorage {
       if (legacyLike) throw new Error("ALREADY_LIKED_TODAY");
     }
 
-    await db.insert(likes).values({ userId, trackId });
+    try {
+      await db.insert(likes).values({ userId, trackId });
+    } catch (e: any) {
+      // Legacy DBs may enforce one row per (user, track). Refresh timestamp for a new UTC day.
+      if (e?.code !== "23505") throw e;
+      try {
+        const [existing] = await db
+          .select({ id: likes.id, createdAt: likes.createdAt })
+          .from(likes)
+          .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
+          .limit(1);
+        if (!existing) throw e;
+        if (!existing.createdAt) throw new Error("ALREADY_LIKED_TODAY");
+        if (existing.createdAt >= todayStartUtc) throw new Error("ALREADY_LIKED_TODAY");
+        await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, existing.id));
+      } catch (inner: any) {
+        if (inner?.message === "ALREADY_LIKED_TODAY") throw inner;
+        if (inner?.code === "42703") throw new Error("ALREADY_LIKED_TODAY");
+        throw inner;
+      }
+    }
+
     await this.ensureTrackMetricsRow(trackId);
     await db.update(trackMetrics).set({
       likesCount: sql`${trackMetrics.likesCount} + 1`,
