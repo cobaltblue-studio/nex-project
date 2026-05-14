@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { useTranslation } from "react-i18next";
+import { api } from "@shared/routes";
 import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
@@ -178,9 +179,21 @@ export function TrackDetail() {
 
   const handleVote = async () => {
     if (!track || isVoting) return;
-    const votedTracks = JSON.parse(localStorage.getItem("nex_voted_tracks") || "[]");
+    if (!isAuthenticated) {
+      toast({
+        title: t("trackVote.loginTitle"),
+        description: t("trackVote.loginDesc"),
+        variant: "destructive",
+      });
+      return;
+    }
+    const votedTracks: number[] = JSON.parse(localStorage.getItem("nex_voted_tracks") || "[]");
     if (votedTracks.includes(track.id)) {
-      toast({ title: "ALREADY VOTED", description: "Neural signature already recorded for this track.", variant: "destructive" });
+      toast({
+        title: t("trackVote.alreadyLocalTitle"),
+        description: t("trackVote.alreadyLocalDesc"),
+        variant: "destructive",
+      });
       return;
     }
     setIsVoting(true);
@@ -188,11 +201,40 @@ export function TrackDetail() {
       await apiRequest("POST", `/api/tracks/${track.id}/vote`);
       votedTracks.push(track.id);
       localStorage.setItem("nex_voted_tracks", JSON.stringify(votedTracks));
-      queryClient.invalidateQueries({ queryKey: [`/api/tracks/${track.id}`] });
+      queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(track.id)] });
+      queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, track.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
-      toast({ title: "VOTE RECORDED", description: "Your resonance has been synthesized." });
-    } catch {
-      toast({ title: "CONNECTION ERROR", description: "Failed to transmit vote to the core.", variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: [api.tracks.list.path] });
+      toast({ title: t("trackVote.successTitle"), description: t("trackVote.successDesc") });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.startsWith("401")) {
+        void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        toast({
+          title: t("trackVote.sessionTitle"),
+          description: t("trackVote.sessionDesc"),
+          variant: "destructive",
+        });
+        return;
+      }
+      if (msg.startsWith("409")) {
+        votedTracks.push(track.id);
+        localStorage.setItem("nex_voted_tracks", JSON.stringify(votedTracks));
+        queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(track.id)] });
+        queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, track.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+        toast({
+          title: t("trackVote.alreadyServerTitle"),
+          description: t("trackVote.alreadyServerDesc"),
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: t("trackVote.failedTitle"),
+        description: t("trackVote.failedDesc"),
+        variant: "destructive",
+      });
     } finally {
       setIsVoting(false);
     }

@@ -121,6 +121,20 @@
     "heartTitle": "{{count}} likes (everyone)",
     "heartTitleYoursToday": "You already cheered today — tap for a reminder"
   },
+  "trackVote": {
+    "loginTitle": "Sign in to vote",
+    "loginDesc": "Listener votes are saved for signed-in accounts. Use LOGIN, then try again.",
+    "alreadyLocalTitle": "Already voted on this device",
+    "alreadyLocalDesc": "This browser already recorded a vote for this track.",
+    "alreadyServerTitle": "Already voted",
+    "alreadyServerDesc": "Your account already voted for this track. Each account can vote once per track.",
+    "sessionTitle": "Please sign in again",
+    "sessionDesc": "Your session expired. Log out, sign in, then vote again.",
+    "successTitle": "Vote recorded",
+    "successDesc": "Thanks — your vote was saved.",
+    "failedTitle": "Could not save your vote",
+    "failedDesc": "Please try again in a moment. If it keeps happening, sign out and sign back in."
+  },
   "layout": {
     "login": "LOGIN",
     "myPage": "MY PAGE",
