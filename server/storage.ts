@@ -1318,21 +1318,24 @@ export class DatabaseStorage implements IStorage {
     const [existing] = await db.select({ id: tracks.id }).from(tracks).where(and(eq(tracks.id, trackId), eq(tracks.isDeleted, false)));
     if (!existing) return false;
 
-    const affectedBattles = await db
-      .select({ id: battles.id })
-      .from(battles)
-      .where(or(eq(battles.trackAId, trackId), eq(battles.trackBId, trackId), eq(battles.winnerId, trackId)));
-    const battleIds = affectedBattles.map((b) => b.id);
-    if (battleIds.length) {
-      await db.delete(battleVotes).where(inArray(battleVotes.battleId, battleIds));
-      await db.delete(battles).where(inArray(battles.id, battleIds));
-    }
+    await db.transaction(async (tx) => {
+      const affectedBattles = await tx
+        .select({ id: battles.id })
+        .from(battles)
+        .where(or(eq(battles.trackAId, trackId), eq(battles.trackBId, trackId), eq(battles.winnerId, trackId)));
+      const battleIds = [...new Set(affectedBattles.map((b) => b.id))];
+      if (battleIds.length) {
+        await tx.delete(battleListenCompletions).where(inArray(battleListenCompletions.battleId, battleIds));
+        await tx.delete(battleVotes).where(inArray(battleVotes.battleId, battleIds));
+        await tx.delete(battles).where(inArray(battles.id, battleIds));
+      }
 
-    await db.update(tracks).set({
-      isDeleted: true,
-      archivedAt: new Date(),
-      status: "ARCHIVED",
-    }).where(eq(tracks.id, trackId));
+      await tx.update(tracks).set({
+        isDeleted: true,
+        archivedAt: new Date(),
+        status: "ARCHIVED",
+      }).where(eq(tracks.id, trackId));
+    });
     return true;
   }
 
