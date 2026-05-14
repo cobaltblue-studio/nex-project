@@ -150,7 +150,7 @@ function BattleBlindCard({
             src={track.coverImageUrl}
             alt={`${track.title} cover`}
             className={[
-              "battle-cover-image transition-premium",
+              "battle-cover-image",
               isRevealed ? "battle-cover-revealed" : "battle-cover-hidden",
             ].join(" ")}
           />
@@ -169,17 +169,20 @@ function BattleBlindCard({
         {isRevealed ? (
           <>
             <p
-              className="font-bold text-white text-sm transition-premium battle-reveal-text"
+              className="font-bold text-white text-sm battle-reveal-text"
               data-testid={`text-${dataTestIdPrefix}-title`}
             >
               {track.title}
             </p>
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest mt-0.5 transition-premium battle-reveal-text">
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest mt-0.5 battle-reveal-text">
               {track.creatorName}
             </p>
           </>
         ) : (
-          <p className="font-bold text-white text-[11px] uppercase tracking-[0.08em] transition-premium whitespace-normal break-words leading-relaxed" data-testid={`text-${dataTestIdPrefix}-title`}>
+          <p
+            className="font-bold text-white text-[11px] uppercase tracking-[0.08em] whitespace-normal break-words leading-relaxed"
+            data-testid={`text-${dataTestIdPrefix}-title`}
+          >
             {maskedLabel}
           </p>
         )}
@@ -340,6 +343,12 @@ function BattleTrackPlayer({
           </div>
         )}
         {blindMode ? (
+          <div
+            className="pointer-events-none absolute inset-0 z-[15] rounded-2xl bg-black/45 backdrop-blur-md motion-reduce:backdrop-blur-none"
+            aria-hidden
+          />
+        ) : null}
+        {blindMode ? (
           <div className="pointer-events-none absolute top-2 left-2 z-20">
             <span className="rounded-md border border-primary/35 bg-black/60 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.22em] text-primary/90">
               Blind Mode
@@ -377,7 +386,15 @@ export function Battle() {
   const [votedId, setVotedId] = useState<number | null>(null);
   const [isVoted, setIsVoted] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
-  const [blindMode, setBlindMode] = useState(true);
+  const [blindMode, setBlindMode] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem("nex.battle.blindMode");
+      if (saved === "off") return false;
+      return true;
+    } catch {
+      return true;
+    }
+  });
   const [showSharePopup, setShowSharePopup] = useState(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultPhaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -403,16 +420,6 @@ export function Battle() {
   const limitReached = dailyCount ? dailyCount.count >= dailyMax : false;
   const limitReachedRef = useRef(limitReached);
   limitReachedRef.current = limitReached;
-
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("nex.battle.blindMode");
-      if (saved === "off") setBlindMode(false);
-      else if (saved === "on") setBlindMode(true);
-    } catch {
-      /* ignore localStorage read errors */
-    }
-  }, []);
 
   useEffect(() => {
     try {
