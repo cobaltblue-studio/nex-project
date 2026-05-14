@@ -67,16 +67,26 @@ export default function NexRadio() {
       return res.json();
     },
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    /** Refetch while idle only — mid-stream refetch used to reshuffle & reset index, which stopped radio. */
+    refetchInterval: radioStarted ? false : 60 * 1000,
   });
 
   useEffect(() => {
     if (!tracks?.length) return;
     const shuffled = shuffle(tracks);
-    setPlaylist(shuffled);
-    setCurrentIndex(0);
-    playerKey.current += 1;
-  }, [tracks]);
+    if (!radioStarted) {
+      setPlaylist(shuffled);
+      setCurrentIndex(0);
+      playerKey.current += 1;
+      return;
+    }
+    // On air: fill playlist if chart arrived late; never replace a running queue.
+    setPlaylist((prev) => {
+      if (prev.length > 0) return prev;
+      playerKey.current += 1;
+      return shuffled;
+    });
+  }, [tracks, radioStarted]);
 
   const currentTrack = playlist[currentIndex] ?? null;
   const musicChartRank = currentTrack
@@ -101,6 +111,30 @@ export default function NexRadio() {
     playerKey.current += 1;
     setCurrentIndex(next);
   }, []);
+
+  const advanceTrackRef = useRef(advanceTrack);
+  useEffect(() => {
+    advanceTrackRef.current = advanceTrack;
+  }, [advanceTrack]);
+
+  /** Iframe embeds (Suno, SoundCloud, …) do not fire onEnded — cap playback so radio keeps moving. */
+  const RADIO_IFRAME_MAX_MS = 7 * 60 * 1000;
+
+  useEffect(() => {
+    if (!radioStarted || !currentTrack) return;
+    if (ytVideoId) return;
+    if (iframeLoading) return;
+
+    if (iframeUrl) {
+      const id = window.setTimeout(() => advanceTrackRef.current(), RADIO_IFRAME_MAX_MS);
+      return () => window.clearTimeout(id);
+    }
+
+    if (!activeUrl) return;
+    const delayMs = iframeError ? 2500 : 4000;
+    const id = window.setTimeout(() => advanceTrackRef.current(), delayMs);
+    return () => window.clearTimeout(id);
+  }, [radioStarted, currentTrack?.id, activeUrl, ytVideoId, iframeUrl, iframeLoading, iframeError]);
 
   const startRadio = () => {
     setRadioStarted(true);
