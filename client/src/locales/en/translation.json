@@ -103,7 +103,7 @@
     "sessionExpiredTitle": "Please sign in again",
     "sessionExpiredDesc": "Your session may have expired. Log out, sign in again, then try liking once more.",
     "alreadyLikedTitle": "Already counted for today",
-    "alreadyLikedDesc": "Your cheer for this track is saved once per day (UTC). The number next to the heart is everyone’s total — yours won’t add twice until the next UTC day.",
+    "alreadyLikedDesc": "This song: one cheer per UTC day. The heart count is everyone’s total — this track won’t double until the next UTC day. You can still cheer other songs today.",
     "serverTitle": "Please try again in a moment",
     "serverDesc": "Something went wrong on our side. Wait a minute and tap like again.",
     "forbiddenTitle": "Action not allowed",
@@ -115,7 +115,7 @@
   },
   "likes": {
     "alreadyTodayTitle": "Already counted for today",
-    "alreadyTodayDesc": "Your cheer is saved. One tap per track per UTC day — try again after UTC midnight.",
+    "alreadyTodayDesc": "Same track: one tap per UTC day. Other tracks are unlimited for the day — try another song.",
     "savedTitle": "Cheered",
     "savedDesc": "Thanks — we saved your pick.",
     "heartTitle": "{{count}} likes (everyone)",

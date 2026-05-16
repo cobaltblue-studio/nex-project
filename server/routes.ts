@@ -1241,8 +1241,8 @@ export async function registerRoutes(
       if (err?.message === "ALREADY_LIKED_TODAY") {
         return res.status(409).json({
           message: apiMsg(
-            "오늘은 이미 이 트랙을 응원했어요. 내일 다시 좋아요를 눌러주세요",
-            "You already cheered this track today. You can like it again tomorrow",
+            "오늘은 이미 이 트랙을 응원했어요 (같은 트랙은 UTC 기준 하루 1회). 다른 곡은 같은 날에도 제한 없이 누를 수 있어요.",
+            "You already cheered this track today (once per track per UTC day). Other songs can still be liked today — no shared daily cap.",
           ),
         });
       }

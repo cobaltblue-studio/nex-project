@@ -1,5 +1,12 @@
 /** Max battle votes per listener per UTC day (each completed battle = one vote). */
 export const MAX_BATTLE_ROUNDS = 5;
+
+/**
+ * Cheer / heart likes: enforced per `(userId, trackId)` on the server (`storage.likeTrack`).
+ * Same track: once per UTC calendar day only. Different tracks: no daily cap (many per day OK).
+ */
+export const LIKES_MAX_PER_TRACK_PER_UTC_DAY = 1;
+
 /** Max simultaneously active (non-archived) tracks per creator. */
 export const MAX_ACTIVE_TRACKS_PER_CREATOR = 2;
 /** Minimum lifetime before a creator can archive/replace a track. */

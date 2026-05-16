@@ -1137,15 +1137,15 @@ export class DatabaseStorage implements IStorage {
       return !!alreadyToday;
     } catch (e: any) {
       if (e?.code !== "42703") throw e;
-      const [legacyLike] = await db
-        .select({ id: likes.id })
-        .from(likes)
-        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
-        .limit(1);
-      return !!legacyLike;
+      /** No `created_at`: cannot know UTC-day boundary; let POST /like decide (insert vs conflict). */
+      return false;
     }
   }
 
+  /**
+   * One cheer per `(userId, trackId)` per UTC day. Other tracks same day have no shared cap.
+   * Legacy DBs without `likes.created_at` fall back to insert + unique-row handling below.
+   */
   async likeTrack(userId: string, trackId: number): Promise<void> {
     if (!String(userId ?? "").trim()) {
       throw new Error("MISSING_USER_ID");
@@ -1162,14 +1162,8 @@ export class DatabaseStorage implements IStorage {
       if (alreadyToday) throw new Error("ALREADY_LIKED_TODAY");
     } catch (e: any) {
       if (e?.message === "ALREADY_LIKED_TODAY") throw e;
-      // Backward compatibility: older DBs may not yet have likes.created_at.
+      // Older DB without likes.created_at: cannot evaluate "today" here — rely on INSERT + UNIQUE handling.
       if (e?.code !== "42703") throw e;
-      const [legacyLike] = await db
-        .select({ id: likes.id })
-        .from(likes)
-        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
-        .limit(1);
-      if (legacyLike) throw new Error("ALREADY_LIKED_TODAY");
     }
 
     try {
