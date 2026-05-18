@@ -30,6 +30,22 @@ const RANKING_WEIGHT_LIKES = 0.2;
 const RANKING_WEIGHT_PLAYS = 0.2;
 const RANKING_WEIGHT_FOLLOWERS = 0.1;
 
+/** Walk drizzle / driver wrappers to read PostgreSQL `sqlstate` (e.g. `23505`). */
+function getPostgresSqlState(err: unknown): string | undefined {
+  let cur: any = err;
+  for (let depth = 0; depth < 8 && cur; depth += 1) {
+    if (typeof cur.code === "string" && /^[0-9A-Z]{5}$/.test(cur.code)) return cur.code;
+    cur = cur.cause ?? cur.originalError ?? cur.error ?? cur.err;
+  }
+  return undefined;
+}
+
+function isPostgresUniqueViolation(err: unknown): boolean {
+  if (getPostgresSqlState(err) === "23505") return true;
+  const msg = String((err as any)?.message ?? "");
+  return /duplicate key value violates unique constraint/i.test(msg);
+}
+
 function getRecentBoost(createdAt: Date): number {
   const hoursOld = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60);
   if (hoursOld < 24) return 30;
@@ -1150,6 +1166,8 @@ export class DatabaseStorage implements IStorage {
     if (!String(userId ?? "").trim()) {
       throw new Error("MISSING_USER_ID");
     }
+    /** Rare sessions hit FK on `likes.user_id` if OAuth never persisted a row — fix before insert. */
+    await this.createUser({ id: userId });
     const todayStartUtc = new Date();
     todayStartUtc.setUTCHours(0, 0, 0, 0);
 
@@ -1170,7 +1188,7 @@ export class DatabaseStorage implements IStorage {
       await db.insert(likes).values({ userId, trackId });
     } catch (e: any) {
       // Legacy DBs may enforce one row per (user, track). Refresh timestamp for a new UTC day.
-      if (e?.code !== "23505") throw e;
+      if (!isPostgresUniqueViolation(e)) throw e;
       try {
         const [existing] = await db
           .select({ id: likes.id, createdAt: likes.createdAt })
