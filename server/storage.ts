@@ -46,6 +46,10 @@ function isPostgresUniqueViolation(err: unknown): boolean {
   return /duplicate key value violates unique constraint/i.test(msg);
 }
 
+function isUndefinedColumnError(err: unknown): boolean {
+  return getPostgresSqlState(err) === "42703";
+}
+
 function getRecentBoost(createdAt: Date): number {
   const hoursOld = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60);
   if (hoursOld < 24) return 30;
@@ -1152,7 +1156,7 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
       return !!alreadyToday;
     } catch (e: any) {
-      if (e?.code !== "42703") throw e;
+      if (!isUndefinedColumnError(e)) throw e;
       /** No `created_at`: cannot know UTC-day boundary; let POST /like decide (insert vs conflict). */
       return false;
     }
@@ -1166,8 +1170,18 @@ export class DatabaseStorage implements IStorage {
     if (!String(userId ?? "").trim()) {
       throw new Error("MISSING_USER_ID");
     }
+    if (!Number.isFinite(trackId) || trackId <= 0) {
+      throw new Error("INVALID_TRACK_ID");
+    }
+
+    const [trackRow] = await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.id, trackId)).limit(1);
+    if (!trackRow) throw new Error("TRACK_NOT_FOUND");
+
     /** Rare sessions hit FK on `likes.user_id` if OAuth never persisted a row — fix before insert. */
     await this.createUser({ id: userId });
+    const [userRow] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!userRow) throw new Error("USER_NOT_FOUND");
+
     const todayStartUtc = new Date();
     todayStartUtc.setUTCHours(0, 0, 0, 0);
 
@@ -1181,7 +1195,7 @@ export class DatabaseStorage implements IStorage {
     } catch (e: any) {
       if (e?.message === "ALREADY_LIKED_TODAY") throw e;
       // Older DB without likes.created_at: cannot evaluate "today" here — rely on INSERT + UNIQUE handling.
-      if (e?.code !== "42703") throw e;
+      if (!isUndefinedColumnError(e)) throw e;
     }
 
     try {
@@ -1201,16 +1215,20 @@ export class DatabaseStorage implements IStorage {
         await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, existing.id));
       } catch (inner: any) {
         if (inner?.message === "ALREADY_LIKED_TODAY") throw inner;
-        if (inner?.code === "42703") throw new Error("ALREADY_LIKED_TODAY");
+        if (isUndefinedColumnError(inner)) throw new Error("ALREADY_LIKED_TODAY");
         throw inner;
       }
     }
 
     await this.ensureTrackMetricsRow(trackId);
-    await db.update(trackMetrics).set({
-      likesCount: sql`${trackMetrics.likesCount} + 1`,
-      updatedAt: new Date(),
-    }).where(eq(trackMetrics.trackId, trackId));
+    try {
+      await db.update(trackMetrics).set({
+        likesCount: sql`${trackMetrics.likesCount} + 1`,
+        updatedAt: new Date(),
+      }).where(eq(trackMetrics.trackId, trackId));
+    } catch {
+      await this.rebuildTrackMetrics(trackId);
+    }
     this.scheduleRecomputeTrackRankingScore(trackId);
   }
 

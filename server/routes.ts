@@ -1249,6 +1249,17 @@ export async function registerRoutes(
       if (err?.message === "MISSING_USER_ID") {
         return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
       }
+      if (err?.message === "INVALID_TRACK_ID" || err?.message === "TRACK_NOT_FOUND") {
+        return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+      }
+      if (err?.message === "USER_NOT_FOUND") {
+        return res.status(401).json({
+          message: apiMsg(
+            "계정 정보를 불러오지 못했습니다. 로그아웃 후 다시 로그인해 주세요.",
+            "Could not load your account. Please log out and sign in again.",
+          ),
+        });
+      }
       console.error("[like] failed", {
         userId,
         trackId: req.params.id,
