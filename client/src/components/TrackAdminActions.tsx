@@ -187,20 +187,43 @@ function TrackSocialActions({
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [guestCheerOpen, setGuestCheerOpen] = useState(false);
+  const [displayLikes, setDisplayLikes] = useState(likesCount ?? 0);
+  const [likedToday, setLikedToday] = useState(!!viewerHasLikedToday);
+
+  useEffect(() => {
+    setDisplayLikes(likesCount ?? 0);
+  }, [likesCount, trackId]);
+
+  useEffect(() => {
+    setLikedToday(!!viewerHasLikedToday);
+  }, [viewerHasLikedToday, trackId]);
 
   const likeMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/tracks/${trackId}/like`, {}),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/tracks/${trackId}/like`, {});
+      return (await res.json()) as { likesCount?: number; viewerHasLikedToday?: boolean };
+    },
+    onMutate: () => {
+      if (likedToday) return;
+      setDisplayLikes((c) => c + 1);
+      setLikedToday(true);
+    },
+    onSuccess: (data) => {
+      if (typeof data?.likesCount === "number") setDisplayLikes(data.likesCount);
+      if (data?.viewerHasLikedToday) setLikedToday(true);
       invalidateTrackQueries(trackId);
       void queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
       toast({ title: t("likes.savedTitle"), description: t("likes.savedDesc") });
     },
     onError: (err: Error) => {
+      setDisplayLikes(likesCount ?? 0);
+      setLikedToday(!!viewerHasLikedToday);
       if (String(err?.message ?? "").startsWith("401")) {
         void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       }
       if (String(err?.message ?? "").startsWith("409")) {
+        setLikedToday(true);
         toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
         return;
       }
@@ -230,18 +253,14 @@ function TrackSocialActions({
   const size = compact
     ? `${iconBtn} text-[8px] px-2 py-1 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/30`
     : `${iconBtn} text-[9px] px-3 py-2 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/20`;
-  const likeCount = likesCount ?? 0;
-  const heartTitle = viewerHasLikedToday
+  const likeCount = displayLikes;
+  const heartTitle = likedToday
     ? t("likes.heartTitleYoursToday")
     : t("likes.heartTitle", { count: likeCount });
 
   const onLike = () => {
     if (!isAuthenticated) {
       setGuestCheerOpen(true);
-      return;
-    }
-    if (viewerHasLikedToday) {
-      toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
       return;
     }
     likeMutation.mutate();
@@ -272,7 +291,7 @@ function TrackSocialActions({
           data-testid={`button-track-like-${trackId}`}
         >
           <Heart
-            className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} ${viewerHasLikedToday ? "fill-primary text-primary" : ""}`}
+            className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} ${likedToday ? "fill-primary text-primary" : ""}`}
           />
           <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{likeCount}</span>
         </button>

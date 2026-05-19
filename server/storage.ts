@@ -50,6 +50,14 @@ function isUndefinedColumnError(err: unknown): boolean {
   return getPostgresSqlState(err) === "42703";
 }
 
+function isPostgresFkViolation(err: unknown): boolean {
+  return getPostgresSqlState(err) === "23503";
+}
+
+function isMissingRelationError(err: unknown): boolean {
+  return getPostgresSqlState(err) === "42P01";
+}
+
 function getRecentBoost(createdAt: Date): number {
   const hoursOld = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60);
   if (hoursOld < 24) return 30;
@@ -220,7 +228,7 @@ export interface IStorage {
   checkAndPromoteToChart(trackId: number): Promise<void>;
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
-  likeTrack(userId: string, trackId: number): Promise<void>;
+  likeTrack(userId: string, trackId: number): Promise<{ likesCount: number }>;
   /** True if this user already has a like for this track for the current UTC calendar day. */
   hasLikedTrackToday(userId: string, trackId: number): Promise<boolean>;
   recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }>;
@@ -1156,17 +1164,160 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
       return !!alreadyToday;
     } catch (e: any) {
-      if (!isUndefinedColumnError(e)) throw e;
-      /** No `created_at`: cannot know UTC-day boundary; let POST /like decide (insert vs conflict). */
-      return false;
+      if (isUndefinedColumnError(e) || isMissingRelationError(e)) {
+        /** Legacy / unmigrated DB — let POST /like decide (insert vs conflict). */
+        return false;
+      }
+      throw e;
     }
+  }
+
+  private async readTrackLikesCount(trackId: number): Promise<number> {
+    const [m] = await db
+      .select({ likesCount: trackMetrics.likesCount })
+      .from(trackMetrics)
+      .where(eq(trackMetrics.trackId, trackId))
+      .limit(1);
+    return Number(m?.likesCount ?? 0);
+  }
+
+  private async incrementLikeMetricsOnly(trackId: number): Promise<void> {
+    try {
+      await this.ensureTrackMetricsRow(trackId);
+      await db.update(trackMetrics).set({
+        likesCount: sql`${trackMetrics.likesCount} + 1`,
+        updatedAt: new Date(),
+      }).where(eq(trackMetrics.trackId, trackId));
+      this.scheduleRecomputeTrackRankingScore(trackId);
+    } catch (metricsErr: any) {
+      console.error("[like] incrementLikeMetricsOnly failed", {
+        trackId,
+        code: getPostgresSqlState(metricsErr),
+        message: metricsErr?.message,
+      });
+    }
+  }
+
+  /** Recompute displayed like count from `likes` rows (avoids +1 drift / failed bumps). */
+  private async syncLikeMetricsFromLikesTable(trackId: number): Promise<void> {
+    try {
+      const [likesResult] = await db
+        .select({ count: count() })
+        .from(likes)
+        .where(eq(likes.trackId, trackId));
+      const likesCount = Number(likesResult?.count ?? 0);
+      await this.ensureTrackMetricsRow(trackId);
+      await db.update(trackMetrics).set({
+        likesCount,
+        updatedAt: new Date(),
+      }).where(eq(trackMetrics.trackId, trackId));
+      this.scheduleRecomputeTrackRankingScore(trackId);
+    } catch (metricsErr: any) {
+      console.error("[like] sync metrics from likes table failed", {
+        trackId,
+        code: getPostgresSqlState(metricsErr),
+        message: metricsErr?.message,
+      });
+      try {
+        await this.rebuildTrackMetrics(trackId);
+        this.scheduleRecomputeTrackRankingScore(trackId);
+      } catch (rebuildErr: any) {
+        console.error("[like] metrics rebuild failed", {
+          trackId,
+          code: getPostgresSqlState(rebuildErr),
+          message: rebuildErr?.message,
+        });
+      }
+    }
+  }
+
+  private async insertLikeRowOrThrowDailyLimit(
+    userId: string,
+    trackId: number,
+    todayStartUtc: Date,
+  ): Promise<void> {
+    const handleUniqueConflict = async (): Promise<void> => {
+      try {
+        const [existing] = await db
+          .select({ id: likes.id, createdAt: likes.createdAt })
+          .from(likes)
+          .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
+          .limit(1);
+        if (!existing) throw new Error("LIKE_INSERT_CONFLICT");
+        if (!existing.createdAt) throw new Error("ALREADY_LIKED_TODAY");
+        if (existing.createdAt >= todayStartUtc) throw new Error("ALREADY_LIKED_TODAY");
+        await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, existing.id));
+      } catch (inner: any) {
+        if (inner?.message === "ALREADY_LIKED_TODAY") throw inner;
+        if (isUndefinedColumnError(inner)) throw new Error("ALREADY_LIKED_TODAY");
+        throw inner;
+      }
+    };
+
+    try {
+      await db.insert(likes).values({ userId, trackId });
+    } catch (e: any) {
+      if (isPostgresFkViolation(e)) {
+        await this.createUser({ id: userId });
+        try {
+          await db.insert(likes).values({ userId, trackId });
+          return;
+        } catch (retryErr: any) {
+          if (isPostgresUniqueViolation(retryErr)) {
+            await handleUniqueConflict();
+            return;
+          }
+          throw retryErr;
+        }
+      }
+      if (!isPostgresUniqueViolation(e)) throw e;
+      await handleUniqueConflict();
+    }
+  }
+
+  private async bumpPlayMetricsSafe(
+    trackId: number,
+    hadAny: boolean,
+    completed: boolean,
+  ): Promise<void> {
+    try {
+      await this.ensureTrackMetricsRow(trackId);
+      await db.update(trackMetrics).set({
+        playsCount: sql`${trackMetrics.playsCount} + 1`,
+        completedPlaysCount: sql`${trackMetrics.completedPlaysCount} + ${completed ? 1 : 0}`,
+        uniqueListenersCount: sql`${trackMetrics.uniqueListenersCount} + ${hadAny ? 0 : 1}`,
+        relistenPlaysCount: sql`${trackMetrics.relistenPlaysCount} + ${hadAny ? 1 : 0}`,
+        updatedAt: new Date(),
+      }).where(eq(trackMetrics.trackId, trackId));
+
+      await db.update(tracks).set({
+        playCount: sql`${tracks.playCount} + 1`,
+        lastPlayedAt: new Date(),
+      }).where(eq(tracks.id, trackId));
+    } catch (metricsErr: any) {
+      console.error("[play] metrics bump failed (play row saved)", {
+        trackId,
+        code: getPostgresSqlState(metricsErr),
+        message: metricsErr?.message,
+      });
+      try {
+        await this.rebuildTrackMetrics(trackId);
+      } catch (rebuildErr: any) {
+        console.error("[play] metrics rebuild failed", {
+          trackId,
+          code: getPostgresSqlState(rebuildErr),
+          message: rebuildErr?.message,
+        });
+      }
+    }
+    this.scheduleRecomputeTrackRankingScore(trackId);
   }
 
   /**
    * One cheer per `(userId, trackId)` per UTC day. Other tracks same day have no shared cap.
    * Legacy DBs without `likes.created_at` fall back to insert + unique-row handling below.
    */
-  async likeTrack(userId: string, trackId: number): Promise<void> {
+  async likeTrack(userId: string, trackId: number): Promise<{ likesCount: number }> {
     if (!String(userId ?? "").trim()) {
       throw new Error("MISSING_USER_ID");
     }
@@ -1194,8 +1345,7 @@ export class DatabaseStorage implements IStorage {
       if (alreadyToday) throw new Error("ALREADY_LIKED_TODAY");
     } catch (e: any) {
       if (e?.message === "ALREADY_LIKED_TODAY") throw e;
-      // Older DB without likes.created_at: cannot evaluate "today" here — rely on INSERT + UNIQUE handling.
-      if (!isUndefinedColumnError(e)) {
+      if (!isUndefinedColumnError(e) && !isMissingRelationError(e)) {
         console.warn("[like] daily precheck skipped", {
           code: getPostgresSqlState(e),
           message: e?.message,
@@ -1204,55 +1354,32 @@ export class DatabaseStorage implements IStorage {
     }
 
     try {
-      await db.insert(likes).values({ userId, trackId });
+      await this.insertLikeRowOrThrowDailyLimit(userId, trackId, todayStartUtc);
+      await this.syncLikeMetricsFromLikesTable(trackId);
     } catch (e: any) {
-      // Legacy DBs may enforce one row per (user, track). Refresh timestamp for a new UTC day.
-      if (!isPostgresUniqueViolation(e)) throw e;
-      try {
-        const [existing] = await db
-          .select({ id: likes.id, createdAt: likes.createdAt })
-          .from(likes)
-          .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
-          .limit(1);
-        if (!existing) throw e;
-        if (!existing.createdAt) throw new Error("ALREADY_LIKED_TODAY");
-        if (existing.createdAt >= todayStartUtc) throw new Error("ALREADY_LIKED_TODAY");
-        await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, existing.id));
-      } catch (inner: any) {
-        if (inner?.message === "ALREADY_LIKED_TODAY") throw inner;
-        if (isUndefinedColumnError(inner)) throw new Error("ALREADY_LIKED_TODAY");
-        throw inner;
-      }
-    }
-
-    // Like row is saved above — metrics must never turn a successful cheer into HTTP 500.
-    try {
-      await this.ensureTrackMetricsRow(trackId);
-      await db.update(trackMetrics).set({
-        likesCount: sql`${trackMetrics.likesCount} + 1`,
-        updatedAt: new Date(),
-      }).where(eq(trackMetrics.trackId, trackId));
-    } catch (metricsErr: any) {
-      console.error("[like] metrics bump failed (like row saved)", {
+      if (e?.message === "ALREADY_LIKED_TODAY") throw e;
+      console.error("[like] insert failed — applying metrics-only fallback", {
         trackId,
         userId,
-        code: getPostgresSqlState(metricsErr),
-        message: metricsErr?.message,
+        code: getPostgresSqlState(e),
+        message: e?.message,
       });
-      try {
-        await this.rebuildTrackMetrics(trackId);
-      } catch (rebuildErr: any) {
-        console.error("[like] metrics rebuild failed", {
-          trackId,
-          code: getPostgresSqlState(rebuildErr),
-          message: rebuildErr?.message,
-        });
-      }
+      await this.incrementLikeMetricsOnly(trackId);
     }
-    this.scheduleRecomputeTrackRankingScore(trackId);
+
+    return { likesCount: await this.readTrackLikesCount(trackId) };
   }
 
   async recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }> {
+    if (!String(userId ?? "").trim()) {
+      return { counted: false, completionUpdated: false };
+    }
+    if (!Number.isFinite(trackId) || trackId <= 0) {
+      return { counted: false, completionUpdated: false };
+    }
+
+    await this.createUser({ id: userId });
+
     const completed = !!opts?.completed;
     const [hadAny] = await db
       .select({ id: trackPlays.id })
@@ -1271,38 +1398,37 @@ export class DatabaseStorage implements IStorage {
     if (recent) {
       if (completed && !recent.completed) {
         await db.update(trackPlays).set({ completed: true }).where(eq(trackPlays.id, recent.id));
-        await this.ensureTrackMetricsRow(trackId);
-        await db.update(trackMetrics).set({
-          completedPlaysCount: sql`${trackMetrics.completedPlaysCount} + 1`,
-          updatedAt: new Date(),
-        }).where(eq(trackMetrics.trackId, trackId));
-        this.scheduleRecomputeTrackRankingScore(trackId);
+        try {
+          await this.ensureTrackMetricsRow(trackId);
+          await db.update(trackMetrics).set({
+            completedPlaysCount: sql`${trackMetrics.completedPlaysCount} + 1`,
+            updatedAt: new Date(),
+          }).where(eq(trackMetrics.trackId, trackId));
+          this.scheduleRecomputeTrackRankingScore(trackId);
+        } catch (metricsErr: any) {
+          console.error("[play] completion metrics failed", {
+            trackId,
+            code: getPostgresSqlState(metricsErr),
+            message: metricsErr?.message,
+          });
+        }
         return { counted: false, completionUpdated: true };
       }
       return { counted: false, completionUpdated: false };
     }
 
-    // Record the play
-    await db.insert(trackPlays).values({ userId, trackId, completed });
-    await this.ensureTrackMetricsRow(trackId);
-    await db.update(trackMetrics).set({
-      playsCount: sql`${trackMetrics.playsCount} + 1`,
-      completedPlaysCount: sql`${trackMetrics.completedPlaysCount} + ${completed ? 1 : 0}`,
-      uniqueListenersCount: sql`${trackMetrics.uniqueListenersCount} + ${hadAny ? 0 : 1}`,
-      relistenPlaysCount: sql`${trackMetrics.relistenPlaysCount} + ${hadAny ? 1 : 0}`,
-      updatedAt: new Date(),
-    }).where(eq(trackMetrics.trackId, trackId));
+    try {
+      await db.insert(trackPlays).values({ userId, trackId, completed });
+    } catch (e: any) {
+      if (isPostgresFkViolation(e)) {
+        await this.createUser({ id: userId });
+        await db.insert(trackPlays).values({ userId, trackId, completed });
+      } else {
+        throw e;
+      }
+    }
 
-    // Fetch track and update playCount
-    const [t] = await db.select().from(tracks).where(eq(tracks.id, trackId));
-    if (!t) return { counted: false, completionUpdated: false };
-
-    await db.update(tracks).set({
-      playCount: sql`${tracks.playCount} + 1`,
-      lastPlayedAt: new Date(),
-    }).where(eq(tracks.id, trackId));
-    this.scheduleRecomputeTrackRankingScore(trackId);
-
+    await this.bumpPlayMetricsSafe(trackId, !!hadAny, completed);
     return { counted: true, completionUpdated: false };
   }
 

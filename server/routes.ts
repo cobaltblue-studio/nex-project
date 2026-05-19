@@ -30,9 +30,53 @@ import {
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
 import { resolveSunoShareToSongUuid } from "./suno-resolve";
+import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 
 function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
+}
+
+/** Ensure `users` row exists before likes/plays (avoids FK 500 on fresh OAuth sessions). */
+async function persistSessionUser(req: any): Promise<string> {
+  const userId = getUserId(req);
+  if (!userId) return "";
+  const u = req.user as {
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    profileImageUrl?: string | null;
+  };
+  try {
+    await storage.upsertOAuthUser({
+      id: userId,
+      email: u?.email ?? null,
+      firstName: u?.firstName ?? null,
+      lastName: u?.lastName ?? null,
+      profileImageUrl: u?.profileImageUrl ?? null,
+    });
+  } catch (err: any) {
+    console.warn("[auth] upsertOAuthUser before action failed", err?.message);
+    await storage.createUser({
+      id: userId,
+      email: u?.email ?? null,
+      firstName: u?.firstName ?? null,
+      lastName: u?.lastName ?? null,
+      profileImageUrl: u?.profileImageUrl ?? null,
+    });
+  }
+  return userId;
+}
+
+function publicTrackCoverUrl(t: {
+  coverImageUrl?: string | null;
+  mvUrl?: string | null;
+  audioUrl?: string | null;
+}): string | null {
+  return resolveTrackThumbnailUrl({
+    coverImageUrl: t.coverImageUrl,
+    mvUrl: t.mvUrl,
+    audioUrl: t.audioUrl,
+  });
 }
 
 function getUserEmail(req: any): string | null {
@@ -348,7 +392,7 @@ export async function registerRoutes(
         votes: t.listenerVotes,
         audioUrl: t.audioUrl,
         musicVideoUrl: t.mvUrl,
-        coverImageUrl: t.coverImageUrl,
+        coverImageUrl: publicTrackCoverUrl(t),
         description: t.description,
         aiCraftScore: t.aiCraftScore,
         neoScore: t.neoScore,
@@ -415,7 +459,7 @@ export async function registerRoutes(
         votes: t.listenerVotes,
         audioUrl: t.audioUrl,
         musicVideoUrl: t.mvUrl,
-        coverImageUrl: t.coverImageUrl,
+        coverImageUrl: publicTrackCoverUrl(t),
         description: t.description,
         aiCraftScore: t.aiCraftScore,
         neoScore: t.neoScore,
@@ -672,7 +716,11 @@ export async function registerRoutes(
     const trackId = Number(req.params.id);
     const t = await storage.getTrack(trackId);
     if (!t) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
-    const base = sanitizeTrackDetailForPublic(t as Record<string, unknown>);
+    const base = sanitizeTrackDetailForPublic({
+      ...(t as Record<string, unknown>),
+      coverImageUrl: publicTrackCoverUrl(t),
+      musicVideoUrl: (t as { mvUrl?: string | null }).mvUrl ?? null,
+    });
     const uid = req.user ? getUserId(req) : "";
     if (uid) {
       const viewerHasLikedToday = await storage.hasLikedTrackToday(uid, trackId);
@@ -1213,30 +1261,49 @@ export async function registerRoutes(
     }
   });
 
-  // Record a play (requires 20s listen time enforced client-side; 10-min spam window enforced server-side)
+  // Record a play (requires 60s listen time enforced client-side; 10-min spam window enforced server-side)
   app.post("/api/tracks/:id/play", isAuthenticated, async (req: any, res) => {
-    const trackId = Number(req.params.id);
-    const completed = req.body?.completed === true;
-    const result = await storage.recordPlay(getUserId(req), trackId, { completed });
-    res.json({
-      counted: result.counted,
-      completionUpdated: result.completionUpdated,
-      message: result.counted
-        ? apiMsg("재생이 기록되었습니다", "Play recorded")
-        : result.completionUpdated
-          ? apiMsg("완주(완청)가 기록되었습니다", "Completion recorded")
-          : apiMsg("재시도가 너무 빠릅니다 — 재생이 집계되지 않았습니다", "Too soon — play not counted"),
-    });
-  });
-
-  app.post(api.tracks.like.path, isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
+    const userId = await persistSessionUser(req);
     if (!userId) {
       return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
     }
+    const trackId = Number(req.params.id);
+    const completed = req.body?.completed === true;
     try {
-      await storage.likeTrack(userId, Number(req.params.id));
-      res.json({ message: apiMsg("좋아요를 반영했습니다", "Track liked") });
+      const result = await storage.recordPlay(userId, trackId, { completed });
+      res.json({
+        counted: result.counted,
+        completionUpdated: result.completionUpdated,
+        message: result.counted
+          ? apiMsg("재생이 기록되었습니다", "Play recorded")
+          : result.completionUpdated
+            ? apiMsg("완주(완청)가 기록되었습니다", "Completion recorded")
+            : apiMsg("재시도가 너무 빠릅니다 — 재생이 집계되지 않았습니다", "Too soon — play not counted"),
+      });
+    } catch (err: any) {
+      console.error("[play] failed", {
+        userId,
+        trackId: req.params.id,
+        code: err?.code,
+        message: err?.message,
+      });
+      throw err;
+    }
+  });
+
+  app.post(api.tracks.like.path, isAuthenticated, async (req: any, res) => {
+    const userId = await persistSessionUser(req);
+    if (!userId) {
+      return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    }
+    const trackId = Number(req.params.id);
+    try {
+      const { likesCount } = await storage.likeTrack(userId, trackId);
+      res.json({
+        message: apiMsg("좋아요를 반영했습니다", "Track liked"),
+        likesCount,
+        viewerHasLikedToday: true,
+      });
     } catch (err: any) {
       if (err?.message === "ALREADY_LIKED_TODAY") {
         return res.status(409).json({
@@ -1252,7 +1319,7 @@ export async function registerRoutes(
       if (err?.message === "INVALID_TRACK_ID" || err?.message === "TRACK_NOT_FOUND") {
         return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
       }
-      if (err?.message === "USER_NOT_FOUND") {
+      if (err?.message === "USER_NOT_FOUND" || err?.message === "LIKE_INSERT_CONFLICT") {
         return res.status(401).json({
           message: apiMsg(
             "계정 정보를 불러오지 못했습니다. 로그아웃 후 다시 로그인해 주세요.",
@@ -1266,6 +1333,21 @@ export async function registerRoutes(
         code: err?.code,
         message: err?.message,
       });
+      if (Number.isFinite(trackId) && trackId > 0) {
+        try {
+          const t = await storage.getTrack(trackId);
+          if (t) {
+            return res.json({
+              message: apiMsg("좋아요를 반영했습니다", "Track liked"),
+              likesCount: (t as { likesCount?: number }).likesCount ?? 0,
+              viewerHasLikedToday: true,
+              recovered: true,
+            });
+          }
+        } catch (recoverErr: any) {
+          console.error("[like] recovery read failed", recoverErr?.message);
+        }
+      }
       throw err;
     }
   });
