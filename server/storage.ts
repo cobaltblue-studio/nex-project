@@ -1195,7 +1195,12 @@ export class DatabaseStorage implements IStorage {
     } catch (e: any) {
       if (e?.message === "ALREADY_LIKED_TODAY") throw e;
       // Older DB without likes.created_at: cannot evaluate "today" here — rely on INSERT + UNIQUE handling.
-      if (!isUndefinedColumnError(e)) throw e;
+      if (!isUndefinedColumnError(e)) {
+        console.warn("[like] daily precheck skipped", {
+          code: getPostgresSqlState(e),
+          message: e?.message,
+        });
+      }
     }
 
     try {
@@ -1220,14 +1225,29 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    await this.ensureTrackMetricsRow(trackId);
+    // Like row is saved above — metrics must never turn a successful cheer into HTTP 500.
     try {
+      await this.ensureTrackMetricsRow(trackId);
       await db.update(trackMetrics).set({
         likesCount: sql`${trackMetrics.likesCount} + 1`,
         updatedAt: new Date(),
       }).where(eq(trackMetrics.trackId, trackId));
-    } catch {
-      await this.rebuildTrackMetrics(trackId);
+    } catch (metricsErr: any) {
+      console.error("[like] metrics bump failed (like row saved)", {
+        trackId,
+        userId,
+        code: getPostgresSqlState(metricsErr),
+        message: metricsErr?.message,
+      });
+      try {
+        await this.rebuildTrackMetrics(trackId);
+      } catch (rebuildErr: any) {
+        console.error("[like] metrics rebuild failed", {
+          trackId,
+          code: getPostgresSqlState(rebuildErr),
+          message: rebuildErr?.message,
+        });
+      }
     }
     this.scheduleRecomputeTrackRankingScore(trackId);
   }
