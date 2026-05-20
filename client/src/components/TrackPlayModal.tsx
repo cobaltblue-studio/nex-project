@@ -1,4 +1,7 @@
 import { useRef } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
+import { useRecordLikeAfterListen } from "@/hooks/use-record-like-after-listen";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +48,12 @@ export function TrackPlayModal({
   trackOwnerProfileId = null,
 }: Props) {
   const { t } = useTranslation();
+  const { isAuthenticated } = useAuth();
   const mediaShellRef = useRef<HTMLDivElement>(null);
+
+  const playerActive = open && isAuthenticated;
+  useRecordPlayAfterListen(trackId, playerActive);
+  useRecordLikeAfterListen(trackId, playerActive);
   const isVideo = trackType === "video";
   const primaryMedia = isVideo ? mvUrl || audioUrl : audioUrl || mvUrl;
   const ytIdFromMv = extractYoutubeId(mvUrl || undefined);

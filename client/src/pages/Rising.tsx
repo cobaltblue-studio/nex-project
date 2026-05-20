@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { TrendingUp, Loader2, Flame, Clock, Search } from "lucide-react";
 import { BattleWinsIndicator } from "@/components/BattleWinsIndicator";
+import { TrackPlaysStat } from "@/components/TrackPlaysStat";
 import { Link } from "wouter";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
@@ -36,7 +37,8 @@ export function Rising() {
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading } = useQuery<RisingTrack[]>({
-    queryKey: ["/api/tracks/rising", search],
+    queryKey: ["/api/tracks/rising", "v2", search],
+    staleTime: 60_000,
     queryFn: async () => {
       const params = new URLSearchParams();
       const q = search.trim();
@@ -172,12 +174,7 @@ export function Rising() {
               </div>
 
               <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto">
-                <div className="flex flex-col items-end text-right min-w-[52px]">
-                  <p className="text-xs sm:text-sm font-bold text-zinc-100" data-testid={`text-rising-plays-${track.id}`}>
-                    {(track.playCount ?? 0).toLocaleString()}
-                  </p>
-                  <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Plays</p>
-                </div>
+                <TrackPlaysStat playCount={track.playCount} testId={`text-rising-plays-${track.id}`} />
 
                 <BattleWinsIndicator wins={track.wins ?? 0} showFrom="sm" testId={`text-rising-wins-${track.id}`} />
 

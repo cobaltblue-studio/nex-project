@@ -252,5 +252,36 @@
     "submitYourTrack": "Submit Your Track",
     "enterBattleArena": "Enter Battle Arena",
     "learnMore": "Learn More"
+  },
+  "share": {
+    "share": "Share",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "postOnX": "Post on X",
+    "linkCopiedTitle": "Link copied",
+    "linkCopiedDesc": "Paste into Instagram, KakaoTalk, or anywhere you like.",
+    "copyFailedTitle": "Copy this link"
+  },
+  "chart": {
+    "showingTop": "Showing top {{count}} on the chart right now.",
+    "vote": "Vote"
+  },
+  "creators": {
+    "statHidden": "—",
+    "plays": "Plays",
+    "likes": "Likes",
+    "battleWins": "Wins",
+    "directorySub": "Ranked by plays, likes & battle wins ({{tracks}} tracks · {{count}} creators)"
+  },
+  "new": {
+    "playedOnlySub": "Only tracks with at least one play are listed.",
+    "noPlayedYet": "No new releases with plays yet — listen on the chart or battle arena first.",
+    "noPlayedSearch": "No played tracks match \"{{q}}\"."
+  },
+  "battle": {
+    "sharePickText": "I picked {{creator}} on NEX Battle Arena 🎧",
+    "shareResultText": "{{title}} by {{creator}} won my NEX battle vote!",
+    "communityVotesBuilding": "Community votes are building — be early.",
+    "statsWarming": "Today's arena is warming up. Cast the first votes."
   }
 }

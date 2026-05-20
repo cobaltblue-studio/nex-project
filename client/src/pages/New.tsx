@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { hasPublicCount } from "@/lib/displayStats";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Clock, Loader2, Search } from "lucide-react";
 import { BattleWinsIndicator } from "@/components/BattleWinsIndicator";
+import { TrackPlaysStat } from "@/components/TrackPlaysStat";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
@@ -31,12 +34,14 @@ interface NewTrack {
 const LIST_LIMIT = 100;
 
 export function New() {
+  const { t } = useTranslation();
   const [playId, setPlayId] = useState<number | null>(null);
   const [feed, setFeed] = useState<{ track: TrackFeedSnapshot; focusComment: boolean } | null>(null);
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading, isError } = useQuery<NewTrack[]>({
-    queryKey: ["/api/tracks", "createdAt", LIST_LIMIT, "audio-only-new", search],
+    queryKey: ["/api/tracks", "v3", "createdAt", LIST_LIMIT, "audio-only-new", search],
+    staleTime: 60_000,
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("sortBy", "createdAt");
@@ -50,7 +55,12 @@ export function New() {
     },
   });
 
-  const playing = tracks?.find((t) => t.id === playId) ?? null;
+  const playedTracks = useMemo(
+    () => (tracks ?? []).filter((t) => hasPublicCount(t.playCount)),
+    [tracks],
+  );
+
+  const playing = playedTracks.find((t) => t.id === playId) ?? null;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -91,7 +101,7 @@ export function New() {
           NEW ON NEX
         </h2>
         <p className="text-zinc-500 text-sm mt-2">
-          Latest audio releases — same lane as the main chart, without MV duplicates.
+          {t("new.playedOnlySub")}
         </p>
         <div className="mt-4 relative max-w-md">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -115,9 +125,16 @@ export function New() {
           <Clock className="w-10 h-10 text-zinc-700" />
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-new-error">Failed to Load</p>
         </div>
+      ) : playedTracks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+          <Clock className="w-10 h-10 text-zinc-700" />
+          <p className="text-sm font-bold uppercase tracking-widest text-zinc-400" data-testid="text-new-no-plays">
+            {search.trim() ? t("new.noPlayedSearch", { q: search.trim() }) : t("new.noPlayedYet")}
+          </p>
+        </div>
       ) : (
         <div className="space-y-2">
-          {(tracks ?? []).map((track, idx) => {
+          {playedTracks.map((track, idx) => {
             const GenreIcon = getOfficialGenreIcon(track.genre);
             return (
             <motion.div
@@ -175,10 +192,7 @@ export function New() {
               </div>
 
               <div className="flex items-center gap-3 sm:gap-4 shrink-0 ml-auto">
-                <div className="hidden sm:flex flex-col items-end text-right min-w-[52px]">
-                  <p className="text-xs font-bold text-zinc-300">{(track.playCount ?? 0).toLocaleString()}</p>
-                  <p className="text-[7px] uppercase tracking-widest text-zinc-600">Plays</p>
-                </div>
+                <TrackPlaysStat playCount={track.playCount} testId={`text-new-plays-${track.id}`} />
 
                 <BattleWinsIndicator wins={track.wins ?? 0} />
 

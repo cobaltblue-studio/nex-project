@@ -3,6 +3,9 @@ import "./i18n";
 import App from "./App";
 import "./index.css";
 import { buildApiUrl } from "./lib/apiOrigin";
+import { enforceCanonicalPublicHost } from "./lib/publicSiteUrl";
+
+enforceCanonicalPublicHost();
 
 const nativeFetch = window.fetch.bind(window);
 window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {

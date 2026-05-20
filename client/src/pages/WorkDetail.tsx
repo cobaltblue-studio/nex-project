@@ -4,6 +4,8 @@ import { useWork, useWorks } from "@/hooks/use-works";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, Zap } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
+import { useRecordLikeAfterListen } from "@/hooks/use-record-like-after-listen";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -29,8 +31,6 @@ export function TrackDetail() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const playerKey = useRef(0); // forces iframe remount on track change
-  const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playCountedRef = useRef<Set<number>>(new Set()); // tracks recorded this session
 
   // Sync currentTrackId if user navigates directly (e.g. browser back/forward)
   useEffect(() => {
@@ -40,26 +40,8 @@ export function TrackDetail() {
     }
   }, [params?.id]);
 
-  // 20-second play timer — records a play after user listens for 20+ seconds
-  useEffect(() => {
-    if (!currentTrackId || !isAuthenticated) return;
-    // Clear any existing timer when track changes
-    if (playTimerRef.current) clearTimeout(playTimerRef.current);
-
-    playTimerRef.current = setTimeout(async () => {
-      // Skip if already recorded in this session
-      if (playCountedRef.current.has(currentTrackId)) return;
-      try {
-        await apiRequest("POST", `/api/tracks/${currentTrackId}/play`, { completed: false });
-        playCountedRef.current.add(currentTrackId);
-        queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
-      } catch { /* silent — play count is best-effort */ }
-    }, 20_000); // 20 seconds
-
-    return () => {
-      if (playTimerRef.current) clearTimeout(playTimerRef.current);
-    };
-  }, [currentTrackId, isAuthenticated]);
+  useRecordPlayAfterListen(currentTrackId, isAuthenticated);
+  useRecordLikeAfterListen(currentTrackId, isAuthenticated);
 
   const { data: trackData, isLoading: isTrackLoading } = useWork(String(currentTrackId));
 
@@ -593,7 +575,9 @@ export function TrackDetail() {
                   data-testid="button-vote"
                 >
                   <ChevronUp className={`w-4 h-4 ${isVoting ? "animate-bounce text-primary" : "text-primary group-hover:text-white"} transition-colors`} />
-                  <span className="text-white text-xs">{track.votes}</span>
+                  <span className="text-white text-xs">
+                    {(track.votes ?? 0) > 0 ? track.votes : "—"}
+                  </span>
                 </motion.button>
               </div>
             </div>

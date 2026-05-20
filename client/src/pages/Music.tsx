@@ -7,6 +7,8 @@ import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
+import { TrackPlaysStat } from "@/components/TrackPlaysStat";
+import { useTranslation } from "react-i18next";
 
 interface ChartTrack {
   id: number;
@@ -30,8 +32,6 @@ interface ChartTrack {
   trackType?: string;
 }
 
-const TOTAL_SLOTS = 100;
-
 function getZoneForRank(rank: number): { label: string; icon: typeof Crown; color: string; bgColor: string; borderColor: string } | null {
   if (rank === 1) return { label: "Legend Zone", icon: Crown, color: "text-[#FFD700]", bgColor: "bg-[#FFD700]/10", borderColor: "border-[#FFD700]/30" };
   if (rank === 11) return { label: "Elite Zone", icon: Star, color: "text-[#00D1FF]", bgColor: "bg-[#00D1FF]/10", borderColor: "border-[#00D1FF]/30" };
@@ -40,12 +40,14 @@ function getZoneForRank(rank: number): { label: string; icon: typeof Crown; colo
 }
 
 export function Music() {
+  const { t } = useTranslation();
   const [playId, setPlayId] = useState<number | null>(null);
   const [feed, setFeed] = useState<{ track: TrackFeedSnapshot; focusComment: boolean } | null>(null);
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading, isError } = useQuery<ChartTrack[]>({
-    queryKey: ["/api/tracks", "rankingScore", 100, "audio", search ? "search-all-active" : "status-CHART", search],
+    queryKey: ["/api/tracks", "v3", "rankingScore", 100, "audio", search ? "search-all-active" : "status-CHART", search],
+    staleTime: 60_000,
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("sortBy", "rankingScore");
@@ -63,12 +65,8 @@ export function Music() {
 
   const playing = tracks?.find((t) => t.id === playId) ?? null;
 
-  const slots = isSearching
-    ? (tracks ?? []).map((track, i) => ({ rank: i + 1, track }))
-    : Array.from({ length: TOTAL_SLOTS }, (_, i) => {
-        const track = tracks?.[i] ?? null;
-        return { rank: i + 1, track };
-      });
+  const chartTracks = tracks ?? [];
+  const slots = chartTracks.map((track, i) => ({ rank: i + 1, track }));
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -111,6 +109,11 @@ export function Music() {
         <p className="text-zinc-500 text-sm mt-2">
           The definitive ranking of the top 100 tracks on NEX.
         </p>
+        {!isSearching && chartTracks.length > 0 && chartTracks.length < 100 && (
+          <p className="text-[11px] text-zinc-600 mt-1" data-testid="text-chart-live-count">
+            {t("chart.showingTop", { count: chartTracks.length })}
+          </p>
+        )}
         <div className="mt-4 relative max-w-md">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -141,21 +144,23 @@ export function Music() {
             Something went wrong while loading the chart. Please try again later.
           </p>
         </div>
-      ) : isSearching && (tracks?.length ?? 0) === 0 ? (
+      ) : chartTracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-          <Search className="w-8 h-8 text-zinc-700" />
-          <p className="text-sm font-bold uppercase tracking-widest text-zinc-400">
-            No results for "{search.trim()}"
+          {isSearching ? <Search className="w-8 h-8 text-zinc-700" /> : <MusicIcon className="w-10 h-10 text-zinc-700" />}
+          <p className="text-sm font-bold uppercase tracking-widest text-zinc-400" data-testid="text-chart-empty">
+            {isSearching ? `No results for "${search.trim()}"` : "Chart tracks are loading onto NEX"}
           </p>
-          <p className="text-[11px] text-zinc-600">Try title, creator, or genre keywords.</p>
+          <p className="text-[11px] text-zinc-600">
+            {isSearching ? "Try title, creator, or genre keywords." : "New submissions appear here after chart placement."}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
           {slots.map(({ rank, track }) => {
             const zone = getZoneForRank(rank);
-            const ChartGenreIcon = track ? getOfficialGenreIcon(track.genre) : MusicIcon;
+            const ChartGenreIcon = getOfficialGenreIcon(track.genre);
             return (
-              <div key={track ? track.id : `empty-${rank}`}>
+              <div key={track.id}>
                 {zone && (
                   <div
                     className={`flex items-center gap-3 px-4 py-3 mb-2 mt-4 border ${zone.borderColor} ${zone.bgColor} rounded-sm`}
@@ -171,8 +176,7 @@ export function Music() {
                     </span>
                   </div>
                 )}
-                {track ? (
-                  <motion.div
+                <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(rank * 0.02, 1) }}
@@ -238,15 +242,10 @@ export function Music() {
                         )}
                       </div>
 
-                      <div className="hidden sm:flex flex-col items-end text-right min-w-[56px]">
-                        <p
-                          className="text-xs sm:text-sm font-bold text-zinc-300"
-                          data-testid={`text-chart-plays-${track.id}`}
-                        >
-                          {(track.playCount ?? 0).toLocaleString()}
-                        </p>
-                        <p className="text-[8px] uppercase tracking-widest text-zinc-600 mt-0.5">Plays</p>
-                      </div>
+                      <TrackPlaysStat
+                        playCount={track.playCount}
+                        testId={`text-chart-plays-${track.id}`}
+                      />
 
                       <BattleWinsIndicator wins={track.wins ?? 0} testId={`text-chart-wins-${track.id}`} />
 
@@ -284,21 +283,6 @@ export function Music() {
                       />
                     </div>
                   </motion.div>
-                ) : (
-                  <div
-                    className="flex items-center gap-4 p-4 border border-white/5 rounded-sm bg-black/10"
-                    data-testid={`row-chart-empty-${rank}`}
-                  >
-                    <div className="w-10 text-center">
-                      <span className="text-sm font-mono font-bold text-zinc-700">
-                        {String(rank).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-zinc-700 italic">— empty</p>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}

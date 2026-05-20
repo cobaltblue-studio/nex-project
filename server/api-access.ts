@@ -24,9 +24,11 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
     if (req.method !== "GET") return false;
     const p = req.path;
     if (
+      p === "/api/health" ||
       p === "/api/tracks" ||
       p === "/api/tracks/rising" ||
       p === "/api/creators" ||
+      p === "/api/creators/directory" ||
       p === "/api/stats/today" ||
       p === "/api/battles/recent" ||
       p === "/api/battles/genres"

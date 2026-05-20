@@ -40,6 +40,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+import { hasPublicCount } from "@/lib/displayStats";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MAX_CREATOR_AI_PROMPT_EDITS,
@@ -293,7 +294,9 @@ function TrackSocialActions({
           <Heart
             className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} ${likedToday ? "fill-primary text-primary" : ""}`}
           />
-          <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{likeCount}</span>
+          {(hasPublicCount(likeCount) || likedToday) && (
+            <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{likeCount}</span>
+          )}
         </button>
         <button
           type="button"

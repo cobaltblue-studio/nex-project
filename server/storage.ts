@@ -22,6 +22,8 @@ import {
   type Battle,
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
+import { computeCreatorPopularityScore } from "@shared/creatorPopularity";
+import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { db } from "./db";
 import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull } from "drizzle-orm";
 
@@ -884,6 +886,7 @@ export class DatabaseStorage implements IStorage {
       ...r.track,
       creator: r.creator,
       likesCount: r.metrics?.likesCount ?? 0,
+      playsCount: r.metrics?.playsCount ?? 0,
     }));
   }
 
@@ -899,6 +902,7 @@ export class DatabaseStorage implements IStorage {
           ...r.track,
           creator: r.creator,
           likesCount: r.metrics?.likesCount ?? 0,
+          playsCount: r.metrics?.playsCount ?? 0,
         }
       : undefined;
   }
@@ -1743,10 +1747,16 @@ export class DatabaseStorage implements IStorage {
     return rows.map((r) => {
       const t = r.track;
       const s = battleStats[t.id];
+      const playCount = resolvePublicPlayCount({
+        playCount: t.playCount,
+        playsCount: r.metrics?.playsCount,
+      });
       return {
         ...t,
+        playCount,
         creatorName: t.artistName || r.creator.username,
         likesCount: r.metrics?.likesCount ?? 0,
+        playsCount: r.metrics?.playsCount ?? 0,
         totalBattles: s?.totalBattles ?? 0,
         wins: s?.wins ?? 0,
         winRate: s?.winRate ?? 0,
@@ -2751,6 +2761,114 @@ export class DatabaseStorage implements IStorage {
     for (const p of byRole) map.set(p.id, p);
     for (const p of fromTracks) map.set(p.id, p);
     return Array.from(map.values());
+  }
+
+  /** Creator directory cards — same play/battle numbers as chart & NEW lists. */
+  async getCreatorDirectoryEntries(): Promise<
+    Array<{
+      id: number;
+      username: string;
+      country: string | null;
+      avatarUrl: string | null;
+      role: string;
+      displayName: string;
+      totalTracks: number;
+      totalPlays: number;
+      totalLikes: number;
+      battleWins: number;
+      battleTotal: number;
+      featuredTrackTitle: string | null;
+      popularityScore: number;
+    }>
+  > {
+    const profiles = await this.getCreators();
+    const listedTracks = await this.getTracks({ limit: 5000, sortBy: "rankingScore" });
+    const trackIds = listedTracks.map((t) => t.id);
+    const battleStats = trackIds.length > 0 ? await this.getBattleStatsForTracks(trackIds) : {};
+
+    type Agg = {
+      totalTracks: number;
+      totalPlays: number;
+      totalLikes: number;
+      battleWins: number;
+      battleTotal: number;
+      stageName: string | null;
+      featuredTrackTitle: string | null;
+      topPlayCount: number;
+    };
+    const agg = new Map<number, Agg>();
+
+    for (const t of listedTracks) {
+      const cid = t.creatorId as number;
+      let row = agg.get(cid);
+      if (!row) {
+        row = {
+          totalTracks: 0,
+          totalPlays: 0,
+          totalLikes: 0,
+          battleWins: 0,
+          battleTotal: 0,
+          stageName: null,
+          featuredTrackTitle: null,
+          topPlayCount: -1,
+        };
+        agg.set(cid, row);
+      }
+      row.totalTracks += 1;
+      const plays = resolvePublicPlayCount({
+        playCount: t.playCount,
+        playsCount: (t as { playsCount?: number }).playsCount,
+      });
+      row.totalPlays += plays;
+      row.totalLikes += Number((t as { likesCount?: number }).likesCount ?? 0);
+      const bs = battleStats[t.id];
+      if (bs) {
+        row.battleWins += bs.wins;
+        row.battleTotal += bs.totalBattles;
+      }
+      const artist = String(t.artistName ?? "").trim();
+      if (artist) row.stageName = artist;
+      if (plays >= row.topPlayCount) {
+        row.topPlayCount = plays;
+        row.featuredTrackTitle = t.title;
+      }
+    }
+
+    const rows = profiles.map((p) => {
+      const a = agg.get(p.id);
+      const totalTracks = a?.totalTracks ?? 0;
+      const totalPlays = a?.totalPlays ?? 0;
+      const totalLikes = a?.totalLikes ?? 0;
+      const battleWins = a?.battleWins ?? 0;
+      const battleTotal = a?.battleTotal ?? 0;
+      const popularityScore = computeCreatorPopularityScore({
+        totalPlays,
+        totalLikes,
+        battleWins,
+      });
+      return {
+        id: p.id,
+        username: p.username,
+        country: p.country ?? null,
+        avatarUrl: p.avatarUrl ?? null,
+        role: p.role,
+        displayName: a?.stageName || p.username,
+        totalTracks,
+        totalPlays,
+        totalLikes,
+        battleWins,
+        battleTotal,
+        featuredTrackTitle: a?.featuredTrackTitle ?? null,
+        popularityScore,
+      };
+    });
+
+    rows.sort((a, b) => {
+      if (b.popularityScore !== a.popularityScore) return b.popularityScore - a.popularityScore;
+      return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" });
+    });
+
+    return rows;
   }
 
 }

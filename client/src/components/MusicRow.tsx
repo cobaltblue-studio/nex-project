@@ -6,6 +6,8 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { hasPublicCount } from "@/lib/displayStats";
+import { useTranslation } from "react-i18next";
 
 interface MusicRowProps {
   track: any;
@@ -13,6 +15,7 @@ interface MusicRowProps {
 }
 
 export function MusicRow({ track, rank }: MusicRowProps) {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   /** Per-tab session only — do not use localStorage (shared across Google accounts on same browser). */
@@ -20,6 +23,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
   const [localVotes, setLocalVotes] = useState<number | null>(null);
 
   const displayVotes = localVotes !== null ? localVotes : track.votes;
+  const showVoteCount = hasPublicCount(displayVotes) || hasVoted;
 
   const voteMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/tracks/${track.id}/vote`),
@@ -122,7 +126,9 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           }`}
         >
           <ChevronUp className={`w-3 h-3 ${hasVoted ? "fill-primary text-primary" : ""}`} />
-          <span data-testid={`text-votes-${track.id}`}>{displayVotes}</span>
+          <span data-testid={`text-votes-${track.id}`}>
+            {showVoteCount ? displayVotes : t("chart.vote")}
+          </span>
         </button>
 
         <Link href={`/track/${track.id}`}>

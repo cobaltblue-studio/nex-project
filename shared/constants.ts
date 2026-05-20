@@ -7,6 +7,12 @@ export const MAX_BATTLE_ROUNDS = 5;
  */
 export const LIKES_MAX_PER_TRACK_PER_UTC_DAY = 1;
 
+/** Minimum continuous listen before play count +1 (client timer; server also enforces 10 min / user / track). */
+export const LISTEN_PLAY_COUNT_MS = 60_000;
+
+/** Same listen threshold: optional auto-cheer after 1 min (manual heart works anytime). */
+export const LISTEN_CHEER_MS = 60_000;
+
 /** Max simultaneously active (non-archived) tracks per creator. */
 export const MAX_ACTIVE_TRACKS_PER_CREATOR = 2;
 /** Minimum lifetime before a creator can archive/replace a track. */

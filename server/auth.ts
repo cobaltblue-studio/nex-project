@@ -166,7 +166,8 @@ function getCallbackURL(): string {
   const configured = process.env.GOOGLE_CALLBACK_URL?.trim();
   if (configured) return configured;
 
-  // Default: keep in sync with Google Cloud Console Authorized redirect URI.
+  // Passport default only; production login uses resolveGoogleCallbackUrlForRequest(req).
+  // Do not set GOOGLE_CALLBACK_URL to *.up.railway.app only — use nexmusic.ai or leave unset.
   return "http://localhost:5001/api/auth/google/callback";
 }
 

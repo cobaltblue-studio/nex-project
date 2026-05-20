@@ -5,6 +5,9 @@ import { Video, Loader2, Search } from "lucide-react";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
+import { resolveTrackThumbnailUrl } from "@/lib/trackThumbnail";
+import { TrackPlaysStat } from "@/components/TrackPlaysStat";
+import { useTranslation } from "react-i18next";
 
 interface MVTrack {
   id: number;
@@ -26,15 +29,15 @@ interface MVTrack {
   claimableByCreators?: boolean;
 }
 
-const TOTAL_SLOTS = 100;
-
 export function MusicVideo() {
+  const { t } = useTranslation();
   const [playId, setPlayId] = useState<number | null>(null);
   const [feed, setFeed] = useState<{ track: TrackFeedSnapshot; focusComment: boolean } | null>(null);
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading, isError } = useQuery<MVTrack[]>({
-    queryKey: ["/api/tracks", "rankingScore", "video", search ? "search-all-active" : "status-CHART", search],
+    queryKey: ["/api/tracks", "v3", "rankingScore", "video", search ? "search-all-active" : "status-CHART", search],
+    staleTime: 60_000,
     queryFn: async () => {
       const params = new URLSearchParams({
         sortBy: "rankingScore",
@@ -53,12 +56,15 @@ export function MusicVideo() {
 
   const playing = tracks?.find((t) => t.id === playId) ?? null;
 
-  const slots = isSearching
-    ? (tracks ?? []).map((track, i) => ({ rank: i + 1, track }))
-    : Array.from({ length: TOTAL_SLOTS }, (_, i) => {
-        const track = tracks?.[i] ?? null;
-        return { rank: i + 1, track };
-      });
+  const thumbnailFor = (track: MVTrack) =>
+    resolveTrackThumbnailUrl({
+      coverImageUrl: track.coverImageUrl,
+      musicVideoUrl: track.musicVideoUrl,
+      audioUrl: track.audioUrl,
+    });
+
+  const chartTracks = tracks ?? [];
+  const slots = chartTracks.map((track, i) => ({ rank: i + 1, track }));
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -101,6 +107,9 @@ export function MusicVideo() {
         <p className="text-zinc-500 text-sm mt-2">
           The top 100 tracks with music videos on NEX.
         </p>
+        {!isSearching && chartTracks.length > 0 && chartTracks.length < 100 && (
+          <p className="text-[11px] text-zinc-600 mt-1">{t("chart.showingTop", { count: chartTracks.length })}</p>
+        )}
         <div className="mt-4 relative max-w-md">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -128,19 +137,17 @@ export function MusicVideo() {
           <Video className="w-10 h-10 text-zinc-700" />
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-mv-chart-error">Failed to Load Chart</p>
         </div>
-      ) : isSearching && (tracks?.length ?? 0) === 0 ? (
+      ) : chartTracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-          <Search className="w-8 h-8 text-zinc-700" />
+          {isSearching ? <Search className="w-8 h-8 text-zinc-700" /> : <Video className="w-10 h-10 text-zinc-700" />}
           <p className="text-sm font-bold uppercase tracking-widest text-zinc-400">
-            No results for "{search.trim()}"
+            {isSearching ? `No results for "${search.trim()}"` : "Music videos are loading onto NEX"}
           </p>
-          <p className="text-[11px] text-zinc-600">Try title, creator, or genre keywords.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {slots.map(({ rank, track }) => (
-            <div key={track ? track.id : `empty-${rank}`}>
-              {track ? (
+            <div key={track.id}>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -157,8 +164,13 @@ export function MusicVideo() {
                       aria-label={`Play ${track.title}`}
                     >
                       <div className="aspect-video w-full bg-black/60 flex items-center justify-center">
-                        {track.coverImageUrl ? (
-                          <img src={track.coverImageUrl} alt="" className="w-full h-full object-cover" />
+                        {thumbnailFor(track) ? (
+                          <img
+                            src={thumbnailFor(track)!}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
                         ) : (
                           <Video className="w-8 h-8 text-zinc-700" />
                         )}
@@ -189,12 +201,7 @@ export function MusicVideo() {
                   </div>
 
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-auto">
-                    {track.playCount != null && (
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs font-bold text-zinc-300">{track.playCount.toLocaleString()}</p>
-                        <p className="text-[7px] uppercase tracking-widest text-zinc-600">Plays</p>
-                      </div>
-                    )}
+                    <TrackPlaysStat playCount={track.playCount} testId={`text-mv-plays-${track.id}`} />
                     <TrackAdminActions
                       compact
                       track={{
@@ -229,21 +236,6 @@ export function MusicVideo() {
                     />
                   </div>
                 </motion.div>
-              ) : (
-                <div
-                  className="flex gap-5 p-4 border border-white/5 rounded-lg bg-black/10"
-                  data-testid={`row-mv-chart-empty-${rank}`}
-                >
-                  <div className="relative w-[170px] shrink-0">
-                    <div className="aspect-video w-full rounded-md overflow-hidden bg-black/30 border border-white/5 flex items-center justify-center">
-                      <Video className="w-6 h-6 text-zinc-800" />
-                    </div>
-                  </div>
-                  <div className="flex-1 flex flex-col justify-center">
-                    <p className="text-sm text-zinc-700 italic">— empty</p>
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>

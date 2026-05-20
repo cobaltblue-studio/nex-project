@@ -252,5 +252,36 @@
     "submitYourTrack": "내 트랙 제출",
     "enterBattleArena": "배틀 아레나 입장",
     "learnMore": "더 알아보기"
+  },
+  "share": {
+    "share": "공유",
+    "copyLink": "링크 복사",
+    "copied": "복사됨",
+    "postOnX": "X에 올리기",
+    "linkCopiedTitle": "링크를 복사했어요",
+    "linkCopiedDesc": "인스타, 카톡 등 원하는 곳에 붙여 넣으세요.",
+    "copyFailedTitle": "아래 링크를 복사하세요"
+  },
+  "chart": {
+    "showingTop": "현재 차트 상위 {{count}}곡을 표시합니다.",
+    "vote": "투표"
+  },
+  "creators": {
+    "statHidden": "—",
+    "plays": "재생",
+    "likes": "좋아요",
+    "battleWins": "승리",
+    "directorySub": "재생·좋아요·배틀 승수 기준 인기순 (트랙 {{tracks}}곡 · 크리에이터 {{count}}명)"
+  },
+  "new": {
+    "playedOnlySub": "1회 이상 재생된 신곡만 표시합니다.",
+    "noPlayedYet": "아직 재생된 신곡이 없습니다. 차트나 배틀에서 먼저 들어 주세요.",
+    "noPlayedSearch": "재생된 곡 중 \"{{q}}\" 검색 결과가 없습니다."
+  },
+  "battle": {
+    "sharePickText": "NEX 배틀에서 {{creator}}에게 투표했어요 🎧",
+    "shareResultText": "NEX 배틀 — {{creator}}의 「{{title}}」에 투표!",
+    "communityVotesBuilding": "커뮤니티 투표가 쌓이는 중이에요 — 먼저 참여해 보세요.",
+    "statsWarming": "오늘 아레나가 막 열렸어요. 첫 투표를 남겨 보세요."
   }
 }

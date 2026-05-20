@@ -1,11 +1,15 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { apiMsg } from "./api-i18n";
+import { canonicalHostRedirect } from "./canonicalHost";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
+
+/** Railway default host → nexmusic.ai (see server/canonicalHost.ts). */
+app.use(canonicalHostRedirect);
 
 /** Split-dev safe defaults (5001/5002/5173) + optional CORS_ORIGINS override entries. */
 const defaultCorsOrigins = [

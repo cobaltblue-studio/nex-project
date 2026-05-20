@@ -29,6 +29,10 @@ import {
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { ShareButtons } from "@/components/ShareButtons";
+import { trackShareUrl } from "@/lib/siteUrl";
+import { useTranslation } from "react-i18next";
+import { hasPublicCount } from "@/lib/displayStats";
 
 type Phase =
   | "genre-select"
@@ -362,6 +366,7 @@ function BattleTrackPlayer({
 }
 
 export function Battle() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
@@ -721,6 +726,12 @@ export function Battle() {
         : battle.trackB
       : null;
   const voteReady = listenedA && listenedB;
+  const arenaQuiet =
+    !todayStats ||
+    (todayStats.totalVotesToday === 0 && todayStats.battlesPlayedToday === 0);
+
+  const statDisplay = (n: number | undefined) =>
+    hasPublicCount(n) ? String(n) : "—";
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -803,28 +814,34 @@ export function Battle() {
             🔥 TODAY BATTLE STATS
           </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <div className="text-center" data-testid="stat-votes-today">
-            <Vote className="w-3 h-3 text-primary mx-auto mb-0.5" />
-            <p className="text-sm font-display font-bold text-white">{todayStats?.totalVotesToday ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Votes Today</p>
+        {arenaQuiet ? (
+          <p className="text-[10px] text-zinc-500 text-center leading-relaxed py-1">
+            {t("battle.statsWarming")}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="text-center" data-testid="stat-votes-today">
+              <Vote className="w-3 h-3 text-primary mx-auto mb-0.5" />
+              <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.totalVotesToday)}</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">Votes Today</p>
+            </div>
+            <div className="text-center" data-testid="stat-battles-today">
+              <BarChart3 className="w-3 h-3 text-primary mx-auto mb-0.5" />
+              <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.battlesPlayedToday)}</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">Battles Played</p>
+            </div>
+            <div className="text-center" data-testid="stat-tracks-pool">
+              <ListMusic className="w-3 h-3 text-primary mx-auto mb-0.5" />
+              <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.tracksInPool)}</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">Current Battle Pool</p>
+            </div>
+            <div className="text-center" data-testid="stat-new-tracks">
+              <Plus className="w-3 h-3 text-primary mx-auto mb-0.5" />
+              <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.newTracksToday)}</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">New Today (Created)</p>
+            </div>
           </div>
-          <div className="text-center" data-testid="stat-battles-today">
-            <BarChart3 className="w-3 h-3 text-primary mx-auto mb-0.5" />
-            <p className="text-sm font-display font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Battles Played</p>
-          </div>
-          <div className="text-center" data-testid="stat-tracks-pool">
-            <ListMusic className="w-3 h-3 text-primary mx-auto mb-0.5" />
-            <p className="text-sm font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Current Battle Pool</p>
-          </div>
-          <div className="text-center" data-testid="stat-new-tracks">
-            <Plus className="w-3 h-3 text-primary mx-auto mb-0.5" />
-            <p className="text-sm font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">New Today (Created)</p>
-          </div>
-        </div>
+        )}
       </div>
       )}
 
@@ -1040,10 +1057,21 @@ export function Battle() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.98 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className="battle-share-popup"
+                  className="battle-share-popup space-y-3 py-4"
                   data-testid="battle-share-popup"
                 >
-                  You can't fool my ears! I found {winnerTrack.creatorName}!
+                  <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary text-center">
+                    {t("battle.sharePickText", { creator: winnerTrack.creatorName })}
+                  </p>
+                  <ShareButtons
+                    compact
+                    url={trackShareUrl(winnerTrack.id)}
+                    text={t("battle.shareResultText", {
+                      title: winnerTrack.title,
+                      creator: winnerTrack.creatorName,
+                    })}
+                    testIdPrefix="battle-vote"
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1144,9 +1172,28 @@ export function Battle() {
               </div>
             </div>
 
-            <p className="text-[10px] uppercase tracking-widest text-zinc-500" data-testid="text-total-votes">
-              Total Votes: {totalVotes}
-            </p>
+            {totalVotes >= 3 ? (
+              <p className="text-[10px] uppercase tracking-widest text-zinc-500" data-testid="text-total-votes">
+                Total Votes: {totalVotes}
+              </p>
+            ) : (
+              <p className="text-[10px] uppercase tracking-widest text-zinc-600" data-testid="text-total-votes-quiet">
+                {t("battle.communityVotesBuilding")}
+              </p>
+            )}
+
+            {winnerTrack && (
+              <div className="pt-2">
+                <ShareButtons
+                  url={trackShareUrl(winnerTrack.id)}
+                  text={t("battle.shareResultText", {
+                    title: winnerTrack.title,
+                    creator: winnerTrack.creatorName,
+                  })}
+                  testIdPrefix="battle-result"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <button

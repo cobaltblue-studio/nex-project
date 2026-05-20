@@ -31,6 +31,7 @@ import {
 import { apiMsg } from "./api-i18n";
 import { resolveSunoShareToSongUuid } from "./suno-resolve";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
+import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 
 function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
@@ -77,6 +78,10 @@ function publicTrackCoverUrl(t: {
     mvUrl: t.mvUrl,
     audioUrl: t.audioUrl,
   });
+}
+
+function publicTrackPlayCount(t: { playCount?: number | null; playsCount?: number | null }): number {
+  return resolvePublicPlayCount(t);
 }
 
 function getUserEmail(req: any): string | null {
@@ -192,6 +197,18 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      ok: true,
+      build: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || process.env.BUILD_ID || "local",
+      features: {
+        creatorDirectoryV3: true,
+        chartNoEmptySlots: true,
+        newHidesZeroPlays: true,
+      },
+    });
+  });
+
   await setupAuth(app);
   registerAuthRoutes(app);
   app.use(createApiAccessControl(isAdmin));
@@ -396,8 +413,8 @@ export async function registerRoutes(
         description: t.description,
         aiCraftScore: t.aiCraftScore,
         neoScore: t.neoScore,
-        playCount: t.playCount,
-        playsCount: t.playsCount ?? t.playCount ?? 0,
+        playCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
+        playsCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
         likesCount: t.likesCount ?? 0,
         rankingScore: t.rankingScore,
         trackType: t.trackType,
@@ -463,7 +480,8 @@ export async function registerRoutes(
         description: t.description,
         aiCraftScore: t.aiCraftScore,
         neoScore: t.neoScore,
-        playCount: t.playCount,
+        playCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
+        playsCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
         rankingScore: t.rankingScore,
         trackType: t.trackType,
         status: t.status,
@@ -716,8 +734,11 @@ export async function registerRoutes(
     const trackId = Number(req.params.id);
     const t = await storage.getTrack(trackId);
     if (!t) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    const playCount = publicTrackPlayCount(t as { playCount?: number; playsCount?: number });
     const base = sanitizeTrackDetailForPublic({
       ...(t as Record<string, unknown>),
+      playCount,
+      playsCount: playCount,
       coverImageUrl: publicTrackCoverUrl(t),
       musicVideoUrl: (t as { mvUrl?: string | null }).mvUrl ?? null,
     });
@@ -1720,6 +1741,12 @@ export async function registerRoutes(
   app.get("/api/creators", async (_req, res) => {
     const creators = await storage.getCreators();
     res.json(creators.map((p) => sanitizePublicProfileForDirectory(p)));
+  });
+
+  /** Creator grid with chart-aligned play / battle stats (single source of truth). */
+  app.get("/api/creators/directory", async (_req, res) => {
+    const rows = await storage.getCreatorDirectoryEntries();
+    res.json(rows);
   });
 
   // Live stats for today

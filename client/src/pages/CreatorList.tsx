@@ -1,43 +1,30 @@
 import { motion } from "framer-motion";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, User, Music, Trophy, Headphones, MapPin, Heart, Search } from "lucide-react";
+import { Loader2, User, Trophy, Headphones, MapPin, Heart, Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { useMemo, useState } from "react";
+import { hasPublicCount } from "@/lib/displayStats";
+import { useTranslation } from "react-i18next";
 import type { MouseEvent } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-interface TrackData {
-  id: number;
-  title: string;
-  creatorName: string;
-  creatorId: number;
-  playCount: number;
-  rankingScore: number;
-  winRate?: number;
-}
-
-interface CreatorProfileRow {
+interface CreatorDirectoryRow {
   id: number;
   username: string;
   country?: string | null;
   avatarUrl?: string | null;
   role?: string | null;
-}
-
-interface CreatorCardModel {
-  id: number;
-  username: string;
-  displayLabel: string;
+  displayName: string;
   totalTracks: number;
   totalPlays: number;
-  featuredTrack: string;
-  avgWinRate: number;
-  initials: string;
-  country?: string | null;
-  avatarUrl?: string | null;
+  totalLikes: number;
+  battleWins: number;
+  battleTotal: number;
+  popularityScore: number;
+  featuredTrackTitle: string | null;
 }
 
 function initialsFromUsername(name: string): string {
@@ -48,53 +35,42 @@ function initialsFromUsername(name: string): string {
   return name.slice(0, 2).toUpperCase() || "NX";
 }
 
-function CreatorFollowChip({ creatorId, username }: { creatorId: number; username: string }) {
+function CreatorFollowChip({
+  creatorId,
+  username,
+}: {
+  creatorId: number;
+  username: string;
+}) {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const [guestCheerOpen, setGuestCheerOpen] = useState(false);
+  const [guestOpen, setGuestOpen] = useState(false);
 
-  const { data: followStatus } = useQuery<{ isFollowing: boolean }>({
-    queryKey: ["/api/profiles/follow-status", creatorId],
-    queryFn: async () => {
-      const res = await fetch(`/api/profiles/${creatorId}/follow`, { credentials: "include" });
-      if (res.status === 401) return { isFollowing: false };
-      if (!res.ok) return { isFollowing: false };
-      return res.json();
-    },
+  const { data: followState } = useQuery<{ isFollowing: boolean }>({
+    queryKey: ["/api/profiles", String(creatorId), "follow"],
     enabled: isAuthenticated,
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   const followMutation = useMutation({
-    mutationFn: async (nextFollow: boolean) => {
-      if (nextFollow) {
-        await apiRequest("POST", `/api/profiles/${creatorId}/follow`, {});
-      } else {
-        await apiRequest("DELETE", `/api/profiles/${creatorId}/follow`);
-      }
-    },
-    onSuccess: (_, nextFollow) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/profiles/follow-status", creatorId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/profiles/by-username"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
-      toast({
-        title: nextFollow ? "Followed" : "Unfollowed",
-        description: `@${username}`,
-      });
+    mutationFn: (follow: boolean) =>
+      follow
+        ? apiRequest("POST", `/api/profiles/${creatorId}/follow`, {})
+        : apiRequest("DELETE", `/api/profiles/${creatorId}/follow`, {}),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/profiles", String(creatorId), "follow"] });
     },
     onError: () => {
-      toast({ title: "Login required", description: "You need to log in to follow creators.", variant: "destructive" });
+      toast({ title: "Follow failed", variant: "destructive" });
     },
   });
 
-  const isFollowing = followStatus?.isFollowing === true;
-  const busy = followMutation.isPending;
+  const isFollowing = followState?.isFollowing ?? false;
 
   const onClick = (e: MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
-      setGuestCheerOpen(true);
+      setGuestOpen(true);
       return;
     }
     followMutation.mutate(!isFollowing);
@@ -102,107 +78,55 @@ function CreatorFollowChip({ creatorId, username }: { creatorId: number; usernam
 
   return (
     <>
-    <GuestCheerModal open={guestCheerOpen} onOpenChange={setGuestCheerOpen} />
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy}
-      data-testid={`button-follow-creator-${creatorId}`}
-      className={[
-        "shrink-0 text-[8px] font-black uppercase tracking-[0.12em] px-2 py-1 rounded-sm border transition-premium",
-        isFollowing
-          ? "text-pink-300 border-pink-400/50 bg-pink-500/10"
-          : "text-zinc-400 border-white/15 bg-black/40 hover:text-primary hover:border-primary/40",
-      ].join(" ")}
-      title={isAuthenticated ? (isFollowing ? "Unfollow" : "Follow") : "Log in to follow"}
-    >
-      Follow <Heart className={`inline w-2.5 h-2.5 ml-0.5 -mt-0.5 ${isFollowing ? "fill-pink-400 text-pink-400" : ""}`} />
-    </button>
+      <GuestCheerModal open={guestOpen} onOpenChange={setGuestOpen} />
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={followMutation.isPending}
+        className="text-[7px] font-bold uppercase tracking-widest text-zinc-500 hover:text-pink-400 border border-white/10 px-1.5 py-0.5 rounded-sm shrink-0"
+        data-testid={`button-follow-creator-${creatorId}`}
+        title={isFollowing ? `Unfollow @${username}` : `Follow @${username}`}
+      >
+        Follow <Heart className={`inline w-2.5 h-2.5 ml-0.5 -mt-0.5 ${isFollowing ? "fill-pink-400 text-pink-400" : ""}`} />
+      </button>
     </>
   );
 }
 
 export function CreatorList() {
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: creatorProfiles, isLoading: creatorsLoading } = useQuery<CreatorProfileRow[]>({
-    queryKey: ["/api/creators"],
+
+  const { data: directory, isLoading } = useQuery<CreatorDirectoryRow[]>({
+    queryKey: ["/api/creators/directory", "v3"],
     queryFn: async () => {
-      const res = await fetch("/api/creators", { credentials: "include" });
+      const res = await fetch("/api/creators/directory", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch creators");
       return res.json();
     },
+    staleTime: 60_000,
   });
 
-  const { data: tracks, isLoading: tracksLoading } = useQuery<TrackData[]>({
-    queryKey: ["/api/tracks", "rankingScore", "creator-rollup", "all-types"],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("sortBy", "rankingScore");
-      params.set("limit", "500");
-      const res = await fetch(`/api/tracks?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch tracks");
-      return res.json();
-    },
-  });
-
-  const creators = useMemo(() => {
-    if (!creatorProfiles?.length) return [];
-    const byId = new Map<number, CreatorCardModel>();
-
-    for (const p of creatorProfiles) {
-      const label = p.username || "CREATOR";
-      byId.set(p.id, {
-        id: p.id,
-        username: p.username,
-        displayLabel: label,
-        totalTracks: 0,
-        totalPlays: 0,
-        featuredTrack: "—",
-        avgWinRate: 0,
-        initials: initialsFromUsername(label),
-        country: p.country ?? null,
-        avatarUrl: p.avatarUrl ?? null,
-      });
-    }
-
-    if (tracks?.length) {
-      for (const track of tracks) {
-        const row = byId.get(track.creatorId);
-        if (!row) continue;
-        // Prefer the artist alias used on tracks so founders/admin can find creators by stage name.
-        const alias = (track.creatorName || "").trim();
-        if (alias && row.displayLabel === row.username) {
-          row.displayLabel = alias;
-          row.initials = initialsFromUsername(alias);
-        }
-        if (row.totalTracks === 0) {
-          row.featuredTrack = track.title;
-        }
-        row.totalTracks += 1;
-        row.totalPlays += track.playCount || 0;
-        // Phase 4: creator-facing battle / chart stats flattened to 0
-        row.avgWinRate = 0;
-      }
-    }
-
-    return Array.from(byId.values()).sort((a, b) =>
-      a.displayLabel.localeCompare(b.displayLabel, undefined, { sensitivity: "base" }),
-    );
-  }, [creatorProfiles, tracks]);
+  const creatorsWithTracks = useMemo(
+    () => (directory ?? []).filter((c) => c.totalTracks > 0),
+    [directory],
+  );
 
   const filteredCreators = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return creators;
-    return creators.filter((creator) => {
-      const name = creator.displayLabel.toLowerCase();
+    if (!q) return creatorsWithTracks;
+    return creatorsWithTracks.filter((creator) => {
+      const name = creator.displayName.toLowerCase();
       const username = creator.username.toLowerCase();
       return name.includes(q) || username.includes(q);
     });
-  }, [creators, searchQuery]);
+  }, [creatorsWithTracks, searchQuery]);
 
-  const isLoading = creatorsLoading || tracksLoading;
-  const totalTrackCount = tracks?.length ?? 0;
+  const totalTrackCount = useMemo(
+    () => creatorsWithTracks.reduce((sum, c) => sum + c.totalTracks, 0),
+    [creatorsWithTracks],
+  );
 
   if (isLoading) {
     return (
@@ -231,7 +155,10 @@ export function CreatorList() {
           NEX CREATORS
         </h2>
         <p className="text-zinc-500 text-sm mt-2">
-          Track-mapped directory ({totalTrackCount} tracks / {creators.length} creators)
+          {t("creators.directorySub", {
+            tracks: totalTrackCount,
+            count: creatorsWithTracks.length,
+          })}
         </p>
         <div className="mt-5 max-w-xl">
           <label htmlFor="creator-search" className="sr-only">
@@ -268,7 +195,9 @@ export function CreatorList() {
                 navigate(`/profile/${encodeURIComponent(creator.username.toLowerCase())}`);
               }
             }}
-            className="premium-card creator-card p-4 pt-[15px] cursor-pointer group h-full flex flex-col items-center text-center gap-3 creator-card-overflow min-h-[160px] col-span-1"
+            className={`premium-card creator-card p-4 pt-[15px] cursor-pointer group h-full flex flex-col items-center text-center gap-3 creator-card-overflow min-h-[160px] col-span-1 ${
+              !hasPublicCount(creator.totalPlays) ? "opacity-80" : ""
+            }`}
             style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out", boxSizing: "border-box" }}
             whileHover={{ scale: 1.03 }}
             data-testid={`card-creator-${creator.id}`}
@@ -280,7 +209,7 @@ export function CreatorList() {
                 <img src={creator.avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-lg font-display font-bold" data-testid={`text-creator-initials-${creator.id}`}>
-                  {creator.initials}
+                  {initialsFromUsername(creator.displayName)}
                 </span>
               )}
             </div>
@@ -291,7 +220,7 @@ export function CreatorList() {
                   className="text-sm font-display font-bold text-white uppercase truncate group-hover:text-primary transition-premium min-w-0 max-w-full"
                   data-testid={`text-creator-name-${creator.id}`}
                 >
-                  {creator.displayLabel}
+                  {creator.displayName}
                 </h3>
                 <CreatorFollowChip creatorId={creator.id} username={creator.username} />
               </div>
@@ -310,25 +239,25 @@ export function CreatorList() {
 
             <div className="grid grid-cols-3 gap-1 w-full pt-2 border-t border-white/5">
               <div className="text-center">
-                <p className="text-xs font-bold text-white flex items-center justify-center gap-0.5" data-testid={`text-creator-tracks-${creator.id}`}>
-                  <Music className="w-3 h-3 text-primary/50" />
-                  {creator.totalTracks}
-                </p>
-                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Tracks</p>
-              </div>
-              <div className="text-center">
                 <p className="text-xs font-bold text-white flex items-center justify-center gap-0.5" data-testid={`text-creator-plays-${creator.id}`}>
                   <Headphones className="w-3 h-3 text-zinc-500" />
-                  {creator.totalPlays.toLocaleString()}
+                  {hasPublicCount(creator.totalPlays) ? creator.totalPlays.toLocaleString() : t("creators.statHidden")}
                 </p>
-                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Plays</p>
+                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{t("creators.plays")}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs font-bold text-primary flex items-center justify-center gap-0.5" data-testid={`text-creator-winrate-${creator.id}`}>
-                  <Trophy className="w-3 h-3 text-primary/50" />
-                  {Math.round(creator.avgWinRate)}%
+                <p className="text-xs font-bold text-white flex items-center justify-center gap-0.5" data-testid={`text-creator-likes-${creator.id}`}>
+                  <Heart className="w-3 h-3 text-pink-400/70" />
+                  {hasPublicCount(creator.totalLikes) ? creator.totalLikes.toLocaleString() : t("creators.statHidden")}
                 </p>
-                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">Win Rate</p>
+                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{t("creators.likes")}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-bold text-primary flex items-center justify-center gap-0.5" data-testid={`text-creator-wins-${creator.id}`}>
+                  <Trophy className="w-3 h-3 text-primary/50" />
+                  {hasPublicCount(creator.battleWins) ? creator.battleWins.toLocaleString() : t("creators.statHidden")}
+                </p>
+                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{t("creators.battleWins")}</p>
               </div>
             </div>
           </motion.div>

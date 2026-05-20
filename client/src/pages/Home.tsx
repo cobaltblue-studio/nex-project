@@ -11,6 +11,7 @@ import { isCreatorStudioRole } from "@shared/constants";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { BattleGuide } from "@/components/BattleGuide";
 import { useTranslation } from "react-i18next";
+import { hasPublicCount } from "@/lib/displayStats";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -32,9 +33,9 @@ function HeroVisualizer() {
     if (!svg) return;
 
     const layers = [
-      { amplitude: 30, frequency: 0.008, speed: 0.015, yOffset: 0.55 },
-      { amplitude: 22, frequency: 0.012, speed: 0.022, yOffset: 0.5 },
-      { amplitude: 18, frequency: 0.018, speed: 0.03, yOffset: 0.6 },
+      { amplitude: 14, frequency: 0.008, speed: 0.012, yOffset: 0.72 },
+      { amplitude: 10, frequency: 0.012, speed: 0.018, yOffset: 0.68 },
+      { amplitude: 8, frequency: 0.018, speed: 0.024, yOffset: 0.75 },
     ];
 
     const draw = () => {
@@ -79,15 +80,15 @@ function HeroVisualizer() {
     >
       <defs>
         <linearGradient id="waveGrad0" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.15" />
+          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.08" />
           <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="waveGrad1" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.1" />
+          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.05" />
           <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="waveGrad2" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.06" />
+          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.03" />
           <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -121,56 +122,57 @@ function LiveVotingWidget({
     return () => clearInterval(interval);
   }, []);
 
+  const statVal = (n?: number) => (hasPublicCount(n) ? String(n) : "—");
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.5, duration: 0.6 }}
-      className="relative z-10 mx-auto mt-8 max-w-xs"
+      transition={{ delay: 0.35, duration: 0.5 }}
+      className="relative z-10 mx-auto mt-5 md:mt-6 w-full max-w-2xl px-4"
       data-testid="widget-live-voting"
     >
       <div
-        className="rounded-xl p-4 border"
+        className="rounded-xl p-5 md:p-6 border border-primary/25 shadow-[0_0_40px_rgba(0,255,128,0.08)]"
         style={{
-          background: "rgba(0, 0, 0, 0.4)",
-          backdropFilter: "blur(12px)",
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          background: "rgba(0, 0, 0, 0.55)",
+          backdropFilter: "blur(14px)",
         }}
       >
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-400">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-zinc-300">
             {t("home.liveVotingTrends")}
           </span>
           <span className="flex items-center gap-1.5" data-testid="badge-live">
             <span
-              className="w-2 h-2 rounded-full bg-red-500"
+              className="w-2.5 h-2.5 rounded-full bg-red-500"
               style={{
-                opacity: pulse ? 1 : 0.4,
+                opacity: pulse ? 1 : 0.45,
                 transition: "opacity 0.3s",
-                boxShadow: pulse ? "0 0 6px rgba(255, 0, 0, 0.6)" : "none",
+                boxShadow: pulse ? "0 0 8px rgba(255, 0, 0, 0.65)" : "none",
               }}
             />
-            <span className="text-[8px] font-black uppercase tracking-widest text-red-400">
+            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-red-400">
               {t("home.live")}
             </span>
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-md border border-white/10 bg-black/30 py-2">
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.votesToday")}</p>
-            <p className="text-[11px] font-bold text-green-400">{todayStats?.totalVotesToday ?? 0}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+          <div className="rounded-lg border border-white/10 bg-black/40 py-3 px-2">
+            <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{t("home.votesToday")}</p>
+            <p className="text-lg md:text-xl font-display font-bold text-green-400">{statVal(todayStats?.totalVotesToday)}</p>
           </div>
-          <div className="rounded-md border border-white/10 bg-black/30 py-2">
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.battlesToday")}</p>
-            <p className="text-[11px] font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
+          <div className="rounded-lg border border-white/10 bg-black/40 py-3 px-2">
+            <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{t("home.battlesToday")}</p>
+            <p className="text-lg md:text-xl font-display font-bold text-white">{statVal(todayStats?.battlesPlayedToday)}</p>
           </div>
-          <div className="rounded-md border border-white/10 bg-black/30 py-2">
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.poolTracks")}</p>
-            <p className="text-[11px] font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
+          <div className="rounded-lg border border-white/10 bg-black/40 py-3 px-2">
+            <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{t("home.poolTracks")}</p>
+            <p className="text-lg md:text-xl font-display font-bold text-white">{statVal(todayStats?.tracksInPool)}</p>
           </div>
-          <div className="rounded-md border border-white/10 bg-black/30 py-2">
-            <p className="text-[8px] uppercase tracking-widest text-zinc-600">{t("home.newToday")}</p>
-            <p className="text-[11px] font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
+          <div className="rounded-lg border border-white/10 bg-black/40 py-3 px-2">
+            <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{t("home.newToday")}</p>
+            <p className="text-lg md:text-xl font-display font-bold text-white">{statVal(todayStats?.newTracksToday)}</p>
           </div>
         </div>
       </div>
@@ -226,12 +228,12 @@ export function Home() {
   return (
     <>
       <GuestCheerModal open={guestSubmitGateOpen} onOpenChange={setGuestSubmitGateOpen} />
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-40 pb-40">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-24 md:space-y-32 pb-24 md:pb-32">
 
       <div>
       <section
         className="relative text-center overflow-hidden flex flex-col hero-section-responsive"
-        style={{ minHeight: "100svh", height: "auto", paddingTop: "2vh", paddingBottom: "1rem", gap: "0.5rem" }}
+        style={{ minHeight: "auto", height: "auto", paddingTop: "2rem", paddingBottom: "1.25rem", gap: "0.5rem" }}
         data-testid="section-hero"
       >
         <div
@@ -246,8 +248,15 @@ export function Home() {
         />
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 0%, hsla(189,100%,50%,0.06) 0%, transparent 100%)" }} />
 
-        <div ref={heroVisualizerRef} style={{ transform: `translateY(${scrollY * 0.15}px)` }} className="absolute inset-0 pointer-events-none">
-          <HeroVisualizer />
+        <div
+          ref={heroVisualizerRef}
+          style={{ transform: `translateY(${scrollY * 0.08}px)` }}
+          className="absolute inset-0 pointer-events-none opacity-50"
+          aria-hidden
+        >
+          <div className="absolute inset-0" style={{ clipPath: "inset(52% 0 0 0)" }}>
+            <HeroVisualizer />
+          </div>
         </div>
 
         <motion.div {...fadeUp} className="relative z-10">
@@ -303,38 +312,29 @@ export function Home() {
           </div>
         </motion.div>
 
-        <div className="relative z-10 flex flex-col items-center justify-center w-full hero-bottom-row" data-testid="hero-inline-row" style={{ marginTop: "auto", paddingBottom: "0.75rem" }}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.5, duration: 1 }}
-            className="relative z-10 flex flex-col items-center justify-center w-full"
-            data-testid="scroll-guide"
-          >
-            <motion.div
-              animate={{ y: [0, 6, 0] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-              className="flex items-center justify-center gap-2"
-            >
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/80"
-                style={{ textShadow: "0 0 12px hsla(189,100%,50%,0.4)" }}
-              >
-                {t("home.discoverMore")}
-              </span>
-              <motion.div
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-                className="flex items-center justify-center"
-              >
-                <ChevronDown className="w-6 h-6 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))" }} />
-              </motion.div>
-            </motion.div>
-          </motion.div>
+        <LiveVotingWidget todayStats={todayStats} />
 
-          <div className="hidden md:block" style={{ transform: "scale(0.5)", transformOrigin: "center" }}>
-            <LiveVotingWidget todayStats={todayStats} />
-          </div>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55, duration: 0.6 }}
+          className="relative z-10 flex flex-col items-center justify-center w-full hero-bottom-row mt-3 pb-1"
+          data-testid="scroll-guide"
+        >
+          <motion.div
+            animate={{ y: [0, 5, 0] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+            className="flex items-center justify-center gap-2"
+          >
+            <span
+              className="text-[10px] font-black uppercase tracking-[0.45em] text-primary/70"
+              style={{ textShadow: "0 0 10px hsla(189,100%,50%,0.25)" }}
+            >
+              {t("home.discoverMore")}
+            </span>
+            <ChevronDown className="w-5 h-5 text-primary/80" />
+          </motion.div>
+        </motion.div>
       </section>
 
       <BattleGuide />

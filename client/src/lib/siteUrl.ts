@@ -1,8 +1,12 @@
-/** Public site origin (no trailing slash). Used for share links / SEO helpers. */
-export const SITE_URL = (
-  import.meta.env.VITE_SITE_URL ||
-  import.meta.env.NEXT_PUBLIC_SITE_URL ||
-  "https://nexmusic.ai"
-)
-  .trim()
-  .replace(/\/+$/, "");
+/** Canonical marketing domain (Railway custom domain should point here). */
+export const NEX_PUBLIC_ORIGIN =
+  (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/$/, "") ||
+  "https://nexmusic.ai";
+
+export function trackShareUrl(trackId: number): string {
+  return `${NEX_PUBLIC_ORIGIN}/track/${trackId}`;
+}
+
+export function battleShareUrl(): string {
+  return `${NEX_PUBLIC_ORIGIN}/battle`;
+}
