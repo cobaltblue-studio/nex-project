@@ -274,9 +274,11 @@
     "directorySub": "재생·좋아요·배틀 승수 기준 인기순 (트랙 {{tracks}}곡 · 크리에이터 {{count}}명)"
   },
   "new": {
-    "playedOnlySub": "1회 이상 재생된 신곡만 표시합니다.",
-    "noPlayedYet": "아직 재생된 신곡이 없습니다. 차트나 배틀에서 먼저 들어 주세요.",
-    "noPlayedSearch": "재생된 곡 중 \"{{q}}\" 검색 결과가 없습니다."
+    "listSub": "최신 신곡 순 — 아직 재생이 없는 곡은 맨 뒤에 두어 크리에이터 곡이 사라지지 않습니다.",
+    "awaitingPlaysSection": "첫 재생을 기다리는 신곡",
+    "awaitingPlays": "재생 0",
+    "noTracksYet": "아직 등록된 신곡이 없습니다.",
+    "noSearch": "\"{{q}}\" 검색 결과가 없습니다."
   },
   "battle": {
     "sharePickText": "NEX 배틀에서 {{creator}}에게 투표했어요 🎧",

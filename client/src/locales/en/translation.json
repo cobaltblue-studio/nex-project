@@ -274,9 +274,11 @@
     "directorySub": "Ranked by plays, likes & battle wins ({{tracks}} tracks · {{count}} creators)"
   },
   "new": {
-    "playedOnlySub": "Only tracks with at least one play are listed.",
-    "noPlayedYet": "No new releases with plays yet — listen on the chart or battle arena first.",
-    "noPlayedSearch": "No played tracks match \"{{q}}\"."
+    "listSub": "Newest releases first; tracks with no plays yet stay at the end so every creator stays visible.",
+    "awaitingPlaysSection": "Awaiting first listen",
+    "awaitingPlays": "0 plays",
+    "noTracksYet": "No new releases yet.",
+    "noSearch": "No tracks match \"{{q}}\"."
   },
   "battle": {
     "sharePickText": "I picked {{creator}} on NEX Battle Arena 🎧",

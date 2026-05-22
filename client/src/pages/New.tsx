@@ -40,7 +40,7 @@ export function New() {
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading, isError } = useQuery<NewTrack[]>({
-    queryKey: ["/api/tracks", "v3", "createdAt", LIST_LIMIT, "audio-only-new", search],
+    queryKey: ["/api/tracks", "v4", "createdAt", LIST_LIMIT, "audio-only-new", search],
     staleTime: 60_000,
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -55,12 +55,21 @@ export function New() {
     },
   });
 
-  const playedTracks = useMemo(
-    () => (tracks ?? []).filter((t) => hasPublicCount(t.playCount)),
-    [tracks],
-  );
+  /** Played tracks first (by plays, then date); zero-play releases stay visible at the end. */
+  const sortedTracks = useMemo(() => {
+    const list = [...(tracks ?? [])];
+    list.sort((a, b) => {
+      const aPlayed = hasPublicCount(a.playCount) ? 1 : 0;
+      const bPlayed = hasPublicCount(b.playCount) ? 1 : 0;
+      if (bPlayed !== aPlayed) return bPlayed - aPlayed;
+      const playDiff = (b.playCount ?? 0) - (a.playCount ?? 0);
+      if (playDiff !== 0) return playDiff;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    return list;
+  }, [tracks]);
 
-  const playing = playedTracks.find((t) => t.id === playId) ?? null;
+  const playing = sortedTracks.find((t) => t.id === playId) ?? null;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -101,7 +110,7 @@ export function New() {
           NEW ON NEX
         </h2>
         <p className="text-zinc-500 text-sm mt-2">
-          {t("new.playedOnlySub")}
+          {t("new.listSub")}
         </p>
         <div className="mt-4 relative max-w-md">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -125,24 +134,40 @@ export function New() {
           <Clock className="w-10 h-10 text-zinc-700" />
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-new-error">Failed to Load</p>
         </div>
-      ) : playedTracks.length === 0 ? (
+      ) : sortedTracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
           <Clock className="w-10 h-10 text-zinc-700" />
-          <p className="text-sm font-bold uppercase tracking-widest text-zinc-400" data-testid="text-new-no-plays">
-            {search.trim() ? t("new.noPlayedSearch", { q: search.trim() }) : t("new.noPlayedYet")}
+          <p className="text-sm font-bold uppercase tracking-widest text-zinc-400" data-testid="text-new-empty">
+            {search.trim() ? t("new.noSearch", { q: search.trim() }) : t("new.noTracksYet")}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {playedTracks.map((track, idx) => {
+          {sortedTracks.map((track, idx) => {
             const GenreIcon = getOfficialGenreIcon(track.genre);
+            const isZeroPlay = !hasPublicCount(track.playCount);
+            const showAwaitingHeader =
+              isZeroPlay &&
+              (idx === 0 || hasPublicCount(sortedTracks[idx - 1]?.playCount));
             return (
+            <div key={track.id} className="space-y-2">
+            {showAwaitingHeader ? (
+              <p
+                className="text-[10px] font-bold uppercase tracking-[0.35em] text-zinc-600 pt-4 border-t border-white/5"
+                data-testid="text-new-awaiting-header"
+              >
+                {t("new.awaitingPlaysSection")}
+              </p>
+            ) : null}
             <motion.div
-              key={track.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(idx * 0.02, 1) }}
-              className="flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
+              className={`flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm transition-all group ${
+                isZeroPlay
+                  ? "bg-black/10 opacity-80 hover:opacity-100 hover:bg-white/3 hover:border-white/10"
+                  : "bg-black/20 hover:bg-white/3 hover:border-primary/20"
+              }`}
               data-testid={`row-new-${track.id}`}
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -192,7 +217,18 @@ export function New() {
               </div>
 
               <div className="flex items-center gap-3 sm:gap-4 shrink-0 ml-auto">
-                <TrackPlaysStat playCount={track.playCount} testId={`text-new-plays-${track.id}`} />
+                {isZeroPlay ? (
+                  <div
+                    className="hidden sm:flex flex-col items-end text-right min-w-[56px]"
+                    data-testid={`text-new-awaiting-${track.id}`}
+                  >
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+                      {t("new.awaitingPlays")}
+                    </p>
+                  </div>
+                ) : (
+                  <TrackPlaysStat playCount={track.playCount} testId={`text-new-plays-${track.id}`} />
+                )}
 
                 <BattleWinsIndicator wins={track.wins ?? 0} />
 
@@ -230,6 +266,7 @@ export function New() {
                 />
               </div>
             </motion.div>
+            </div>
             );
           })}
         </div>

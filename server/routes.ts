@@ -204,7 +204,7 @@ export async function registerRoutes(
       features: {
         creatorDirectoryV3: true,
         chartNoEmptySlots: true,
-        newHidesZeroPlays: true,
+        newDeprioritizeZeroPlays: true,
       },
     });
   });
