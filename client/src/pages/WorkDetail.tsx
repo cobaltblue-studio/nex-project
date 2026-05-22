@@ -309,8 +309,8 @@ export function TrackDetail() {
       : embedKind === "suno"
         ? "min-h-[300px] h-[340px] sm:min-h-[380px] sm:h-[420px] md:h-[480px] w-full"
         : isWidePlayer
-          ? "aspect-video w-full min-h-[220px] sm:min-h-[300px] md:min-h-[380px] lg:min-h-[440px]"
-          : "aspect-square w-full max-w-md mx-auto min-h-[280px] sm:min-h-[320px]";
+          ? "aspect-video w-full max-h-[min(72vh,720px)]"
+          : "aspect-square w-full max-w-md mx-auto";
 
   const adminTrack = {
     id: track?.id ?? currentTrackId,
@@ -447,27 +447,31 @@ export function TrackDetail() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.25 }}
                 className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${
-                  ytId ? "aspect-video min-h-[220px] sm:min-h-[300px] md:min-h-[380px] lg:min-h-[440px]" : iframeFrameClass
+                  ytId || (playableSrc && isWidePlayer)
+                    ? "aspect-video w-full max-h-[min(72vh,720px)]"
+                    : iframeFrameClass
                 }`}
               >
                 {ytId ? (
                   <YoutubePlayer
                     videoId={ytId}
                     autoplay={true}
+                    fillParent
                     onEnded={handleTrackEnded}
                   />
                 ) : streamLoading && !playableSrc ? (
-                  <div className="w-full min-h-[280px] flex flex-col items-center justify-center gap-3 text-zinc-500">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-zinc-500">
                     <Loader2 className="w-12 h-12 animate-spin text-primary/60" />
                     <p className="text-[9px] font-bold uppercase tracking-widest">{t("suno.resolving")}</p>
                   </div>
                 ) : playableSrc ? (
-                  <>
+                  <div className="absolute inset-0 w-full h-full">
                     <iframe
                       key={playableSrc}
                       src={playableSrc}
                       width="100%"
                       height="100%"
+                      className="w-full h-full"
                       style={{ border: "none" }}
                       allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
                       allowFullScreen
@@ -477,9 +481,9 @@ export function TrackDetail() {
                         : {})}
                     />
                     {embedKind === "suno" ? <SunoEmbedOutboundShield /> : null}
-                  </>
+                  </div>
                 ) : streamError ? (
-                  <div className="w-full min-h-[200px] flex flex-col items-center justify-center gap-2 px-6 text-center">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
                     <Music className="w-16 h-16 text-zinc-800" />
                     <p className="text-[11px] text-zinc-400 leading-relaxed">{streamError}</p>
                   </div>
@@ -544,7 +548,7 @@ export function TrackDetail() {
                 className="space-y-2 sm:space-y-3"
               >
                 <h1
-                  className="text-lg sm:text-xl md:text-2xl lg:text-[1.75rem] font-display font-bold text-white tracking-tight uppercase leading-snug break-words hyphens-auto px-1"
+                  className="text-lg sm:text-xl md:text-2xl lg:text-[1.75rem] font-display font-bold text-white tracking-tight uppercase leading-snug break-words hyphens-auto px-1 neon-text-strong neon-text-green"
                   data-testid="text-track-detail-title"
                 >
                   {track.title}

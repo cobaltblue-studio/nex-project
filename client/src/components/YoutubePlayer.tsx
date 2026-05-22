@@ -38,6 +38,8 @@ interface Props {
   videoId: string;
   autoplay?: boolean;
   battleMode?: boolean;
+  /** When true, parent supplies aspect-ratio box (track detail); avoids extra black letterbox. */
+  fillParent?: boolean;
   onEnded?: () => void;
   className?: string;
 }
@@ -59,6 +61,7 @@ export function YoutubePlayer({
   videoId,
   autoplay = false,
   battleMode = false,
+  fillParent = false,
   onEnded,
   className,
 }: Props) {
@@ -182,11 +185,16 @@ export function YoutubePlayer({
 
   return (
     <div
-      style={{
-        position: "relative",
-        width: "100%",
-        paddingTop: battleMode ? "42%" : "56.25%",
-      }}
+      className={fillParent ? "absolute inset-0 w-full h-full" : undefined}
+      style={
+        fillParent
+          ? undefined
+          : {
+              position: "relative",
+              width: "100%",
+              paddingTop: battleMode ? "42%" : "56.25%",
+            }
+      }
     >
       <div
         ref={wrapperRef}
