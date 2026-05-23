@@ -32,6 +32,15 @@ const RANKING_WEIGHT_LIKES = 0.2;
 const RANKING_WEIGHT_PLAYS = 0.2;
 const RANKING_WEIGHT_FOLLOWERS = 0.1;
 
+/** Battle arena matches audio tracks only; MV (`trackType=video`) is for /music-video viewing. */
+function battleEligibleTracksFilter() {
+  return and(
+    sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+    eq(tracks.isDeleted, false),
+    ne(tracks.trackType, "video"),
+  );
+}
+
 /** Walk drizzle / driver wrappers to read PostgreSQL `sqlstate` (e.g. `23505`). */
 function getPostgresSqlState(err: unknown): string | undefined {
   let cur: any = err;
@@ -820,6 +829,47 @@ export class DatabaseStorage implements IStorage {
     return rows.map((r) => ({ profile: r.profile, email: r.email ?? null }));
   }
 
+  /**
+   * NEW feed: same eligibility as the battle pool + `/api/tracks` default list,
+   * but audio-only and sorted by recent activity (not upload date alone).
+   */
+  async getNewFeedTracks(limit = 500, searchQuery?: string): Promise<any[]> {
+    const filters = [
+      eq(tracks.isDeleted, false),
+      eq(tracks.trackType, "audio"),
+      sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+    ];
+
+    const qNorm = typeof searchQuery === "string" ? searchQuery.trim().toLowerCase() : "";
+    if (qNorm) {
+      const likePattern = `%${qNorm}%`;
+      filters.push(
+        sql`(
+          lower(${tracks.title}) like ${likePattern}
+          or lower(coalesce(${tracks.artistName}, '')) like ${likePattern}
+          or lower(${profiles.username}) like ${likePattern}
+          or lower(${tracks.genre}) like ${likePattern}
+        )`,
+      );
+    }
+
+    const results = await db
+      .select({ track: tracks, creator: profiles, metrics: trackMetrics })
+      .from(tracks)
+      .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
+      .where(and(...filters))
+      .orderBy(sql`coalesce(${tracks.lastPlayedAt}, ${tracks.createdAt}) desc`)
+      .limit(limit);
+
+    return results.map((r) => ({
+      ...r.track,
+      creator: r.creator,
+      likesCount: r.metrics?.likesCount ?? 0,
+      playsCount: r.metrics?.playsCount ?? 0,
+    }));
+  }
+
   async getTracks({
     status,
     featured,
@@ -1540,17 +1590,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAvailableBattleGenres(): Promise<string[]> {
-    // Battle-eligible statuses: PUBLISHED (legacy), BATTLE_POOL/APPROVED (approved), CHART (graduated)
-    // Genres with >=2 eligible tracks can host same-genre battles
+    // Battle-eligible: approved/chart audio tracks only (not music videos).
     const genreResults = await db
       .select({ genre: tracks.genre, cnt: count() })
       .from(tracks)
-      .where(
-        and(
-          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
-          eq(tracks.isDeleted, false),
-        ),
-      )
+      .where(battleEligibleTracksFilter())
       .groupBy(tracks.genre)
       .having(sql`count(*) >= 2`);
 
@@ -1560,12 +1604,7 @@ export class DatabaseStorage implements IStorage {
     const [{ total }] = await db
       .select({ total: count() })
       .from(tracks)
-      .where(
-        and(
-          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
-          eq(tracks.isDeleted, false),
-        ),
-      );
+      .where(battleEligibleTracksFilter());
 
     if (Number(total) >= 2) {
       return ["ALL", ...genres];
@@ -1594,10 +1633,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBattle(genre: string, requesterProfileId?: number | null): Promise<any | null> {
-    const eligibleSql = and(
-      sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
-      eq(tracks.isDeleted, false),
-    );
+    const eligibleSql = battleEligibleTracksFilter();
 
     let pool = await db.select().from(tracks).where(
       genre && genre !== "ALL"
@@ -2748,7 +2784,7 @@ export class DatabaseStorage implements IStorage {
     const [poolResult] = await db
       .select({ count: count() })
       .from(tracks)
-      .where(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`);
+      .where(battleEligibleTracksFilter());
 
     const [newTracksResult] = await db
       .select({ count: count() })

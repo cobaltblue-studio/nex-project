@@ -26,6 +26,7 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
     if (
       p === "/api/health" ||
       p === "/api/tracks" ||
+      p === "/api/tracks/new" ||
       p === "/api/tracks/rising" ||
       p === "/api/creators" ||
       p === "/api/creators/directory" ||

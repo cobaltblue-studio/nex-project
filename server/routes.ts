@@ -739,6 +739,45 @@ export async function registerRoutes(
     });
   }
 
+  app.get("/api/tracks/new", async (req, res) => {
+    const q = (req.query.q as string) || undefined;
+    const ts = await storage.getNewFeedTracks(250, q);
+    const trackIds = ts.map((t) => t.id);
+    const battleStats = await storage.getBattleStatsForTracks(trackIds);
+    const formatted = ts.map((t) =>
+      sanitizePublicTrack({
+        id: t.id,
+        title: t.title,
+        creatorName: t.artistName || t.creator.username,
+        creatorId: t.creatorId,
+        aiTool: t.aiTool,
+        genre: t.genre,
+        votes: t.listenerVotes,
+        audioUrl: t.audioUrl,
+        musicVideoUrl: t.mvUrl,
+        coverImageUrl: publicTrackCoverUrl(t),
+        playCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
+        likesCount: t.likesCount ?? 0,
+        rankingScore: t.rankingScore,
+        trackType: t.trackType,
+        status: t.status,
+        winStreak: t.winStreak,
+        aiPrompt: t.aiPrompt,
+        aiPromptEditCount: t.aiPromptEditCount,
+        aiPromptLastEditedAt: t.aiPromptLastEditedAt,
+        createdAt: t.createdAt,
+        ...(battleStats[t.id]
+          ? {
+              totalBattles: battleStats[t.id].totalBattles,
+              wins: battleStats[t.id].wins,
+              winRate: battleStats[t.id].winRate,
+            }
+          : {}),
+      } as Record<string, unknown>),
+    );
+    res.json(formatted);
+  });
+
   app.get(api.tracks.get.path, async (req: any, res) => {
     const trackId = Number(req.params.id);
     const t = await storage.getTrack(trackId);

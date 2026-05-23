@@ -31,8 +31,6 @@ interface NewTrack {
   wins?: number;
 }
 
-const LIST_LIMIT = 100;
-
 export function New() {
   const { t } = useTranslation();
   const [playId, setPlayId] = useState<number | null>(null);
@@ -40,16 +38,12 @@ export function New() {
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading, isError } = useQuery<NewTrack[]>({
-    queryKey: ["/api/tracks", "v4", "createdAt", LIST_LIMIT, "audio-only-new", search],
+    queryKey: ["/api/tracks/new", "v5", search],
     staleTime: 60_000,
     queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("sortBy", "createdAt");
-      params.set("limit", String(LIST_LIMIT));
-      params.set("trackType", "audio");
       const q = search.trim();
-      if (q) params.set("q", q);
-      const res = await fetch(`/api/tracks?${params.toString()}`);
+      const url = q ? `/api/tracks/new?q=${encodeURIComponent(q)}` : "/api/tracks/new";
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch new tracks");
       return res.json();
     },
