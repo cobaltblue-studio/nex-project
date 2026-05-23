@@ -225,6 +225,7 @@ function TrackSocialActions({
         void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       }
       if (msg.startsWith("409")) {
+        setDisplayLikes(likesCount ?? 0);
         setLikedToday(true);
         toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
         invalidateTrackQueries(trackId);
