@@ -122,12 +122,16 @@ export const boostStatus = pgTable(
   (table) => [uniqueIndex("boost_status_track_id_unique").on(table.trackId)],
 );
 
-export const likes = pgTable("likes", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  trackId: integer("track_id").references(() => tracks.id).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const likes = pgTable(
+  "likes",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    trackId: integer("track_id").references(() => tracks.id).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("likes_user_id_track_id_unique").on(table.userId, table.trackId)],
+);
 
 export const votes = pgTable("votes", {
   id: serial("id").primaryKey(),

@@ -1327,11 +1327,14 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       if (err?.message === "ALREADY_LIKED_TODAY") {
+        const t = await storage.getTrack(trackId);
         return res.status(409).json({
           message: apiMsg(
             "오늘은 이미 이 트랙을 응원했어요 (같은 트랙은 UTC 기준 하루 1회). 다른 곡은 같은 날에도 제한 없이 누를 수 있어요.",
             "You already cheered this track today (once per track per UTC day). Other songs can still be liked today — no shared daily cap.",
           ),
+          likesCount: (t as { likesCount?: number } | null)?.likesCount ?? 0,
+          viewerHasLikedToday: true,
         });
       }
       if (err?.message === "MISSING_USER_ID") {
@@ -1354,21 +1357,6 @@ export async function registerRoutes(
         code: err?.code,
         message: err?.message,
       });
-      if (Number.isFinite(trackId) && trackId > 0) {
-        try {
-          const t = await storage.getTrack(trackId);
-          if (t) {
-            return res.json({
-              message: apiMsg("좋아요를 반영했습니다", "Track liked"),
-              likesCount: (t as { likesCount?: number }).likesCount ?? 0,
-              viewerHasLikedToday: true,
-              recovered: true,
-            });
-          }
-        } catch (recoverErr: any) {
-          console.error("[like] recovery read failed", recoverErr?.message);
-        }
-      }
       throw err;
     }
   });

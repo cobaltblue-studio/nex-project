@@ -1235,47 +1235,49 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  /** New UTC day on an existing cheer row — bump public count once. */
+  private async refreshLikeForNewUtcDay(likeRowId: number, trackId: number): Promise<void> {
+    await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, likeRowId));
+    await this.incrementLikeMetricsOnly(trackId);
+  }
+
   private async insertLikeRowOrThrowDailyLimit(
     userId: string,
     trackId: number,
     todayStartUtc: Date,
-  ): Promise<void> {
-    const handleUniqueConflict = async (): Promise<void> => {
-      try {
-        const [existing] = await db
-          .select({ id: likes.id, createdAt: likes.createdAt })
-          .from(likes)
-          .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
-          .limit(1);
-        if (!existing) throw new Error("LIKE_INSERT_CONFLICT");
-        if (!existing.createdAt) throw new Error("ALREADY_LIKED_TODAY");
-        if (existing.createdAt >= todayStartUtc) throw new Error("ALREADY_LIKED_TODAY");
-        await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, existing.id));
-      } catch (inner: any) {
-        if (inner?.message === "ALREADY_LIKED_TODAY") throw inner;
-        if (isUndefinedColumnError(inner)) throw new Error("ALREADY_LIKED_TODAY");
-        throw inner;
+  ): Promise<"inserted" | "refreshed"> {
+    const handleUniqueConflict = async (): Promise<"refreshed"> => {
+      const [existing] = await db
+        .select({ id: likes.id, createdAt: likes.createdAt })
+        .from(likes)
+        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
+        .limit(1);
+      if (!existing) throw new Error("LIKE_INSERT_CONFLICT");
+      if (!existing.createdAt || existing.createdAt >= todayStartUtc) {
+        throw new Error("ALREADY_LIKED_TODAY");
       }
+      await this.refreshLikeForNewUtcDay(existing.id, trackId);
+      return "refreshed";
     };
 
     try {
       await db.insert(likes).values({ userId, trackId });
+      return "inserted";
     } catch (e: any) {
       if (isPostgresFkViolation(e)) {
         await this.createUser({ id: userId });
         try {
           await db.insert(likes).values({ userId, trackId });
-          return;
+          return "inserted";
         } catch (retryErr: any) {
           if (isPostgresUniqueViolation(retryErr)) {
-            await handleUniqueConflict();
-            return;
+            return await handleUniqueConflict();
           }
           throw retryErr;
         }
       }
       if (!isPostgresUniqueViolation(e)) throw e;
-      await handleUniqueConflict();
+      return await handleUniqueConflict();
     }
   }
 
@@ -1340,34 +1342,12 @@ export class DatabaseStorage implements IStorage {
     const todayStartUtc = new Date();
     todayStartUtc.setUTCHours(0, 0, 0, 0);
 
-    try {
-      const [alreadyToday] = await db
-        .select({ id: likes.id })
-        .from(likes)
-        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId), gte(likes.createdAt, todayStartUtc)))
-        .limit(1);
-      if (alreadyToday) throw new Error("ALREADY_LIKED_TODAY");
-    } catch (e: any) {
-      if (e?.message === "ALREADY_LIKED_TODAY") throw e;
-      if (!isUndefinedColumnError(e) && !isMissingRelationError(e)) {
-        console.warn("[like] daily precheck skipped", {
-          code: getPostgresSqlState(e),
-          message: e?.message,
-        });
-      }
+    if (await this.hasLikedTrackToday(userId, trackId)) {
+      throw new Error("ALREADY_LIKED_TODAY");
     }
 
-    try {
-      await this.insertLikeRowOrThrowDailyLimit(userId, trackId, todayStartUtc);
-      await this.syncLikeMetricsFromLikesTable(trackId);
-    } catch (e: any) {
-      if (e?.message === "ALREADY_LIKED_TODAY") throw e;
-      console.error("[like] insert failed — applying metrics-only fallback", {
-        trackId,
-        userId,
-        code: getPostgresSqlState(e),
-        message: e?.message,
-      });
+    const outcome = await this.insertLikeRowOrThrowDailyLimit(userId, trackId, todayStartUtc);
+    if (outcome === "inserted") {
       await this.incrementLikeMetricsOnly(trackId);
     }
 

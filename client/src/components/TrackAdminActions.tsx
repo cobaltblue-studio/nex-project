@@ -218,16 +218,20 @@ function TrackSocialActions({
       toast({ title: t("likes.savedTitle"), description: t("likes.savedDesc") });
     },
     onError: (err: Error) => {
-      setDisplayLikes(likesCount ?? 0);
-      setLikedToday(!!viewerHasLikedToday);
-      if (String(err?.message ?? "").startsWith("401")) {
+      const msg = String(err?.message ?? "");
+      if (msg.startsWith("401")) {
+        setDisplayLikes(likesCount ?? 0);
+        setLikedToday(!!viewerHasLikedToday);
         void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       }
-      if (String(err?.message ?? "").startsWith("409")) {
+      if (msg.startsWith("409")) {
         setLikedToday(true);
         toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
+        invalidateTrackQueries(trackId);
         return;
       }
+      setDisplayLikes(likesCount ?? 0);
+      setLikedToday(!!viewerHasLikedToday);
       const { title, description } = apiMutationErrorToast(err);
       toast({ title, description, variant: "destructive" });
     },
@@ -264,6 +268,7 @@ function TrackSocialActions({
       setGuestCheerOpen(true);
       return;
     }
+    if (likedToday || likeMutation.isPending) return;
     likeMutation.mutate();
   };
 
@@ -286,7 +291,7 @@ function TrackSocialActions({
         <button
           type="button"
           onClick={onLike}
-          disabled={likeMutation.isPending}
+          disabled={likeMutation.isPending || likedToday}
           className={size}
           title={heartTitle}
           data-testid={`button-track-like-${trackId}`}
