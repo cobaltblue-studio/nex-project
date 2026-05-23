@@ -37,6 +37,15 @@ function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
 }
 
+function getPostgresSqlStateFromErr(err: unknown): string | undefined {
+  let cur: any = err;
+  for (let depth = 0; depth < 8 && cur; depth += 1) {
+    if (typeof cur.code === "string" && /^[0-9A-Z]{5}$/.test(cur.code)) return cur.code;
+    cur = cur.cause ?? cur.originalError ?? cur.error ?? cur.err;
+  }
+  return undefined;
+}
+
 /** Ensure `users` row exists before likes/plays (avoids FK 500 on fresh OAuth sessions). */
 async function persistSessionUser(req: any): Promise<string> {
   const userId = getUserId(req);
@@ -1354,10 +1363,23 @@ export async function registerRoutes(
       console.error("[like] failed", {
         userId,
         trackId: req.params.id,
-        code: err?.code,
+        code: err?.code ?? getPostgresSqlStateFromErr(err),
         message: err?.message,
       });
-      throw err;
+      let likesCount = 0;
+      try {
+        const t = await storage.getTrack(trackId);
+        likesCount = Number((t as { likesCount?: number } | null)?.likesCount ?? 0);
+      } catch {
+        /* ignore */
+      }
+      return res.status(500).json({
+        message: apiMsg(
+          "잠시 후 다시 시도해 주세요. 계속되면 로그아웃 후 다시 로그인해 주세요.",
+          "Please try again in a moment. If it keeps failing, log out and sign in again.",
+        ),
+        likesCount,
+      });
     }
   });
 

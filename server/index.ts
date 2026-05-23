@@ -159,6 +159,10 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       // Do not block accepting traffic: full-table recalc can take a long time.
       void storage
+        .reconcileChartPromotions()
+        .then((n) => console.log(`[boot] chart promotions reconciled (${n} promoted)`))
+        .catch((err) => console.error("[boot] reconcileChartPromotions failed:", err));
+      void storage
         .recalculateAllRankingScores()
         .then(() => console.log("[boot] ranking scores recalculated"))
         .catch((err) => console.error("[boot] recalculateAllRankingScores failed:", err));

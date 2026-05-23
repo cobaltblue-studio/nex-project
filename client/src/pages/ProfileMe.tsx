@@ -40,11 +40,12 @@ export function ProfileMe() {
   const [, nameParams] = useRoute("/profile/:name");
   const { isAuthenticated } = useAuth();
 
-  const chartQuery = publicAudioChartSearchParams(500);
-  const { data: chartTracks, isLoading: chartLoading } = useQuery<any[]>({
-    queryKey: ["/api/tracks", "rankingScore", 500, "audio", "profile-chart-ranks"],
+  /** Official NEX TOP 100 — same filter as /music (`status=CHART`). */
+  const { data: officialChart = [], isLoading: chartLoading } = useQuery<any[]>({
+    queryKey: ["/api/tracks", "v3", "rankingScore", 100, "audio", "status-CHART", "profile-best-rank"],
     queryFn: async () => {
-      const res = await fetch(`/api/tracks?${chartQuery}`);
+      const params = new URLSearchParams(publicAudioChartSearchParams(100, { status: "CHART" }));
+      const res = await fetch(`/api/tracks?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to load chart");
       return res.json();
     },
@@ -127,10 +128,22 @@ export function ProfileMe() {
   const artistAlias = ((creatorTracks.find((t: any) => typeof t?.creatorName === "string" && t.creatorName.trim()) as { creatorName?: string } | undefined)?.creatorName ?? "").trim();
   const displayName = artistAlias || creatorName;
 
-  const sortedTracks = useMemo(
-    () => [...(chartTracks || [])].sort((a: any, b: any) => (b.votes || 0) - (a.votes || 0)),
-    [chartTracks],
-  );
+  const chartRankByTrackId = useMemo(() => {
+    const m = new Map<number, number>();
+    for (let i = 0; i < officialChart.length; i += 1) {
+      m.set(officialChart[i].id, i + 1);
+    }
+    return m;
+  }, [officialChart]);
+
+  const bestRank = useMemo(() => {
+    let best: number | null = null;
+    for (const t of creatorTracks) {
+      const r = chartRankByTrackId.get(t.id);
+      if (r != null && (best == null || r < best)) best = r;
+    }
+    return best;
+  }, [creatorTracks, chartRankByTrackId]);
 
   const isLoading =
     waitingForMyUsername ||
@@ -143,8 +156,6 @@ export function ProfileMe() {
   const totalLikes = creatorTracks.reduce((acc, t) => acc + (t.likesCount || 0), 0);
   const totalPlays = creatorTracks.reduce((acc, t) => acc + (t.playsCount || t.playCount || 0), 0);
   const totalBattleWins = creatorTracks.reduce((acc, t) => acc + (t.wins || 0), 0);
-  // Phase 4: creator profile cards should no longer surface historic Music Chart rank.
-  const bestRank: number | null = null;
 
   const followerCount = creatorProfile?.followerCount || 0;
   const visibleBio = (() => {
@@ -566,7 +577,7 @@ export function ProfileMe() {
             {creatorTracks
               .sort((a, b) => (b.votes || 0) - (a.votes || 0))
               .map((track, idx) => {
-                const globalRank = sortedTracks.findIndex(st => st.id === track.id) + 1;
+                const chartRank = chartRankByTrackId.get(track.id);
                 return (
                   <Link key={track.id} href={`/track/${track.id}`}>
                     <motion.div
@@ -577,7 +588,7 @@ export function ProfileMe() {
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-8 h-8 bg-primary/5 border border-white/5 rounded-sm flex items-center justify-center text-[10px] font-mono font-bold text-zinc-600">
-                          {String(globalRank).padStart(2, "0")}
+                          {chartRank != null ? String(chartRank).padStart(2, "0") : "—"}
                         </div>
                         <div>
                           <h4 className="text-sm font-bold uppercase text-white group-hover:text-primary transition-colors">{track.title}</h4>

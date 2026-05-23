@@ -1156,6 +1156,16 @@ export class DatabaseStorage implements IStorage {
     this.scheduleRecomputeTrackRankingScore(trackId);
   }
 
+  /** Any cheer row for this user+track (used when `likes.created_at` is missing on older DBs). */
+  private async hasAnyLikeRow(userId: string, trackId: number): Promise<boolean> {
+    const [row] = await db
+      .select({ id: likes.id })
+      .from(likes)
+      .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
+      .limit(1);
+    return !!row;
+  }
+
   async hasLikedTrackToday(userId: string, trackId: number): Promise<boolean> {
     if (!userId) return false;
     const todayStartUtc = new Date();
@@ -1169,8 +1179,12 @@ export class DatabaseStorage implements IStorage {
       return !!alreadyToday;
     } catch (e: any) {
       if (isUndefinedColumnError(e) || isMissingRelationError(e)) {
-        /** Legacy / unmigrated DB — let POST /like decide (insert vs conflict). */
-        return false;
+        /** Legacy DB without `created_at` — one row per user+track. */
+        try {
+          return await this.hasAnyLikeRow(userId, trackId);
+        } catch {
+          return false;
+        }
       }
       throw e;
     }
@@ -1237,7 +1251,14 @@ export class DatabaseStorage implements IStorage {
 
   /** New UTC day on an existing cheer row — bump public count once. */
   private async refreshLikeForNewUtcDay(likeRowId: number, trackId: number): Promise<void> {
-    await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, likeRowId));
+    try {
+      await db.update(likes).set({ createdAt: new Date() }).where(eq(likes.id, likeRowId));
+    } catch (e: any) {
+      if (isUndefinedColumnError(e)) {
+        throw new Error("ALREADY_LIKED_TODAY");
+      }
+      throw e;
+    }
     await this.incrementLikeMetricsOnly(trackId);
   }
 
@@ -1247,17 +1268,25 @@ export class DatabaseStorage implements IStorage {
     todayStartUtc: Date,
   ): Promise<"inserted" | "refreshed"> {
     const handleUniqueConflict = async (): Promise<"refreshed"> => {
-      const [existing] = await db
-        .select({ id: likes.id, createdAt: likes.createdAt })
-        .from(likes)
-        .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
-        .limit(1);
-      if (!existing) throw new Error("LIKE_INSERT_CONFLICT");
-      if (!existing.createdAt || existing.createdAt >= todayStartUtc) {
-        throw new Error("ALREADY_LIKED_TODAY");
+      try {
+        const [existing] = await db
+          .select({ id: likes.id, createdAt: likes.createdAt })
+          .from(likes)
+          .where(and(eq(likes.userId, userId), eq(likes.trackId, trackId)))
+          .limit(1);
+        if (!existing) throw new Error("LIKE_INSERT_CONFLICT");
+        if (!existing.createdAt || existing.createdAt >= todayStartUtc) {
+          throw new Error("ALREADY_LIKED_TODAY");
+        }
+        await this.refreshLikeForNewUtcDay(existing.id, trackId);
+        return "refreshed";
+      } catch (e: any) {
+        if (e?.message === "ALREADY_LIKED_TODAY" || e?.message === "LIKE_INSERT_CONFLICT") throw e;
+        if (isUndefinedColumnError(e)) {
+          throw new Error("ALREADY_LIKED_TODAY");
+        }
+        throw e;
       }
-      await this.refreshLikeForNewUtcDay(existing.id, trackId);
-      return "refreshed";
     };
 
     try {
@@ -1349,6 +1378,8 @@ export class DatabaseStorage implements IStorage {
     const outcome = await this.insertLikeRowOrThrowDailyLimit(userId, trackId, todayStartUtc);
     if (outcome === "inserted") {
       await this.incrementLikeMetricsOnly(trackId);
+    } else {
+      await this.syncLikeMetricsFromLikesTable(trackId);
     }
 
     return { likesCount: await this.readTrackLikesCount(trackId) };
@@ -1987,10 +2018,11 @@ export class DatabaseStorage implements IStorage {
     return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId, trackAWinStreak, trackBWinStreak };
   }
 
-  async checkAndPromoteToChart(trackId: number): Promise<void> {
+  async checkAndPromoteToChart(trackId: number): Promise<boolean> {
     const [track] = await db.select().from(tracks).where(eq(tracks.id, trackId));
-    // Only approved/battle-pool tracks can earn their way to CHART
-    if (!track || (track.status !== "BATTLE_POOL" && track.status !== "APPROVED")) return;
+    if (!track || track.isDeleted || track.status === "CHART") return false;
+    // Only battle-eligible statuses can graduate to the official chart.
+    if (!["BATTLE_POOL", "APPROVED", "PUBLISHED"].includes(track.status)) return false;
 
     const allBattles = await db.select().from(battles)
       .where(sql`${battles.winnerId} IS NOT NULL AND (${battles.trackAId} = ${trackId} OR ${battles.trackBId} = ${trackId})`);
@@ -2001,7 +2033,28 @@ export class DatabaseStorage implements IStorage {
 
     if (totalBattles >= 10 && winRate >= 0.55) {
       await db.update(tracks).set({ status: "CHART" }).where(eq(tracks.id, trackId));
+      this.scheduleRecomputeTrackRankingScore(trackId);
+      return true;
     }
+    return false;
+  }
+
+  /** Re-run chart promotion for tracks that earned it before deploy or while status was stale. */
+  async reconcileChartPromotions(): Promise<number> {
+    const rows = await db
+      .select({ id: tracks.id })
+      .from(tracks)
+      .where(
+        and(
+          eq(tracks.isDeleted, false),
+          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED')`,
+        ),
+      );
+    let promoted = 0;
+    for (const row of rows) {
+      if (await this.checkAndPromoteToChart(row.id)) promoted += 1;
+    }
+    return promoted;
   }
 
   async trackUrlExists(url: string): Promise<boolean> {

@@ -14,6 +14,8 @@
     "preview": "vite preview",
     "check": "tsc",
     "db:push": "drizzle-kit push",
+    "db:dedupe-likes": "tsx scripts/dedupe-duplicate-likes.ts",
+    "db:reconcile-chart": "tsx scripts/reconcile-chart-promotions.ts",
     "reset:test-stats": "tsx scripts/reset-test-stats.ts",
     "db:reset-chart": "tsx scripts/reset-test-stats.ts",
     "audit:tracks": "tsx scripts/audit-track-data.ts",
