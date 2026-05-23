@@ -19,7 +19,8 @@
     "reset:test-stats": "tsx scripts/reset-test-stats.ts",
     "db:reset-chart": "tsx scripts/reset-test-stats.ts",
     "audit:tracks": "tsx scripts/audit-track-data.ts",
-    "approve:tracks:user": "tsx scripts/approve-tracks-for-username.ts"
+    "approve:tracks:user": "tsx scripts/approve-tracks-for-username.ts",
+    "brand:favicon": "node scripts/brand-favicon-from-asset.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -28,6 +28,20 @@ export function serveStatic(app: Express) {
   }
 
   app.use(blockDevOnlyPaths);
+
+  const faviconSvg = path.resolve(CLIENT_DIST, "favicon.svg");
+  const faviconPng = path.resolve(CLIENT_DIST, "favicon.png");
+  app.get("/favicon.ico", (_req, res) => {
+    if (fs.existsSync(faviconPng)) {
+      return res.sendFile(faviconPng);
+    }
+    if (fs.existsSync(faviconSvg)) {
+      res.type("image/svg+xml");
+      return res.sendFile(faviconSvg);
+    }
+    return res.status(404).end();
+  });
+
   app.use(express.static(CLIENT_DIST, { index: false, dotfiles: "deny" }));
 
   app.use("/{*path}", (req, res, next) => {
