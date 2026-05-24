@@ -36,15 +36,29 @@ export function serveStatic(app: Express) {
 
   const faviconSvg = path.resolve(CLIENT_DIST, "favicon.svg");
   const faviconPng = path.resolve(CLIENT_DIST, "favicon.png");
+  const sendIcon = (filePath: string, contentType?: string) => (res: Response) => {
+    if (contentType) res.type(contentType);
+    res.sendFile(filePath, (err) => {
+      if (err && !res.headersSent) res.status(404).end();
+    });
+  };
+
   app.get("/favicon.ico", (_req, res) => {
-    if (fs.existsSync(faviconPng)) {
-      return res.sendFile(faviconPng);
-    }
-    if (fs.existsSync(faviconSvg)) {
-      res.type("image/svg+xml");
-      return res.sendFile(faviconSvg);
-    }
-    return res.status(404).end();
+    if (fs.existsSync(faviconPng)) return sendIcon(faviconPng)(res);
+    if (fs.existsSync(faviconSvg)) return sendIcon(faviconSvg, "image/svg+xml")(res);
+    res.status(404).end();
+  });
+
+  app.get("/favicon.png", (_req, res) => {
+    if (fs.existsSync(faviconPng)) return sendIcon(faviconPng, "image/png")(res);
+    res.status(404).end();
+  });
+
+  const appleTouch = path.resolve(CLIENT_DIST, "apple-touch-icon.png");
+  app.get("/apple-touch-icon.png", (_req, res) => {
+    if (fs.existsSync(appleTouch)) return sendIcon(appleTouch, "image/png")(res);
+    if (fs.existsSync(faviconPng)) return sendIcon(faviconPng, "image/png")(res);
+    res.status(404).end();
   });
 
   app.use(express.static(CLIENT_DIST, { index: false, dotfiles: "deny" }));
