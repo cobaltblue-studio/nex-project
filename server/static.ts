@@ -36,15 +36,19 @@ export function serveStatic(app: Express) {
 
   const faviconSvg = path.resolve(CLIENT_DIST, "favicon.svg");
   const faviconPng = path.resolve(CLIENT_DIST, "favicon.png");
-  const sendIcon = (filePath: string, contentType?: string) => (res: Response) => {
-    if (contentType) res.type(contentType);
-    res.sendFile(filePath, (err) => {
-      if (err && !res.headersSent) res.status(404).end();
-    });
-  };
+  const sendIcon =
+    (filePath: string, contentType?: string) => (res: Response) => {
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      if (contentType) res.type(contentType);
+      res.sendFile(filePath, (err) => {
+        if (err && !res.headersSent) res.status(404).end();
+      });
+    };
 
   app.get("/favicon.ico", (_req, res) => {
-    if (fs.existsSync(faviconPng)) return sendIcon(faviconPng)(res);
+    const faviconIco = path.resolve(CLIENT_DIST, "favicon.ico");
+    if (fs.existsSync(faviconIco)) return sendIcon(faviconIco, "image/png")(res);
+    if (fs.existsSync(faviconPng)) return sendIcon(faviconPng, "image/png")(res);
     if (fs.existsSync(faviconSvg)) return sendIcon(faviconSvg, "image/svg+xml")(res);
     res.status(404).end();
   });
