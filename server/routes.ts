@@ -206,18 +206,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
-  app.get("/api/health", (_req, res) => {
-    res.json({
-      ok: true,
-      build: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || process.env.BUILD_ID || "local",
-      features: {
-        creatorDirectoryV3: true,
-        chartNoEmptySlots: true,
-        newDeprioritizeZeroPlays: true,
-      },
-    });
-  });
-
   await setupAuth(app);
   registerAuthRoutes(app);
   app.use(createApiAccessControl(isAdmin));

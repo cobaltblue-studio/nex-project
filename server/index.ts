@@ -68,6 +68,29 @@ export function log(message: string, source = "express") {
 
 const isProduction = process.env.NODE_ENV === "production";
 
+/** Set true after DB + routes + static are ready (see boot sequence below). */
+let appReady = false;
+
+/** Railway/Neon: respond 200 while DB wakes so the container is not killed mid-connect. */
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    ready: appReady,
+    build: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || process.env.BUILD_ID || "local",
+  });
+});
+
+app.use((req, res, next) => {
+  if (!appReady && req.path.startsWith("/api") && req.path !== "/api/health") {
+    res.status(503).json({
+      message: "Server is starting. Please retry in a few seconds.",
+      ready: false,
+    });
+    return;
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -99,6 +122,23 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  const port = parseInt(process.env.PORT || "5001", 10);
+
+  httpServer.listen(
+    {
+      port,
+      host: "0.0.0.0",
+    },
+    () => {
+      log(`listening on port ${port} (warming up…)`);
+    },
+  );
+
+  // Serve the SPA while Neon/Postgres wakes so Railway health checks do not kill the container.
+  if (process.env.NODE_ENV === "production") {
+    serveStatic(app);
+  }
+
   const { ensureDbConnected } = await import("./db");
   const { storage } = await import("./storage");
   console.log("[boot] connecting to database…");
@@ -141,31 +181,24 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  } else {
+  if (process.env.NODE_ENV !== "production") {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
 
-  // Serve both API and client on one app port in development.
-  const port = parseInt(process.env.PORT || "5001", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-    },
-    () => {
-      log(`serving on port ${port}`);
-      // Do not block accepting traffic: full-table recalc can take a long time.
-      void storage
-        .reconcileChartPromotions()
-        .then((n) => console.log(`[boot] chart promotions reconciled (${n} promoted)`))
-        .catch((err) => console.error("[boot] reconcileChartPromotions failed:", err));
-      void storage
-        .recalculateAllRankingScores()
-        .then(() => console.log("[boot] ranking scores recalculated"))
-        .catch((err) => console.error("[boot] recalculateAllRankingScores failed:", err));
-    },
-  );
-})();
+  appReady = true;
+  log(`ready on port ${port}`);
+
+  // Do not block accepting traffic: full-table recalc can take a long time.
+  void storage
+    .reconcileChartPromotions()
+    .then((n) => console.log(`[boot] chart promotions reconciled (${n} promoted)`))
+    .catch((err) => console.error("[boot] reconcileChartPromotions failed:", err));
+  void storage
+    .recalculateAllRankingScores()
+    .then(() => console.log("[boot] ranking scores recalculated"))
+    .catch((err) => console.error("[boot] recalculateAllRankingScores failed:", err));
+})().catch((err) => {
+  console.error("[boot] fatal:", err);
+  process.exit(1);
+});

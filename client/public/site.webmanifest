@@ -3,10 +3,16 @@
   "short_name": "NEX",
   "description": "AI Music Ranking Platform — battle, chart, discover.",
   "start_url": "/",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#0a0a0a",
-  "theme_color": "#00ff80",
+  "theme_color": "#0a0a0a",
   "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/favicon.svg",
       "sizes": "any",
