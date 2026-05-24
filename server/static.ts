@@ -4,6 +4,11 @@ import path from "path";
 
 const CLIENT_DIST = path.resolve(import.meta.dirname, "..", "client", "dist");
 
+function requestPathname(req: Request): string {
+  const raw = req.originalUrl || req.url || "";
+  return raw.split("?")[0] || "/";
+}
+
 /** Block dev-only and source-map style paths in production (no /src exposure). */
 function blockDevOnlyPaths(req: Request, res: Response, next: NextFunction) {
   const p = req.path.toLowerCase();
@@ -45,7 +50,7 @@ export function serveStatic(app: Express) {
   app.use(express.static(CLIENT_DIST, { index: false, dotfiles: "deny" }));
 
   app.use("/{*path}", (req, res, next) => {
-    if (req.path.startsWith("/api")) {
+    if (requestPathname(req).startsWith("/api")) {
       return next();
     }
     res.sendFile(path.resolve(CLIENT_DIST, "index.html"));

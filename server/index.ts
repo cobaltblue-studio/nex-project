@@ -134,11 +134,6 @@ app.use((req, res, next) => {
     },
   );
 
-  // Serve the SPA while Neon/Postgres wakes so Railway health checks do not kill the container.
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  }
-
   const { ensureDbConnected } = await import("./db");
   const { storage } = await import("./storage");
   console.log("[boot] connecting to database…");
@@ -178,10 +173,10 @@ app.use((req, res, next) => {
     return res.status(status).json({ message: clientMessage });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV !== "production") {
+  // API routes must be registered before the SPA catch-all (serveStatic / Vite).
+  if (process.env.NODE_ENV === "production") {
+    serveStatic(app);
+  } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
