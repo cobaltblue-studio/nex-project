@@ -33,6 +33,7 @@ import { resolveSunoShareToSongUuid } from "./suno-resolve";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
+import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
 
 function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
@@ -708,7 +709,9 @@ export async function registerRoutes(
       return;
     }
 
-    const duplicate = await storage.trackUrlExists(trackLink);
+    const normalizedTrackLink = normalizeStoredTrackLink(trackLink) ?? String(trackLink).trim();
+
+    const duplicate = await storage.trackUrlExists(normalizedTrackLink);
     if (duplicate) {
       res.status(409).json({
         message: apiMsg("이 URL로 이미 제출된 트랙이 있습니다", "A track with this URL has already been submitted"),
@@ -746,7 +749,7 @@ export async function registerRoutes(
       title,
       artistName,
       genre,
-      trackLink,
+      trackLink: normalizedTrackLink,
       trackType: resolvedTrackType,
       aiPrompt: intentTrim,
       coverImageUrl: cover,
