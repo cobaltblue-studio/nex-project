@@ -19,7 +19,7 @@ function pngSize(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
-for (const name of ["favicon.ico", "favicon.png"]) {
+for (const name of ["favicon.png"]) {
   const p = path.join(publicDir, name);
   if (!fs.existsSync(p)) {
     console.error(`[verify-favicon] missing ${name} — run: npm run favicons:generate`);

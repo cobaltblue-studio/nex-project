@@ -123,5 +123,5 @@ fs.mkdirSync(publicDir, { recursive: true });
 writeIcon("favicon.png", 48);
 writeIcon("favicon-192.png", 192);
 fs.copyFileSync(path.join(publicDir, "favicon-192.png"), path.join(publicDir, "apple-touch-icon.png"));
-fs.copyFileSync(path.join(publicDir, "favicon.png"), path.join(publicDir, "favicon.ico"));
-console.log("[favicons] wrote apple-touch-icon.png, favicon.ico (NEX disc, not Replit)");
+// Do not write favicon.ico — server serves NEX SVG at /favicon.ico (avoids Replit .ico in git/dist).
+console.log("[favicons] wrote apple-touch-icon.png (use /favicon.ico → NEX SVG on server)");
