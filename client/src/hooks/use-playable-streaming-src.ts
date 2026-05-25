@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  buildSoundCloudPlayerSrc,
   buildStreamingIframeSrc,
   buildSunoEmbedFromCanonicalUuid,
+  urlLooksLikeSoundCloudShare,
   urlLooksLikeSunoShare,
 } from "@/lib/streamingEmbed";
 
@@ -26,41 +28,89 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
   );
 
   const [resolvedSunoSrc, setResolvedSunoSrc] = useState<string | null>(null);
+  const [resolvedSoundCloudSrc, setResolvedSoundCloudSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const needsSunoResolve = !!rawUrl?.trim() && syncSrc === null && urlLooksLikeSunoShare(rawUrl);
+  const needsSoundCloudResolve =
+    !!rawUrl?.trim() &&
+    syncSrc === null &&
+    !needsSunoResolve &&
+    urlLooksLikeSoundCloudShare(rawUrl);
+
   useEffect(() => {
     setResolvedSunoSrc(null);
+    setResolvedSoundCloudSrc(null);
     setError(null);
     if (!rawUrl?.trim()) {
       setLoading(false);
       return;
     }
-    if (syncSrc !== null || !urlLooksLikeSunoShare(rawUrl)) {
+    if (!needsSunoResolve && !needsSoundCloudResolve) {
       setLoading(false);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/suno/resolve?url=${encodeURIComponent(rawUrl.trim())}`)
+
+    if (needsSunoResolve) {
+      fetch(`/api/suno/resolve?url=${encodeURIComponent(rawUrl.trim())}`)
+        .then(async (r) => {
+          const j = (await r.json()) as { songUuid?: string; message?: string };
+          if (cancelled) return;
+          if (!r.ok || !j.songUuid) {
+            setError(
+              typeof j.message === "string"
+                ? j.message
+                : t("suno.resolveFailed", "Could not resolve this Suno link."),
+            );
+            return;
+          }
+          const embed = buildSunoEmbedFromCanonicalUuid(j.songUuid, autoplay);
+          if (embed) setResolvedSunoSrc(embed);
+          else setError(t("suno.embedFailed", "This Suno track cannot be embedded."));
+        })
+        .catch(() => {
+          if (!cancelled) setError(t("suno.requestFailed", "Could not reach the server."));
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    fetch(`/api/soundcloud/resolve?url=${encodeURIComponent(rawUrl.trim())}`)
       .then(async (r) => {
-        const j = (await r.json()) as { songUuid?: string; message?: string };
+        const j = (await r.json()) as { permalink?: string; message?: string };
         if (cancelled) return;
-        if (!r.ok || !j.songUuid) {
+        if (!r.ok || !j.permalink) {
           setError(
             typeof j.message === "string"
               ? j.message
-              : t("suno.resolveFailed"),
+              : t(
+                  "soundcloud.resolveFailed",
+                  "Use a SoundCloud track link (Share → Copy link), not a profile or playlist-only URL.",
+                ),
           );
           return;
         }
-        const embed = buildSunoEmbedFromCanonicalUuid(j.songUuid, autoplay);
-        if (embed) setResolvedSunoSrc(embed);
-        else setError(t("suno.embedFailed"));
+        const embed = buildSoundCloudPlayerSrc(j.permalink, { autoplay, embedSeekSeconds });
+        if (embed) setResolvedSoundCloudSrc(embed);
+        else
+          setError(
+            t(
+              "soundcloud.embedFailed",
+              "This SoundCloud link cannot be played here.",
+            ),
+          );
       })
       .catch(() => {
-        if (!cancelled) setError(t("suno.requestFailed"));
+        if (!cancelled)
+          setError(t("soundcloud.requestFailed", "Could not reach the server."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -69,8 +119,8 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     return () => {
       cancelled = true;
     };
-  }, [rawUrl, syncSrc, autoplay, t]);
+  }, [rawUrl, syncSrc, autoplay, embedSeekSeconds, needsSunoResolve, needsSoundCloudResolve, t]);
 
-  const iframeSrc = resolvedSunoSrc ?? syncSrc;
+  const iframeSrc = resolvedSunoSrc ?? resolvedSoundCloudSrc ?? syncSrc;
   return { iframeSrc, loading, error };
 }

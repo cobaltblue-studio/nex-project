@@ -2,11 +2,18 @@
 
 export type StreamingSourceKind = "youtube" | "soundcloud" | "suno" | "vimeo" | "udio" | "other";
 
+import {
+  normalizeSoundCloudPermalink,
+  urlLooksLikeSoundCloudShare,
+} from "@shared/soundcloudPermalink";
+
+export { normalizeSoundCloudPermalink, urlLooksLikeSoundCloudShare };
+
 export function classifyStreamingSource(url: string | undefined | null): StreamingSourceKind {
   if (!url?.trim()) return "other";
   const u = url.trim();
   if (/youtu\.be|youtube\.com/i.test(u)) return "youtube";
-  if (/soundcloud\.com/i.test(u)) return "soundcloud";
+  if (urlLooksLikeSoundCloudShare(u)) return "soundcloud";
   if (urlLooksLikeSunoShare(u)) return "suno";
   if (/vimeo\.com/i.test(u)) return "vimeo";
   if (/udio\.com/i.test(u)) return "udio";
@@ -149,6 +156,22 @@ function withDeepLinkTime(url: string, seconds: number): string {
   return `${noHash}#t=${t}s`;
 }
 
+export function buildSoundCloudPlayerSrc(
+  rawUrl: string | undefined | null,
+  opts: { autoplay?: boolean; embedSeekSeconds?: number } = {},
+): string | null {
+  const permalink = normalizeSoundCloudPermalink(rawUrl);
+  if (!permalink) return null;
+  const autoplay = !!opts.autoplay;
+  const seekSec =
+    typeof opts.embedSeekSeconds === "number" && opts.embedSeekSeconds > 0
+      ? opts.embedSeekSeconds
+      : 0;
+  const ap = autoplay ? "1" : "0";
+  const timedUrl = seekSec > 0 ? withDeepLinkTime(permalink, seekSec) : permalink;
+  return `https://w.soundcloud.com/player/?url=${encodeURIComponent(timedUrl)}&color=%2300f0ff&auto_play=${ap}&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=true`;
+}
+
 export function buildStreamingIframeSrc(
   rawUrl: string | undefined | null,
   opts: { autoplay?: boolean; enableJsApi?: boolean; embedSeekSeconds?: number } = {},
@@ -186,10 +209,8 @@ export function buildStreamingIframeSrc(
   if (sunoSrc) return sunoSrc;
   if (urlLooksLikeSunoShare(url)) return null;
 
-  if (/soundcloud\.com/i.test(url) && !/w\.soundcloud\.com/i.test(url)) {
-    const ap = autoplay ? "1" : "0";
-    const timedUrl = seekSec > 0 ? withDeepLinkTime(url, seekSec) : url;
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(timedUrl)}&color=%2300f0ff&auto_play=${ap}&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=true`;
+  if (urlLooksLikeSoundCloudShare(url)) {
+    return buildSoundCloudPlayerSrc(url, { autoplay, embedSeekSeconds: seekSec });
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);

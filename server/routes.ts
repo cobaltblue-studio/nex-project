@@ -30,6 +30,7 @@ import {
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
 import { resolveSunoShareToSongUuid } from "./suno-resolve";
+import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 
@@ -519,6 +520,38 @@ export async function registerRoutes(
     if (!url) return res.status(400).json({ message: apiMsg("url 쿼리 파라미터가 필요합니다", "url query parameter is required") });
     const exists = await storage.trackUrlExists(url);
     res.json({ exists });
+  });
+
+  /** SoundCloud short links + profile/widget URLs → track permalink for w.soundcloud.com/player. */
+  app.get("/api/soundcloud/resolve", async (req, res) => {
+    const url = typeof req.query.url === "string" ? req.query.url.trim() : "";
+    if (!url) {
+      return res.status(400).json({
+        permalink: null,
+        message: apiMsg("url 쿼리가 필요합니다", "url query parameter is required"),
+      });
+    }
+    try {
+      const permalink = await resolveSoundCloudShareToPermalink(url);
+      if (!permalink) {
+        return res.status(422).json({
+          permalink: null,
+          message: apiMsg(
+            "SoundCloud 곡(트랙) 공유 링크가 필요합니다. 프로필·홈만 있는 주소는 재생할 수 없습니다. SoundCloud에서 Share → Copy link로 받은 트랙 URL을 넣어 주세요.",
+            "Need a SoundCloud track share link (Share → Copy link on the track page), not a profile-only URL.",
+          ),
+        });
+      }
+      res.json({ permalink });
+    } catch {
+      res.status(500).json({
+        permalink: null,
+        message: apiMsg(
+          "SoundCloud 링크 확인 중 서버 오류가 났습니다",
+          "Server error while resolving SoundCloud link",
+        ),
+      });
+    }
   });
 
   /** Suno /s/short links redirect to /song/{uuid}; embed player only accepts the UUID form. */

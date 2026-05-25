@@ -42,7 +42,7 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
     if (/^\/api\/profiles\/\d+\/tracks$/.test(p)) return true;
     if (/^\/api\/tracks\/\d+$/.test(p)) return true;
     if (/^\/api\/tracks\/\d+\/comments$/.test(p)) return true;
-    if (p === "/api/suno/resolve") return true;
+    if (p === "/api/suno/resolve" || p === "/api/soundcloud/resolve") return true;
     return false;
   }
 
