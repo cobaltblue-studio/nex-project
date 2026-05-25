@@ -6,11 +6,22 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const SVG_DIST = path.join(ROOT, "client", "dist", "favicon.svg");
 const SVG_PUBLIC = path.join(ROOT, "client", "public", "favicon.svg");
 
-/** Legacy Replit default favicon is ~217–350 bytes; NEX raster icons are larger. */
+const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+function pngIsNexFavicon(buf: Buffer): boolean {
+  if (buf.length < 24 || !buf.subarray(0, 8).equals(PNG_SIG)) return false;
+  if (buf.toString("ascii", 12, 16) !== "IHDR") return false;
+  const w = buf.readUInt32BE(16);
+  const h = buf.readUInt32BE(20);
+  return w === 48 && h === 48;
+}
+
+/** Replit default favicon is a small PNG that is not our 48×48 NEX disc. */
 export function isLegacyReplitFavicon(filePath: string): boolean {
   try {
     if (!fs.existsSync(filePath)) return false;
-    return fs.statSync(filePath).size < 512;
+    const buf = fs.readFileSync(filePath);
+    return !pngIsNexFavicon(buf);
   } catch {
     return false;
   }
