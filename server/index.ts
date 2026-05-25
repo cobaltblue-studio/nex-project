@@ -2,11 +2,15 @@ import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { apiMsg } from "./api-i18n";
 import { canonicalHostRedirect } from "./canonicalHost";
+import { registerNexFaviconRoutes } from "./favicon";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
+
+/** Must run before static — blocks legacy Replit /favicon.ico in dist. */
+registerNexFaviconRoutes(app);
 
 /** Railway default host → nexmusic.ai (see server/canonicalHost.ts). */
 app.use(canonicalHostRedirect);

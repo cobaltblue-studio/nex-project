@@ -1,5 +1,10 @@
 node_modules
 dist
+# Generated at build — never commit legacy Replit blobs
+client/public/favicon.ico
+client/public/favicon.png
+client/public/favicon-192.png
+client/public/apple-touch-icon.png
 .env
 .env.*.local
 .DS_Store

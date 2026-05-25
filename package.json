@@ -10,7 +10,7 @@
     "server": "PORT=5001 tsx server/index.ts",
     "server:api": "PORT=5002 tsx server/index.ts",
     "favicons:generate": "node scripts/generate-favicons.mjs",
-    "build": "npm run favicons:generate && vite build",
+    "build": "npm run favicons:generate && node scripts/verify-favicon.mjs && vite build",
     "start": "NODE_ENV=production tsx server/index.ts",
     "preview": "vite preview",
     "check": "tsc",

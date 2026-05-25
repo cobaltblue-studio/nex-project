@@ -18,6 +18,10 @@ if (!src || !fs.existsSync(src)) {
 }
 
 const buf = fs.readFileSync(src);
+if (buf.length < 512) {
+  console.error("Source image looks like the legacy Replit favicon (<512 bytes). Use your NEX logo PNG.");
+  process.exit(1);
+}
 for (const name of ["favicon.png", "favicon-192.png", "apple-touch-icon.png", "favicon.ico"]) {
   fs.writeFileSync(path.join(publicDir, name), buf);
   console.log("wrote", name);
