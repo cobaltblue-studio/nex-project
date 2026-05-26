@@ -64,6 +64,12 @@
     "linkOk": "Link format looks playable.",
     "validationIntent": "To maintain NEX quality, artistic intent must be at least {{min}} characters.",
     "duplicateUrl": "A track with this URL has already been submitted.",
+    "activeTrackLimitNote": "Up to 2 active tracks per creator (includes pending review and battle pool).",
+    "limitGuardianEyebrow": "NEX Guardian",
+    "limitGuardianTitle": "You can submit at most 2 tracks",
+    "limitGuardianBody": "Good luck out there. Archive an active track first, then submit again after the rotation cooldown.",
+    "limitGuardianHint": "To upload again, archive a track from My Tracks, then wait for the rotation cooldown (24 hours).",
+    "limitGuardianDismiss": "Got it",
     "submitError": "Submission failed. Try again.",
     "aiPromptPlaceholder": "Describe the musical philosophy and core prompts for this track. Minimum {{min}} characters. Low-effort text may be rejected under NEX policy."
   },

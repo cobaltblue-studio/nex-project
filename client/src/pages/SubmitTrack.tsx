@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -15,6 +14,7 @@ import {
 } from "@shared/constants";
 import { cn } from "@/lib/utils";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
+import { TrackLimitGuardianModal } from "@/components/TrackLimitGuardianModal";
 import {
   Send,
   CheckCircle,
@@ -139,6 +139,7 @@ function SubmitTrackForm() {
   const [submittedTrackType, setSubmittedTrackType] = useState<string>("audio");
 
   const [duplicateUrl, setDuplicateUrl] = useState(false);
+  const [showTrackLimitGuardian, setShowTrackLimitGuardian] = useState(false);
 
   const maySubmit = isAuthenticated;
 
@@ -215,16 +216,42 @@ function SubmitTrackForm() {
   }, [watchedLink, checkDuplicateUrl]);
 
   const mutation = useMutation({
-    mutationFn: (data: FormData) =>
-      apiRequest("POST", "/api/tracks", {
-        ...data,
-        aiPrompt: data.aiPrompt.trim(),
-      }).then((r) => r.json()),
+    mutationFn: async (data: FormData) => {
+      const res = await fetch("/api/tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...data, aiPrompt: data.aiPrompt.trim() }),
+      });
+      const text = await res.text();
+      let body: { message?: string; code?: string; trackId?: number; trackType?: string } = {};
+      try {
+        body = JSON.parse(text) as typeof body;
+      } catch {
+        /* not JSON */
+      }
+      if (!res.ok) {
+        const err = new Error(
+          typeof body.message === "string" && body.message.trim()
+            ? body.message.trim()
+            : text.trim() || res.statusText,
+        ) as Error & { status?: number; code?: string };
+        err.status = res.status;
+        err.code = body.code;
+        throw err;
+      }
+      return body;
+    },
     onSuccess: (data) => {
-      setTrackId(data.trackId);
+      setTrackId(data.trackId ?? null);
       setSubmittedTrackType(data.trackType || "audio");
       setSubmitted(true);
       console.info("Success: track submission saved", data);
+    },
+    onError: (err: Error & { status?: number; code?: string }) => {
+      if (err.code === "ACTIVE_TRACK_LIMIT" || err.status === 409 && err.code === "ACTIVE_TRACK_LIMIT") {
+        setShowTrackLimitGuardian(true);
+      }
     },
   });
 
@@ -267,6 +294,10 @@ function SubmitTrackForm() {
 
   return (
     <div className="max-w-3xl mx-auto submit-track-form">
+      <TrackLimitGuardianModal
+        open={showTrackLimitGuardian}
+        onClose={() => setShowTrackLimitGuardian(false)}
+      />
       {/* Header */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
@@ -283,6 +314,9 @@ function SubmitTrackForm() {
         </p>
         <p className="text-[11px] text-zinc-500 mt-3 leading-relaxed normal-case">
           {t("submitTrack.adminBlurb")}
+        </p>
+        <p className="text-[11px] text-primary/70 mt-2 leading-relaxed normal-case">
+          {t("submitTrack.activeTrackLimitNote")}
         </p>
         {showListenerSubmitNotice ? (
           <p
@@ -686,16 +720,19 @@ function SubmitTrackForm() {
                 )}
               </div>
 
-              {mutation.isError && (
+              {mutation.isError && !showTrackLimitGuardian && (
                 <p
                   className="text-[10px] text-red-400 text-center normal-case tracking-wide leading-relaxed px-1"
                   data-testid="text-submit-error"
                 >
-                  {mutation.error instanceof Error && mutation.error.message.includes("409")
-                    ? t("submitTrack.duplicateUrl")
-                    : mutation.error instanceof Error
-                      ? mutation.error.message.replace(/^\d{3}:\s*/, "")
-                      : t("submitTrack.submitError")}
+                  {(() => {
+                    const err = mutation.error as Error & { code?: string };
+                    if (err?.code === "DUPLICATE_TRACK_URL") return t("submitTrack.duplicateUrl");
+                    if (err?.code === "ACTIVE_TRACK_LIMIT") return null;
+                    return err instanceof Error
+                      ? err.message.replace(/^\d{3}:\s*/, "")
+                      : t("submitTrack.submitError");
+                  })()}
                 </p>
               )}
 

@@ -64,6 +64,12 @@
     "linkOk": "링크 재생 가능한 형식입니다 (Link format looks playable)",
     "validationIntent": "NEX의 퀄리티 유지를 위해 창작 의도는 최소 {{min}}자 이상이어야 합니다.",
     "duplicateUrl": "이 URL의 트랙이 이미 제출되어 있습니다.",
+    "activeTrackLimitNote": "활성 곡은 크리에이터당 최대 2곡까지입니다 (승인 대기·배틀 풀 포함).",
+    "limitGuardianEyebrow": "NEX 가디언",
+    "limitGuardianTitle": "1인당 최대 제출곡은 2곡입니다",
+    "limitGuardianBody": "건투를 빕니다. 지금 올라간 곡을 아카이브한 뒤, 교체 쿨다운이 지나면 새 곡을 제출할 수 있어요.",
+    "limitGuardianHint": "새 곡을 올리려면 My Tracks에서 기존 곡을 아카이브한 뒤, 교체 쿨다운(24시간)이 지나야 합니다.",
+    "limitGuardianDismiss": "알겠어요",
     "submitError": "제출에 실패했습니다. 다시 시도해 주세요.",
     "aiPromptPlaceholder": "이 곡의 음악적 철학과 핵심 프롬프트를 상세히 적어주세요. 최소 {{min}}자 이상 필수. 성의 없는 설명은 승인이 거절될 수 있습니다."
   },

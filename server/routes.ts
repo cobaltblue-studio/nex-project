@@ -173,9 +173,10 @@ async function assertCreatorCanPublishAnotherTrack(req: any, res: any, creatorPr
   const activeCount = activeCountRow?.n ?? 0;
   if (activeCount >= MAX_ACTIVE_TRACKS_PER_CREATOR) {
     res.status(409).json({
+      code: "ACTIVE_TRACK_LIMIT",
       message: apiMsg(
-        `활성 트랙은 최대 ${MAX_ACTIVE_TRACKS_PER_CREATOR}개입니다. 새로 올리려면 하나를 아카이브하세요`,
-        `Active track limit reached (${MAX_ACTIVE_TRACKS_PER_CREATOR}). Archive one track before uploading a new one.`,
+        "1인당 최대 제출곡은 2곡입니다. 건투를 빕니다",
+        "You can have at most 2 active tracks. Good luck out there!",
       ),
     });
     return false;
@@ -621,7 +622,8 @@ export async function registerRoutes(
       });
       return;
     }
-    if (!(await isAdmin(req)) && p.role === "creator") {
+    // Active-track cap applies to every non-admin submitter (listener pre-approval and creator alike).
+    if (!(await isAdmin(req))) {
       if (!(await assertCreatorCanPublishAnotherTrack(req, res, p.id))) return;
     }
 
@@ -714,6 +716,7 @@ export async function registerRoutes(
     const duplicate = await storage.trackUrlExists(normalizedTrackLink);
     if (duplicate) {
       res.status(409).json({
+        code: "DUPLICATE_TRACK_URL",
         message: apiMsg("이 URL로 이미 제출된 트랙이 있습니다", "A track with this URL has already been submitted"),
       });
       return;
