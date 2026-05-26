@@ -1696,8 +1696,8 @@ export async function registerRoutes(
     if (!battle) {
       return res.status(409).json({
         message: apiMsg(
-          "직전 배틀 곡을 제외하면 매칭할 트랙이 부족합니다. 다른 장르를 시도하거나 내일 다시 시도해 주세요",
-          "Not enough tracks for a new match-up after excluding your previous battle. Try another genre or come back tomorrow.",
+          "오늘 이미 들은 곡을 제외하면 매칭할 트랙이 부족합니다. 다른 장르를 시도하거나 내일 다시 시도해 주세요",
+          "Not enough tracks for a new match-up after excluding songs you already heard today. Try another genre or come back tomorrow.",
         ),
       });
     }

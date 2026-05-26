@@ -1635,17 +1635,62 @@ export class DatabaseStorage implements IStorage {
     return out;
   }
 
-  /** Track ids from the listener's most recent completed battle vote (same UTC day chain). */
-  async getImmediatePriorBattleTrackIds(userId: string): Promise<number[]> {
-    const [row] = await db
+  /**
+   * Tracks this listener already faced today (UTC): every battle they voted in
+   * plus the latest battle they fully previewed (both sides listened), even if they skipped vote.
+   */
+  async getUserTodaysBattleExcludeTrackIds(userId: string): Promise<number[]> {
+    const now = new Date();
+    const startOfDayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const exclude = new Set<number>();
+
+    const votedRows = await db
       .select({ trackAId: battles.trackAId, trackBId: battles.trackBId })
       .from(battleVotes)
       .innerJoin(battles, eq(battleVotes.battleId, battles.id))
-      .where(eq(battleVotes.userId, userId))
-      .orderBy(desc(battleVotes.votedAt))
-      .limit(1);
-    if (!row) return [];
-    return [row.trackAId, row.trackBId];
+      .where(and(eq(battleVotes.userId, userId), gte(battleVotes.votedAt, startOfDayUTC)));
+    for (const row of votedRows) {
+      exclude.add(row.trackAId);
+      exclude.add(row.trackBId);
+    }
+
+    const listenedRows = await db
+      .select({
+        battleId: battleListenCompletions.battleId,
+        trackId: battleListenCompletions.trackId,
+      })
+      .from(battleListenCompletions)
+      .where(
+        and(
+          eq(battleListenCompletions.userId, userId),
+          gte(battleListenCompletions.completedAt, startOfDayUTC),
+        ),
+      );
+    const listenCountByBattle = new Map<number, Set<number>>();
+    for (const row of listenedRows) {
+      const set = listenCountByBattle.get(row.battleId) ?? new Set<number>();
+      set.add(row.trackId);
+      listenCountByBattle.set(row.battleId, set);
+    }
+    let latestFullListenBattleId: number | null = null;
+    for (const [battleId, heard] of listenCountByBattle) {
+      if (heard.size < 2) continue;
+      if (latestFullListenBattleId == null || battleId > latestFullListenBattleId) {
+        latestFullListenBattleId = battleId;
+      }
+    }
+    if (latestFullListenBattleId != null) {
+      const [b] = await db
+        .select({ trackAId: battles.trackAId, trackBId: battles.trackBId })
+        .from(battles)
+        .where(eq(battles.id, latestFullListenBattleId));
+      if (b) {
+        exclude.add(b.trackAId);
+        exclude.add(b.trackBId);
+      }
+    }
+
+    return [...exclude];
   }
 
   async createBattle(
@@ -1669,12 +1714,12 @@ export class DatabaseStorage implements IStorage {
     if (pool.length < 2) return null;
 
     if (requesterUserId) {
-      const priorIds = await this.getImmediatePriorBattleTrackIds(requesterUserId);
-      if (priorIds.length > 0) {
-        const exclude = new Set(priorIds);
-        const withoutPrior = pool.filter((t) => !exclude.has(t.id));
-        if (withoutPrior.length < 2) return null;
-        pool = withoutPrior;
+      const sessionExcludeIds = await this.getUserTodaysBattleExcludeTrackIds(requesterUserId);
+      if (sessionExcludeIds.length > 0) {
+        const exclude = new Set(sessionExcludeIds);
+        const withoutSession = pool.filter((t) => !exclude.has(t.id));
+        if (withoutSession.length < 2) return null;
+        pool = withoutSession;
       }
     }
 
