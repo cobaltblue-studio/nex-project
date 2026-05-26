@@ -1684,13 +1684,17 @@ export async function registerRoutes(
       }
     }
 
-    const requesterProfile = await storage.getProfileByUserId(getUserId(req));
-    const battle = await storage.createBattle(String(genre), requesterProfile?.id ?? null);
+    const userId = getUserId(req);
+    const requesterProfile = await storage.getProfileByUserId(userId);
+    const battle = await storage.createBattle(String(genre), {
+      profileId: requesterProfile?.id ?? null,
+      userId,
+    });
     if (!battle) {
       return res.status(409).json({
         message: apiMsg(
-          "이 장르로 진행할 오디오 트랙이 부족합니다",
-          "Not enough audio tracks in this genre for a battle",
+          "직전 배틀 곡을 제외하면 매칭할 트랙이 부족합니다. 다른 장르를 시도하거나 내일 다시 시도해 주세요",
+          "Not enough tracks for a new match-up after excluding your previous battle. Try another genre or come back tomorrow.",
         ),
       });
     }

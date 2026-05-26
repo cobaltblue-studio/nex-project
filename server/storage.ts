@@ -267,7 +267,10 @@ export interface IStorage {
   isFollowing(followerId: string, creatorProfileId: number): Promise<boolean>;
   getFollowerCount(creatorProfileId: number): Promise<number>;
   getAvailableBattleGenres(): Promise<string[]>;
-  createBattle(genre: string, requesterProfileId?: number | null): Promise<any | null>;
+  createBattle(
+    genre: string,
+    requester?: { profileId?: number | null; userId?: string | null },
+  ): Promise<any | null>;
   getBattle(id: number): Promise<any | null>;
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
   /** Idempotent: records that `userId` finished the battle preview for `trackId` (must be track A or B). */
@@ -1632,7 +1635,25 @@ export class DatabaseStorage implements IStorage {
     return out;
   }
 
-  async createBattle(genre: string, requesterProfileId?: number | null): Promise<any | null> {
+  /** Track ids from the listener's most recent completed battle vote (same UTC day chain). */
+  async getImmediatePriorBattleTrackIds(userId: string): Promise<number[]> {
+    const [row] = await db
+      .select({ trackAId: battles.trackAId, trackBId: battles.trackBId })
+      .from(battleVotes)
+      .innerJoin(battles, eq(battleVotes.battleId, battles.id))
+      .where(eq(battleVotes.userId, userId))
+      .orderBy(desc(battleVotes.votedAt))
+      .limit(1);
+    if (!row) return [];
+    return [row.trackAId, row.trackBId];
+  }
+
+  async createBattle(
+    genre: string,
+    requester?: { profileId?: number | null; userId?: string | null },
+  ): Promise<any | null> {
+    const requesterProfileId = requester?.profileId ?? null;
+    const requesterUserId = requester?.userId?.trim() || null;
     const eligibleSql = battleEligibleTracksFilter();
 
     let pool = await db.select().from(tracks).where(
@@ -1646,6 +1667,16 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (pool.length < 2) return null;
+
+    if (requesterUserId) {
+      const priorIds = await this.getImmediatePriorBattleTrackIds(requesterUserId);
+      if (priorIds.length > 0) {
+        const exclude = new Set(priorIds);
+        const withoutPrior = pool.filter((t) => !exclude.has(t.id));
+        if (withoutPrior.length < 2) return null;
+        pool = withoutPrior;
+      }
+    }
 
     const recentBattleRows = await db
       .select({ trackAId: battles.trackAId, trackBId: battles.trackBId })
