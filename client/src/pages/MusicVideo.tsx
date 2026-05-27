@@ -36,7 +36,7 @@ export function MusicVideo() {
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading, isError } = useQuery<MVTrack[]>({
-    queryKey: ["/api/tracks", "v3", "rankingScore", "video", search ? "search-all-active" : "status-MV", search],
+    queryKey: ["/api/tracks", "v4", "rankingScore", "video", search ? "search-all-active" : "status-MV-inclusive", search],
     staleTime: 60_000,
     queryFn: async () => {
       const params = new URLSearchParams({

@@ -900,7 +900,14 @@ export class DatabaseStorage implements IStorage {
       .$dynamic();
     const filters = [];
     if (status) {
-      filters.push(eq(tracks.status, status));
+      // MV chart: include legacy CHART/BATTLE_POOL video rows until admin re-labels them as MV
+      if (status === "MV") {
+        filters.push(
+          sql`${tracks.status} IN ('MV', 'CHART', 'BATTLE_POOL', 'PUBLISHED', 'APPROVED')`,
+        );
+      } else {
+        filters.push(eq(tracks.status, status));
+      }
     } else {
       // Default: show battle/chart eligible tracks (includes auto-approved submissions)
       filters.push(sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`);

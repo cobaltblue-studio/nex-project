@@ -19,6 +19,7 @@ type Submission = {
   genre: string;
   trackLink: string;
   portfolioLink?: string | null;
+  trackType?: "audio" | "video";
   status: "PENDING" | "SUBMITTED" | "BATTLE_POOL" | "REJECTED" | "CHART" | "MV";
   createdAt: string;
 };
@@ -84,6 +85,7 @@ const STATUS_COLORS: Record<string, string> = {
   BATTLE_POOL: "text-primary   bg-primary/10   border-primary/30",
   REJECTED:    "text-red-400   bg-red-400/10   border-red-400/30",
   CHART:       "text-purple-400 bg-purple-400/10 border-purple-400/30",
+  MV:          "text-cyan-300 bg-cyan-300/10 border-cyan-300/30",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -526,6 +528,16 @@ export default function AdminPanel() {
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-[9px] text-zinc-700 hidden sm:block">{fmt(track.createdAt)}</span>
                     <StatusBadge status={track.status} />
+                    {track.trackType === "video" && track.status !== "MV" && (
+                      <button
+                        onClick={() => reviewMutation.mutate({ id: track.id, status: "MV" })}
+                        disabled={reviewMutation.isPending}
+                        title="Move to MV chart"
+                        className="text-[9px] font-black uppercase tracking-widest text-primary border border-primary/30 bg-primary/10 hover:bg-primary/25 px-2 py-1 rounded-sm transition-all disabled:opacity-40"
+                      >
+                        → MV
+                      </button>
+                    )}
                     <a href={track.trackLink} target="_blank" rel="noopener noreferrer" className="text-zinc-600 hover:text-primary transition-colors">
                       <ExternalLink className="w-3 h-3" />
                     </a>

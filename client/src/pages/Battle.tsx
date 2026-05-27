@@ -27,6 +27,10 @@ import {
   randomMiddlePreviewStart,
 } from "@/components/YoutubePlayer";
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
+import {
+  prefetchPlayableStreamingEmbed,
+  warmStreamingEmbedOrigins,
+} from "@/lib/prefetchStreamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { ShareButtons } from "@/components/ShareButtons";
@@ -232,26 +236,49 @@ function BattleTrackPlayer({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [iframeGuessSeek, setIframeGuessSeek] = useState(0);
+  const [previewBarActive, setPreviewBarActive] = useState(false);
 
-  useEffect(() => {
-    if (!autoplay) return;
+  const clearPreviewTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
+  const armPreviewEndTimer = useCallback(() => {
+    clearPreviewTimer();
+    setPreviewBarActive(true);
     timerRef.current = setTimeout(() => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
       if (onEnded) onEnded();
     }, PREVIEW_DURATION * 1000);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [autoplay, onEnded]);
+  }, [clearPreviewTimer, onEnded]);
 
   const rawUrl = track.musicVideoUrl || track.audioUrl;
   const ytId = extractYoutubeId(rawUrl);
   const isDirectAudio = isDirectAudioUrl(rawUrl, ytId);
   const iframeKind = rawUrl && !ytId ? classifyStreamingSource(rawUrl) : "other";
+
+  useEffect(() => {
+    if (!autoplay) {
+      clearPreviewTimer();
+      setPreviewBarActive(false);
+      return;
+    }
+    // YouTube: YoutubePlayer arms its own 20s clock after seek+play. Suno/SC: iframe onLoad.
+    if (ytId) {
+      setPreviewBarActive(true);
+      return;
+    }
+    if (!isDirectAudio && rawUrl) {
+      setPreviewBarActive(false);
+      return;
+    }
+    armPreviewEndTimer();
+    return clearPreviewTimer;
+  }, [autoplay, ytId, isDirectAudio, rawUrl, armPreviewEndTimer, clearPreviewTimer]);
 
   useEffect(() => {
     if (!autoplay || ytId || isDirectAudio || !rawUrl) {
@@ -331,6 +358,9 @@ function BattleTrackPlayer({
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   allowFullScreen
                   title={track.title}
+                  onLoad={() => {
+                    if (autoplay) armPreviewEndTimer();
+                  }}
                   {...(iframeKind === "suno"
                     ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
                     : {})}
@@ -360,7 +390,7 @@ function BattleTrackPlayer({
           </div>
         ) : null}
       </div>
-      <PreviewProgressBar active={autoplay} />
+      <PreviewProgressBar active={ytId ? autoplay : previewBarActive} />
     </div>
   );
 }
@@ -439,6 +469,10 @@ export function Battle() {
       apiRequest("POST", "/api/battles/new", { genre }),
     onSuccess: async (res: any) => {
       const data = await res.json();
+      for (const t of [data.trackA, data.trackB]) {
+        const raw = t?.musicVideoUrl || t?.audioUrl;
+        if (raw) prefetchPlayableStreamingEmbed(raw);
+      }
       setBattle(data);
       setListenReplayA(0);
       setListenReplayB(0);
@@ -640,6 +674,7 @@ export function Battle() {
 
   useEffect(() => {
     warmYoutubeIframeApi();
+    warmStreamingEmbedOrigins();
   }, []);
 
   useEffect(() => {
@@ -666,6 +701,14 @@ export function Battle() {
 
   useEffect(() => {
     if (!battle) return;
+    for (const t of [battle.trackA, battle.trackB]) {
+      const raw = t.musicVideoUrl || t.audioUrl;
+      if (!raw) continue;
+      const yid = extractYoutubeId(raw);
+      if (!yid && !isDirectAudioUrl(raw, yid)) {
+        prefetchPlayableStreamingEmbed(raw);
+      }
+    }
     const urls: string[] = [];
     for (const t of [battle.trackA, battle.trackB]) {
       const raw = t.musicVideoUrl || t.audioUrl;
