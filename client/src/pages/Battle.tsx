@@ -34,6 +34,7 @@ import {
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { ShareButtons } from "@/components/ShareButtons";
+import { BattleStoryCardButton } from "@/components/BattleStoryCardButton";
 import { trackShareUrl } from "@/lib/siteUrl";
 import { useTranslation } from "react-i18next";
 import { hasPublicCount } from "@/lib/displayStats";
@@ -1227,6 +1228,17 @@ export function Battle() {
 
             {winnerTrack && (
               <div className="pt-2">
+                <div className="mb-2">
+                  <BattleStoryCardButton
+                    battleGenre={selectedGenre || "ALL"}
+                    winnerTitle={winnerTrack.title}
+                    winnerCreator={winnerTrack.creatorName}
+                    trackATitle={battle.trackA.title}
+                    trackBTitle={battle.trackB.title}
+                    pctA={pctA}
+                    pctB={pctB}
+                  />
+                </div>
                 <ShareButtons
                   url={trackShareUrl(winnerTrack.id)}
                   text={t("battle.shareResultText", {
