@@ -1882,12 +1882,12 @@ export async function registerRoutes(
     if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
 
     const { status } = req.body;
-    const validStatuses = ["BATTLE_POOL", "REJECTED", "PUBLISHED"];
+    const validStatuses = ["BATTLE_POOL", "REJECTED", "PUBLISHED", "MV"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: apiMsg(
-          "유효하지 않은 상태입니다. BATTLE_POOL, REJECTED, PUBLISHED 중 하나여야 합니다",
-          "Invalid status. Must be BATTLE_POOL, REJECTED, or PUBLISHED",
+          "유효하지 않은 상태입니다. BATTLE_POOL, REJECTED, PUBLISHED, MV 중 하나여야 합니다",
+          "Invalid status. Must be BATTLE_POOL, REJECTED, PUBLISHED, or MV",
         ),
       });
     }
@@ -1897,7 +1897,7 @@ export async function registerRoutes(
       status,
       req.body.aiCraftScore,
     );
-    if (status === "BATTLE_POOL" || status === "PUBLISHED") {
+    if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
       const reviewedTrack = await storage.getTrack(Number(req.params.id));
       const profileId = reviewedTrack?.creatorId;
       if (profileId) {

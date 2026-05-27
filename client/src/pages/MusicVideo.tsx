@@ -36,7 +36,7 @@ export function MusicVideo() {
   const [search, setSearch] = useState("");
 
   const { data: tracks, isLoading, isError } = useQuery<MVTrack[]>({
-    queryKey: ["/api/tracks", "v3", "rankingScore", "video", search ? "search-all-active" : "status-CHART", search],
+    queryKey: ["/api/tracks", "v3", "rankingScore", "video", search ? "search-all-active" : "status-MV", search],
     staleTime: 60_000,
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -45,7 +45,7 @@ export function MusicVideo() {
         limit: "100",
       });
       const q = search.trim();
-      if (!q) params.set("status", "CHART");
+      if (!q) params.set("status", "MV");
       if (q) params.set("q", q);
       const res = await fetch(`/api/tracks?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch tracks");

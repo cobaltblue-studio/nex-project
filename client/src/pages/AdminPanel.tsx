@@ -479,7 +479,12 @@ export default function AdminPanel() {
                   <div className="flex items-center gap-2 shrink-0">
                     <StatusBadge status={track.status} />
                     <button
-                      onClick={() => reviewMutation.mutate({ id: track.id, status: "BATTLE_POOL" })}
+                      onClick={() =>
+                        reviewMutation.mutate({
+                          id: track.id,
+                          status: track.trackType === "video" ? "MV" : "BATTLE_POOL",
+                        })
+                      }
                       disabled={reviewMutation.isPending}
                       data-testid={`button-approve-${track.id}`}
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
