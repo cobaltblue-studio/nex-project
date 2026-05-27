@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getCachedEmbedSrc } from "@/lib/prefetchStreamingEmbed";
 import {
   buildSoundCloudPlayerSrc,
   buildStreamingIframeSrc,
@@ -27,8 +28,19 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     [rawUrl, autoplay, enableJsApi, embedSeekSeconds],
   );
 
-  const [resolvedSunoSrc, setResolvedSunoSrc] = useState<string | null>(null);
-  const [resolvedSoundCloudSrc, setResolvedSoundCloudSrc] = useState<string | null>(null);
+  const cachedSrc = useMemo(
+    () => (rawUrl?.trim() ? getCachedEmbedSrc(rawUrl) : undefined),
+    [rawUrl],
+  );
+
+  const [resolvedSunoSrc, setResolvedSunoSrc] = useState<string | null>(() => {
+    if (!cachedSrc?.includes("suno.com/embed")) return null;
+    return cachedSrc;
+  });
+  const [resolvedSoundCloudSrc, setResolvedSoundCloudSrc] = useState<string | null>(() => {
+    if (!cachedSrc?.includes("w.soundcloud.com/player")) return null;
+    return cachedSrc;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +56,10 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     setResolvedSoundCloudSrc(null);
     setError(null);
     if (!rawUrl?.trim()) {
+      setLoading(false);
+      return;
+    }
+    if (cachedSrc) {
       setLoading(false);
       return;
     }
@@ -119,8 +135,18 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     return () => {
       cancelled = true;
     };
-  }, [rawUrl, syncSrc, autoplay, embedSeekSeconds, needsSunoResolve, needsSoundCloudResolve, t]);
+  }, [rawUrl, syncSrc, cachedSrc, autoplay, embedSeekSeconds, needsSunoResolve, needsSoundCloudResolve, t]);
 
-  const iframeSrc = resolvedSunoSrc ?? resolvedSoundCloudSrc ?? syncSrc;
-  return { iframeSrc, loading, error };
+  const iframeSrc = useMemo(() => {
+    const base = resolvedSunoSrc ?? resolvedSoundCloudSrc ?? syncSrc ?? cachedSrc ?? null;
+    if (!base || !autoplay) return base;
+    const sunoUuid = base.match(/suno\.com\/embed\/([0-9a-f-]{36})/i)?.[1];
+    if (sunoUuid) return buildSunoEmbedFromCanonicalUuid(sunoUuid, true);
+    if (base.includes("w.soundcloud.com/player")) {
+      return base.replace(/auto_play=0/, "auto_play=1");
+    }
+    return base;
+  }, [resolvedSunoSrc, resolvedSoundCloudSrc, syncSrc, cachedSrc, autoplay]);
+
+  return { iframeSrc, loading: loading && !iframeSrc, error };
 }

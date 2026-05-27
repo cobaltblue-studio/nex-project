@@ -16,8 +16,6 @@ import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { publicAudioChartSearchParams } from "@shared/constants";
-import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
-import { useRecordLikeAfterListen } from "@/hooks/use-record-like-after-listen";
 
 type Track = {
   id: number;
@@ -91,9 +89,6 @@ export default function NexRadio() {
   }, [tracks, radioStarted]);
 
   const currentTrack = playlist[currentIndex] ?? null;
-  const radioEngagementActive = radioStarted && isAuthenticated && !!currentTrack?.id;
-  useRecordPlayAfterListen(currentTrack?.id, radioEngagementActive);
-  useRecordLikeAfterListen(currentTrack?.id, radioEngagementActive);
 
   const musicChartRank = currentTrack
     ? tracks.findIndex((t) => t.id === currentTrack.id) + 1

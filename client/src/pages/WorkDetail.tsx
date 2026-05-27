@@ -122,6 +122,12 @@ export function TrackDetail() {
     if (sortedTracks.length === 0 || rankIndex === -1) return null;
     return sortedTracks[(rankIndex + 1) % sortedTracks.length];
   }, [sortedTracks, rankIndex]);
+  const randomNextTrack = useMemo(() => {
+    const candidates = sortedTracks.filter((t) => t?.id != null && t.id !== currentTrackId);
+    if (candidates.length === 0) return null;
+    const idx = Math.floor(Math.random() * candidates.length);
+    return candidates[idx] ?? null;
+  }, [sortedTracks, currentTrackId]);
 
   const prevTrack = useMemo(() => {
     if (sortedTracks.length === 0 || rankIndex === -1) return null;
@@ -137,6 +143,14 @@ export function TrackDetail() {
     setLocation(`/track/${nextTrack.id}`, { replace: false });
     setTimeout(() => setIsTransitioning(false), 400);
   }, [nextTrack, isTransitioning, setLocation]);
+  const goToRandomNext = useCallback(() => {
+    if (!randomNextTrack || isTransitioning) return;
+    setIsTransitioning(true);
+    playerKey.current += 1;
+    setCurrentTrackId(randomNextTrack.id);
+    setLocation(`/track/${randomNextTrack.id}`, { replace: false });
+    setTimeout(() => setIsTransitioning(false), 400);
+  }, [randomNextTrack, isTransitioning, setLocation]);
 
   const goToPrev = useCallback(() => {
     if (!prevTrack || isTransitioning) return;
@@ -156,8 +170,8 @@ export function TrackDetail() {
         // completion capture is best-effort
       }
     }
-    if (autoPlayNext) goToNext();
-  }, [autoPlayNext, currentTrackId, goToNext, isAuthenticated]);
+    if (autoPlayNext) goToRandomNext();
+  }, [autoPlayNext, currentTrackId, goToRandomNext, isAuthenticated]);
 
   const handleVote = async () => {
     if (!track || isVoting) return;
@@ -302,6 +316,20 @@ export function TrackDetail() {
   const audioYtId = extractYoutubeId(track?.audioUrl);
   const ytId = mvYtId || audioYtId;
   const isWidePlayer = !!(mvYtId || (track?.mvUrl?.trim() && !mvYtId));
+  useEffect(() => {
+    if (!autoPlayNext) return;
+    if (ytId) return;
+    if (!rawForStreaming) return;
+    if (!randomNextTrack) return;
+
+    // Third-party iframes (Suno/SoundCloud) do not emit reliable end events to us.
+    // Force random-next after a safe window to avoid looping one track for hours.
+    const NON_YT_AUTONEXT_MS = 205_000;
+    const id = window.setTimeout(() => {
+      goToRandomNext();
+    }, NON_YT_AUTONEXT_MS);
+    return () => window.clearTimeout(id);
+  }, [autoPlayNext, ytId, rawForStreaming, randomNextTrack, goToRandomNext]);
   const embedKind = classifyStreamingSource(rawForStreaming ?? undefined);
   const iframeFrameClass =
     embedKind === "soundcloud"
@@ -501,11 +529,15 @@ export function TrackDetail() {
               <button
                 onClick={() => setAutoPlayNext(v => !v)}
                 data-testid="button-autoplay-toggle"
-                title={autoPlayNext ? "Auto-play ON" : "Auto-play OFF"}
+                title={
+                  autoPlayNext
+                    ? "AUTO NEXT ON (YouTube: on end, Suno/SoundCloud: timed fail-safe)"
+                    : "Auto next OFF"
+                }
                 className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest transition-all ${autoPlayNext ? "text-primary" : "text-zinc-700 hover:text-zinc-500"}`}
               >
                 <Infinity className="w-3.5 h-3.5" />
-                <span className="hidden sm:block">{autoPlayNext ? "AUTO" : "MANUAL"}</span>
+                <span className="hidden sm:block">{autoPlayNext ? "AUTO NEXT" : "MANUAL"}</span>
               </button>
 
               {/* Prev / Next triangle buttons */}
