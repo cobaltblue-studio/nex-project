@@ -449,6 +449,7 @@ export async function registerRoutes(
     }
     const trackFilter = {
       status: requestedStatus,
+      mvChartListing: requestedStatus === "MV",
       featured: req.query.featured === "true",
       limit: req.query.limit ? Number(req.query.limit) : undefined,
       genre: (req.query.genre as string) || undefined,
@@ -1873,9 +1874,13 @@ export async function registerRoutes(
         }))
       );
     }
-    // Sort by createdAt desc
-    all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    res.json(all);
+    const byId = new Map<number, (typeof all)[number]>();
+    for (const row of all) {
+      if (!byId.has(row.id)) byId.set(row.id, row);
+    }
+    const deduped = [...byId.values()];
+    deduped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    res.json(deduped);
   });
 
   app.post(api.admin.review.path, isAuthenticated, async (req: any, res) => {

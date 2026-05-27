@@ -224,6 +224,8 @@ export interface IStorage {
   deactivateCreatorByUsername(username: string): Promise<{ ok: boolean; reason?: string; profileId?: number; archivedTrackCount?: number }>;
   getTracks(filter: {
     status?: string;
+    /** Public /music-video chart only — include legacy CHART/BATTLE_POOL video rows. */
+    mvChartListing?: boolean;
     featured?: boolean;
     limit?: number;
     genre?: string;
@@ -875,6 +877,7 @@ export class DatabaseStorage implements IStorage {
 
   async getTracks({
     status,
+    mvChartListing,
     featured,
     limit,
     genre,
@@ -884,6 +887,7 @@ export class DatabaseStorage implements IStorage {
     q: searchQuery,
   }: {
     status?: string;
+    mvChartListing?: boolean;
     featured?: boolean;
     limit?: number;
     genre?: string;
@@ -900,8 +904,7 @@ export class DatabaseStorage implements IStorage {
       .$dynamic();
     const filters = [];
     if (status) {
-      // MV chart: include legacy CHART/BATTLE_POOL video rows until admin re-labels them as MV
-      if (status === "MV") {
+      if (status === "MV" && mvChartListing) {
         filters.push(
           sql`${tracks.status} IN ('MV', 'CHART', 'BATTLE_POOL', 'PUBLISHED', 'APPROVED')`,
         );
