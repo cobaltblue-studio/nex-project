@@ -145,97 +145,102 @@ export function MusicVideo() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {slots.map(({ rank, track }) => (
             <div key={track.id}>
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(rank * 0.02, 1) }}
-                  className="flex items-center gap-4 p-4 border border-white/5 rounded-lg bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
-                  data-testid={`row-mv-chart-${track.id}`}
-                >
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={() => setPlayId(track.id)}
-                      className="relative w-[120px] sm:w-[170px] shrink-0 rounded-md overflow-hidden border border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                      data-testid={`img-mv-cover-${track.id}`}
-                      aria-label={`Play ${track.title}`}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(rank * 0.02, 1) }}
+                className="flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
+                data-testid={`row-mv-chart-${track.id}`}
+              >
+                <div className="w-8 sm:w-10 text-center shrink-0">
+                  <span className="text-xs sm:text-sm font-mono font-bold text-zinc-500">
+                    {String(rank).padStart(2, "0")}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setPlayId(track.id)}
+                    className="w-10 h-10 rounded-md overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    data-testid={`img-mv-cover-${track.id}`}
+                    aria-label={`Play ${track.title}`}
+                  >
+                    {thumbnailFor(track) ? (
+                      <img
+                        src={thumbnailFor(track)!}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Video className="w-4 h-4 text-zinc-600" strokeWidth={1.75} aria-hidden />
+                    )}
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-[0.66rem] sm:text-[0.72rem] font-bold text-white tracking-wide line-clamp-2 leading-tight break-words"
+                      data-testid={`text-mv-title-${track.id}`}
                     >
-                      <div className="aspect-video w-full bg-black/60 flex items-center justify-center">
-                        {thumbnailFor(track) ? (
-                          <img
-                            src={thumbnailFor(track)!}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <Video className="w-8 h-8 text-zinc-700" />
-                        )}
-                      </div>
-                    </button>
-
-                    <div className="min-w-0 flex-1 py-0.5">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p
-                          className="text-xs sm:text-sm font-bold text-white tracking-wide line-clamp-2 leading-tight break-words"
-                          data-testid={`text-mv-title-${track.id}`}
-                        >
-                          {track.title}
-                        </p>
-                      </div>
+                      {track.title}
+                    </p>
+                    <span
+                      className="text-[9px] font-bold text-primary/70 uppercase tracking-widest truncate block"
+                      data-testid={`text-mv-creator-${track.id}`}
+                    >
+                      {track.creatorName}
+                    </span>
+                    {track.winStreak > 0 && (
                       <span
-                        className="text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate block mt-0.5"
-                        data-testid={`text-mv-creator-${track.id}`}
+                        className="inline-block mt-1 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[7px] font-bold border border-orange-500/20"
+                        data-testid={`text-mv-chart-streak-${track.id}`}
                       >
-                        {track.creatorName}
+                        🔥 {track.winStreak}
                       </span>
-                      {track.winStreak > 0 && (
-                        <span className="inline-block mt-1.5 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[8px] font-bold border border-orange-500/20" data-testid={`text-mv-chart-streak-${track.id}`}>
-                          🔥 WIN STREAK: {track.winStreak}
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
+                </div>
 
-                  <div className="flex flex-col items-end gap-2 shrink-0 ml-auto">
-                    <TrackPlaysStat playCount={track.playCount} testId={`text-mv-plays-${track.id}`} />
-                    <TrackAdminActions
-                      compact
-                      track={{
-                        id: track.id,
-                        creatorId: track.creatorId,
-                        title: track.title,
-                        creatorName: track.creatorName,
-                        genre: track.genre,
-                        coverImageUrl: track.coverImageUrl,
-                        audioUrl: track.audioUrl,
-                        mvUrl: track.musicVideoUrl ?? null,
-                        trackType: track.trackType ?? "video",
-                        aiPrompt: track.aiPrompt,
-                        aiPromptEditCount: track.aiPromptEditCount,
-                        aiPromptLastEditedAt: track.aiPromptLastEditedAt,
-                        likesCount: track.likesCount,
-                      }}
-                      onCommentClick={() =>
-                        setFeed({
-                          track: {
-                            id: track.id,
-                            title: track.title,
-                            creatorName: track.creatorName,
-                            audioUrl: track.audioUrl,
-                            mvUrl: track.musicVideoUrl,
-                            trackType: track.trackType ?? "video",
-                            aiPrompt: track.aiPrompt,
-                          },
-                          focusComment: true,
-                        })
-                      }
-                    />
-                  </div>
-                </motion.div>
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto">
+                  <TrackPlaysStat playCount={track.playCount} testId={`text-mv-plays-${track.id}`} />
+                  <TrackAdminActions
+                    compact
+                    track={{
+                      id: track.id,
+                      creatorId: track.creatorId,
+                      title: track.title,
+                      creatorName: track.creatorName,
+                      genre: track.genre,
+                      coverImageUrl: track.coverImageUrl,
+                      audioUrl: track.audioUrl,
+                      mvUrl: track.musicVideoUrl ?? null,
+                      trackType: track.trackType ?? "video",
+                      aiPrompt: track.aiPrompt,
+                      aiPromptEditCount: track.aiPromptEditCount,
+                      aiPromptLastEditedAt: track.aiPromptLastEditedAt,
+                      likesCount: track.likesCount,
+                    }}
+                    onCommentClick={() =>
+                      setFeed({
+                        track: {
+                          id: track.id,
+                          title: track.title,
+                          creatorName: track.creatorName,
+                          audioUrl: track.audioUrl,
+                          mvUrl: track.musicVideoUrl,
+                          trackType: track.trackType ?? "video",
+                          aiPrompt: track.aiPrompt,
+                        },
+                        focusComment: true,
+                      })
+                    }
+                  />
+                </div>
+              </motion.div>
             </div>
           ))}
         </div>
