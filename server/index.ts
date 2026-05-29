@@ -143,6 +143,8 @@ app.use((req, res, next) => {
   console.log("[boot] connecting to database…");
   await ensureDbConnected();
   console.log("[boot] database OK");
+  const { isEmailEnabled } = await import("./email");
+  console.log(`[boot] transactional email: ${isEmailEnabled() ? "enabled (Resend)" : "off (set RESEND_API_KEY)"}`);
   await registerRoutes(httpServer, app);
 
   app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {

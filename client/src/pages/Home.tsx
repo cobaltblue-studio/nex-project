@@ -6,8 +6,6 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { isCreatorStudioRole } from "@shared/constants";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { BattleGuide } from "@/components/BattleGuide";
 import { useTranslation } from "react-i18next";
@@ -184,8 +182,7 @@ export function Home() {
   const { t } = useTranslation();
   const { data: tracks, isLoading } = useWorks();
   const [, setLocation] = useLocation();
-  const { user, isAuthenticated } = useAuth();
-  const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [guestSubmitGateOpen, setGuestSubmitGateOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const heroVisualizerRef = useRef<HTMLDivElement>(null);
@@ -193,14 +190,6 @@ export function Home() {
   const goSubmitTrack = () => {
     if (!isAuthenticated) {
       setGuestSubmitGateOpen(true);
-      return;
-    }
-    if (!isCreatorStudioRole(user?.role)) {
-      toast({
-        title: t("home.toastCreatorTitle"),
-        description: t("home.toastCreatorDesc"),
-        variant: "destructive",
-      });
       return;
     }
     setLocation("/submit-track");

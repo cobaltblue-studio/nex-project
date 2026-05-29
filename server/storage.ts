@@ -26,6 +26,12 @@ import type { User } from "@shared/models/auth";
 import { computeCreatorPopularityScore } from "@shared/creatorPopularity";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { db } from "./db";
+import {
+  isEmailEnabled,
+  sendTrackApprovedEmail,
+  sendTrackLikedEmail,
+  sendTrackRejectedEmail,
+} from "./email";
 import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull, isNull } from "drizzle-orm";
 
 const RANKING_WEIGHT_BATTLE = 0.5;
@@ -3134,6 +3140,21 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  private async emailCreator(
+    recipientUserId: string,
+    send: (to: string) => Promise<void>,
+  ): Promise<void> {
+    if (!isEmailEnabled()) return;
+    const user = await this.getUserById(recipientUserId);
+    const email = user?.email?.trim();
+    if (!email) return;
+    try {
+      await send(email);
+    } catch (err) {
+      console.warn("[email] creator notify failed", err);
+    }
+  }
+
   async notifyTrackReviewed(trackId: number, status: string): Promise<void> {
     const track = await this.getTrack(trackId);
     const recipientUserId = track?.creator?.userId;
@@ -3149,6 +3170,9 @@ export class DatabaseStorage implements IStorage {
         trackId,
         href: "/my-tracks",
       });
+      void this.emailCreator(recipientUserId, (to) =>
+        sendTrackRejectedEmail({ to, trackTitle: title }),
+      );
       return;
     }
     if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
@@ -3162,6 +3186,9 @@ export class DatabaseStorage implements IStorage {
         trackId,
         href: `/track/${trackId}`,
       });
+      void this.emailCreator(recipientUserId, (to) =>
+        sendTrackApprovedEmail({ to, trackTitle: title, trackId, destination: dest }),
+      );
     }
   }
 
@@ -3201,6 +3228,9 @@ export class DatabaseStorage implements IStorage {
       trackId,
       href: `/track/${trackId}`,
     });
+    void this.emailCreator(recipientUserId, (to) =>
+      sendTrackLikedEmail({ to, trackTitle: title, trackId }),
+    );
   }
 
 }
