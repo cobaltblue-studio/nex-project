@@ -1230,13 +1230,22 @@ export function Battle() {
               <div className="pt-2">
                 <div className="mb-2">
                   <BattleStoryCardButton
-                    battleGenre={selectedGenre || "ALL"}
+                    battleId={battle.id}
+                    winnerTrackId={winnerTrack.id}
+                    battleGenre={selectedGenre || battle.genre || "ALL"}
                     winnerTitle={winnerTrack.title}
                     winnerCreator={winnerTrack.creatorName}
+                    winnerCoverUrl={winnerTrack.coverImageUrl}
                     trackATitle={battle.trackA.title}
                     trackBTitle={battle.trackB.title}
                     pctA={pctA}
                     pctB={pctB}
+                    winStreak={
+                      voteResult.winnerId === battle.trackAId
+                        ? voteResult.trackAWinStreak
+                        : voteResult.trackBWinStreak
+                    }
+                    totalVotes={totalVotes}
                   />
                 </div>
                 <ShareButtons

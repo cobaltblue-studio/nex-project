@@ -213,6 +213,19 @@ export const comments = pgTable("comments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** In-app alerts for creators (approval, likes, etc.). */
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  recipientUserId: varchar("recipient_user_id").references(() => users.id).notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  trackId: integer("track_id").references(() => tracks.id),
+  href: text("href"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const battlesRelations = relations(battles, ({ one, many }) => ({
   trackA: one(tracks, { fields: [battles.trackAId], references: [tracks.id] }),
   trackB: one(tracks, { fields: [battles.trackBId], references: [tracks.id] }),
@@ -313,6 +326,7 @@ export type TrackPlay = typeof trackPlays.$inferSelect;
 export type Battle = typeof battles.$inferSelect;
 export type BattleVote = typeof battleVotes.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 export type BoostTicket = typeof boostTickets.$inferSelect;
 export type BoostUsageLog = typeof boostUsageLogs.$inferSelect;
 export type BoostStatusRow = typeof boostStatus.$inferSelect;

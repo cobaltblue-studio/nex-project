@@ -11,6 +11,7 @@ import {
   battleVotes,
   battleListenCompletions,
   comments,
+  notifications,
   trackClaimRequests,
   boostTickets,
   boostUsageLogs,
@@ -25,7 +26,7 @@ import type { User } from "@shared/models/auth";
 import { computeCreatorPopularityScore } from "@shared/creatorPopularity";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { db } from "./db";
-import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull } from "drizzle-orm";
+import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull, isNull } from "drizzle-orm";
 
 const RANKING_WEIGHT_BATTLE = 0.5;
 const RANKING_WEIGHT_LIKES = 0.2;
@@ -1441,6 +1442,7 @@ export class DatabaseStorage implements IStorage {
     const outcome = await this.insertLikeRowOrThrowDailyLimit(userId, trackId, todayStartUtc);
     if (outcome === "inserted") {
       await this.incrementLikeMetricsOnly(trackId);
+      void this.notifyTrackLiked(trackId, userId).catch(() => {});
     } else {
       await this.syncLikeMetricsFromLikesTable(trackId);
     }
@@ -3024,6 +3026,181 @@ export class DatabaseStorage implements IStorage {
     });
 
     return rows;
+  }
+
+  async createNotification(input: {
+    recipientUserId: string;
+    type: string;
+    title: string;
+    body: string;
+    trackId?: number | null;
+    href?: string | null;
+  }): Promise<void> {
+    if (!String(input.recipientUserId ?? "").trim()) return;
+    try {
+      await db.insert(notifications).values({
+        recipientUserId: input.recipientUserId,
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        trackId: input.trackId ?? null,
+        href: input.href ?? null,
+      });
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  async listNotifications(
+    recipientUserId: string,
+    opts?: { limit?: number },
+  ): Promise<
+    {
+      id: number;
+      type: string;
+      title: string;
+      body: string;
+      trackId: number | null;
+      href: string | null;
+      readAt: Date | null;
+      createdAt: Date;
+    }[]
+  > {
+    try {
+      const limit = opts?.limit ?? 40;
+      return await db
+        .select({
+          id: notifications.id,
+          type: notifications.type,
+          title: notifications.title,
+          body: notifications.body,
+          trackId: notifications.trackId,
+          href: notifications.href,
+          readAt: notifications.readAt,
+          createdAt: notifications.createdAt,
+        })
+        .from(notifications)
+        .where(eq(notifications.recipientUserId, recipientUserId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit);
+    } catch (err) {
+      if (isMissingRelationError(err)) return [];
+      throw err;
+    }
+  }
+
+  async getUnreadNotificationCount(recipientUserId: string): Promise<number> {
+    try {
+      const [row] = await db
+        .select({ c: count() })
+        .from(notifications)
+        .where(and(eq(notifications.recipientUserId, recipientUserId), isNull(notifications.readAt)));
+      return Number(row?.c ?? 0);
+    } catch (err) {
+      if (isMissingRelationError(err)) return 0;
+      throw err;
+    }
+  }
+
+  async markNotificationRead(recipientUserId: string, notificationId: number): Promise<boolean> {
+    try {
+      const updated = await db
+        .update(notifications)
+        .set({ readAt: new Date() })
+        .where(
+          and(
+            eq(notifications.id, notificationId),
+            eq(notifications.recipientUserId, recipientUserId),
+          ),
+        )
+        .returning({ id: notifications.id });
+      return updated.length > 0;
+    } catch (err) {
+      if (isMissingRelationError(err)) return false;
+      throw err;
+    }
+  }
+
+  async markAllNotificationsRead(recipientUserId: string): Promise<void> {
+    try {
+      await db
+        .update(notifications)
+        .set({ readAt: new Date() })
+        .where(and(eq(notifications.recipientUserId, recipientUserId), isNull(notifications.readAt)));
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  async notifyTrackReviewed(trackId: number, status: string): Promise<void> {
+    const track = await this.getTrack(trackId);
+    const recipientUserId = track?.creator?.userId;
+    if (!recipientUserId) return;
+
+    const title = track.title ?? "Your track";
+    if (status === "REJECTED") {
+      await this.createNotification({
+        recipientUserId,
+        type: "track_rejected",
+        title: "Track not approved",
+        body: `"${title}" was not approved this time. You can submit an updated version.`,
+        trackId,
+        href: "/my-tracks",
+      });
+      return;
+    }
+    if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
+      const dest =
+        status === "MV" ? "Music Video chart" : status === "BATTLE_POOL" ? "Battle pool" : "NEX";
+      await this.createNotification({
+        recipientUserId,
+        type: "track_approved",
+        title: "Track approved!",
+        body: `"${title}" is live on NEX (${dest}).`,
+        trackId,
+        href: `/track/${trackId}`,
+      });
+    }
+  }
+
+  async notifyTrackLiked(trackId: number, likerUserId: string): Promise<void> {
+    const track = await this.getTrack(trackId);
+    const recipientUserId = track?.creator?.userId;
+    if (!recipientUserId || recipientUserId === likerUserId) return;
+
+    const todayStartUtc = new Date();
+    todayStartUtc.setUTCHours(0, 0, 0, 0);
+
+    try {
+      const [existing] = await db
+        .select({ id: notifications.id })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.recipientUserId, recipientUserId),
+            eq(notifications.type, "track_liked"),
+            eq(notifications.trackId, trackId),
+            gte(notifications.createdAt, todayStartUtc),
+          ),
+        )
+        .limit(1);
+      if (existing) return;
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+
+    const title = track.title ?? "Your track";
+    await this.createNotification({
+      recipientUserId,
+      type: "track_liked",
+      title: "New cheer on your track",
+      body: `Someone cheered "${title}" today on NEX.`,
+      trackId,
+      href: `/track/${trackId}`,
+    });
   }
 
 }

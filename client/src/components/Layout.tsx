@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { isCreatorStudioRole } from "@shared/constants";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useTranslation } from "react-i18next";
 
 interface LayoutProps {
@@ -172,6 +173,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="block">
             <LanguageSwitcher />
           </div>
+          {!isLoading && ui.showUserMenu ? <NotificationBell /> : null}
           {isLoading ? (
             <div
               className="h-9 min-w-[5.5rem] rounded-sm bg-white/[0.06] animate-pulse"

@@ -251,6 +251,33 @@ export async function registerRoutes(
     res.json({ ...pub, followerCount });
   });
 
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    const rows = await storage.listNotifications(userId, { limit: 50 });
+    const unreadCount = await storage.getUnreadNotificationCount(userId);
+    res.json({ unreadCount, items: rows });
+  });
+
+  app.post("/api/notifications/read-all", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    await storage.markAllNotificationsRead(userId);
+    res.json({ ok: true });
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: apiMsg("잘못된 알림 ID입니다", "Invalid notification id") });
+    }
+    const ok = await storage.markNotificationRead(userId, id);
+    if (!ok) return res.status(404).json({ message: apiMsg("알림을 찾을 수 없습니다", "Notification not found") });
+    res.json({ ok: true });
+  });
+
   /** Creator dashboard: followers, per-track plays/likes/battles, boost tickets (snapshot — not historical charts). */
   app.get("/api/profiles/me/analytics", isAuthenticated, async (req: any, res) => {
     const userId = getUserId(req);
@@ -1897,13 +1924,15 @@ export async function registerRoutes(
       });
     }
 
+    const reviewedTrackId = Number(req.params.id);
     await storage.updateTrackStatus(
-      Number(req.params.id),
+      reviewedTrackId,
       status,
       req.body.aiCraftScore,
     );
+    void storage.notifyTrackReviewed(reviewedTrackId, status).catch(() => {});
     if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
-      const reviewedTrack = await storage.getTrack(Number(req.params.id));
+      const reviewedTrack = await storage.getTrack(reviewedTrackId);
       const profileId = reviewedTrack?.creatorId;
       if (profileId) {
         const reviewedProfile = await storage.getProfile(profileId);
