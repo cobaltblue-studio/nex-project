@@ -6,7 +6,6 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { BattleGuide } from "@/components/BattleGuide";
 import { useTranslation } from "react-i18next";
 import { hasPublicCount } from "@/lib/displayStats";
@@ -183,13 +182,12 @@ export function Home() {
   const { data: tracks, isLoading } = useWorks();
   const [, setLocation] = useLocation();
   const { isAuthenticated } = useAuth();
-  const [guestSubmitGateOpen, setGuestSubmitGateOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const heroVisualizerRef = useRef<HTMLDivElement>(null);
 
   const goSubmitTrack = () => {
     if (!isAuthenticated) {
-      setGuestSubmitGateOpen(true);
+      setLocation(`/auth?returnTo=${encodeURIComponent("/submit-track")}`);
       return;
     }
     setLocation("/submit-track");
@@ -215,8 +213,6 @@ export function Home() {
     .slice(0, 5);
 
   return (
-    <>
-      <GuestCheerModal open={guestSubmitGateOpen} onOpenChange={setGuestSubmitGateOpen} />
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-24 md:space-y-32 pb-24 md:pb-32">
 
       <div>
@@ -578,6 +574,5 @@ export function Home() {
       </motion.section>
 
     </motion.div>
-    </>
   );
 }

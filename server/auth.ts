@@ -223,8 +223,7 @@ async function sessionUserMayAccessAdmin(user: SessionUser): Promise<boolean> {
 }
 
 async function sessionUserMayAccessSubmitTrack(user: SessionUser): Promise<boolean> {
-  if (!user.id) return false;
-  return isCreatorStudioRole(user.role);
+  return !!user.id;
 }
 
 async function sanitizeOAuthRedirect(user: SessionUser, path: string): Promise<string> {

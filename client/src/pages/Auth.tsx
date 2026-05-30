@@ -2,22 +2,23 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Copy, UserPlus } from "lucide-react";
 import { Link, useSearch } from "wouter";
-import { getLoginUrl } from "@/lib/loginRedirect";
-import { isLikelyInAppBrowser } from "@/lib/inapp-browser";
+import { getGoogleOAuthUrl } from "@/lib/loginRedirect";
+import { inAppBrowserLabel, isLikelyInAppBrowser } from "@/lib/inapp-browser";
 
 export default function Auth() {
   const search = useSearch();
   const [copied, setCopied] = useState(false);
-  const loginHref = useMemo(() => {
+  const oauthHref = useMemo(() => {
     const params = new URLSearchParams(search);
     const rt = params.get("returnTo");
-    return getLoginUrl(rt ?? undefined);
+    return getGoogleOAuthUrl(rt ?? undefined);
   }, [search]);
   const inApp = useMemo(() => isLikelyInAppBrowser(), []);
+  const appLabel = useMemo(() => inAppBrowserLabel(), [inApp]);
 
   const copyCurrentUrl = async () => {
     try {
-      const fallback = typeof window !== "undefined" ? window.location.href : loginHref;
+      const fallback = typeof window !== "undefined" ? window.location.href : oauthHref;
       await navigator.clipboard.writeText(fallback);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -49,12 +50,19 @@ export default function Auth() {
           <div className="flex items-center gap-2 text-amber-300">
             <AlertTriangle className="w-4 h-4" />
             <p className="text-[11px] font-bold uppercase tracking-widest">
-              In-app browser detected
+              {appLabel ? `${appLabel} 앱 안에서는 로그인 불가` : "앱 브라우저에서는 로그인 불가"}
             </p>
           </div>
           <p className="text-xs text-zinc-300 leading-relaxed">
-            Google sign-up may fail inside Kakao/Instagram/Facebook app browsers.
-            Open this page in Chrome, Safari, or Samsung Internet first.
+            Google이 Threads·Instagram·카카오톡 등 <strong className="text-amber-100 font-medium">앱 내 브라우저</strong>
+            에서의 로그인을 차단합니다(Error 403). NEX·미국 서버 문제가 아닙니다.
+          </p>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            1) 화면 우측 상단 <span className="text-amber-200">⋯</span> →{" "}
+            <span className="text-amber-200">Safari에서 열기</span> 또는{" "}
+            <span className="text-amber-200">Chrome에서 열기</span>
+            <br />
+            2) 아래 링크를 복사해 브라우저 주소창에 붙여넣기
           </p>
           <button
             type="button"
@@ -63,14 +71,28 @@ export default function Auth() {
             data-testid="button-copy-auth-url"
           >
             <Copy className="w-3.5 h-3.5" />
-            {copied ? "Link copied" : "Copy page link"}
+            {copied ? "링크 복사됨" : "페이지 링크 복사"}
           </button>
         </div>
       )}
+      {inApp ? (
+        <p
+          className="text-[10px] text-zinc-500 uppercase tracking-widest max-w-sm mx-auto leading-relaxed"
+          data-testid="text-auth-oauth-blocked"
+        >
+          외부 브라우저에서 연 뒤 아래 Google 로그인을 사용하세요.
+        </p>
+      ) : null}
       <a
-        href={loginHref}
+        href={oauthHref}
         data-testid="button-auth-continue"
-        className="inline-flex items-center justify-center gap-2 w-full sm:w-auto min-w-[200px] bg-primary text-black font-bold uppercase tracking-widest text-[11px] px-8 py-4 rounded-sm hover:brightness-110 transition-all"
+        aria-disabled={inApp}
+        className={
+          inApp
+            ? "inline-flex items-center justify-center gap-2 w-full sm:w-auto min-w-[200px] bg-zinc-700 text-zinc-400 font-bold uppercase tracking-widest text-[11px] px-8 py-4 rounded-sm cursor-not-allowed pointer-events-none"
+            : "inline-flex items-center justify-center gap-2 w-full sm:w-auto min-w-[200px] bg-primary text-black font-bold uppercase tracking-widest text-[11px] px-8 py-4 rounded-sm hover:brightness-110 transition-all"
+        }
+        onClick={inApp ? (e) => e.preventDefault() : undefined}
       >
         <UserPlus className="w-4 h-4" />
         Continue with Google

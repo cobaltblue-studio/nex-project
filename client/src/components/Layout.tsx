@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isCreatorStudioRole } from "@shared/constants";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { NotificationBell } from "@/components/NotificationBell";
+import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 import { useTranslation } from "react-i18next";
 
 interface LayoutProps {
@@ -312,6 +313,8 @@ export function Layout({ children }: LayoutProps) {
           )}
         </div>
       </header>
+
+      <InAppBrowserBanner />
 
       <main className="flex-1 w-full relative z-10 pt-28 px-6 md:px-12">
         <div className="max-w-7xl mx-auto">
