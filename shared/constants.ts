@@ -57,6 +57,29 @@ export function isCreatorStudioRole(role: string | null | undefined): boolean {
   return role === "admin" || role === "creator";
 }
 
+/**
+ * Audio tracks in these statuses appear in NEW, Radio, and Battle matching.
+ * Admin badge may say CHART / BATTLE_POOL / PUBLISHED — not only rows labeled BATTLE_POOL.
+ * Music videos use status MV + trackType video and are excluded from battles.
+ */
+export const BATTLE_AND_NEW_AUDIO_STATUSES = [
+  "PUBLISHED",
+  "BATTLE_POOL",
+  "APPROVED",
+  "CHART",
+] as const;
+
+export type BattleAndNewAudioStatus = (typeof BATTLE_AND_NEW_AUDIO_STATUSES)[number];
+
+export function isBattleEligibleAudioTrack(track: {
+  status?: string | null;
+  trackType?: string | null;
+}): boolean {
+  if (track.trackType === "video") return false;
+  const s = (track.status ?? "").trim();
+  return (BATTLE_AND_NEW_AUDIO_STATUSES as readonly string[]).includes(s);
+}
+
 /** Same query shape for Music chart, Radio, and any “NEX TOP 100” style list (audio chart). */
 export function publicAudioChartSearchParams(limit: number, extra?: Record<string, string>): string {
   const p = new URLSearchParams();

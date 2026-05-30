@@ -23,6 +23,7 @@ import {
   type Battle,
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
+import { BATTLE_AND_NEW_AUDIO_STATUSES } from "@shared/constants";
 import { computeCreatorPopularityScore } from "@shared/creatorPopularity";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { db } from "./db";
@@ -39,10 +40,10 @@ const RANKING_WEIGHT_LIKES = 0.2;
 const RANKING_WEIGHT_PLAYS = 0.2;
 const RANKING_WEIGHT_FOLLOWERS = 0.1;
 
-/** Battle arena matches audio tracks only; MV (`trackType=video`) is for /music-video viewing. */
+/** Same pool as `/api/tracks/new` (audio only; not MV/video). */
 function battleEligibleTracksFilter() {
   return and(
-    sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+    inArray(tracks.status, [...BATTLE_AND_NEW_AUDIO_STATUSES]),
     eq(tracks.isDeleted, false),
     ne(tracks.trackType, "video"),
   );
@@ -851,7 +852,7 @@ export class DatabaseStorage implements IStorage {
     const filters = [
       eq(tracks.isDeleted, false),
       eq(tracks.trackType, "audio"),
-      sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
+      inArray(tracks.status, [...BATTLE_AND_NEW_AUDIO_STATUSES]),
     ];
 
     const qNorm = typeof searchQuery === "string" ? searchQuery.trim().toLowerCase() : "";
@@ -1754,46 +1755,6 @@ export class DatabaseStorage implements IStorage {
       recentTrackIds.add(row.trackBId);
     }
 
-    const allBattles = await db.select().from(battles).where(sql`${battles.winnerId} IS NOT NULL`);
-    const battleStats: Record<number, { battles: number; wins: number }> = {};
-    for (const b of allBattles) {
-      for (const id of [b.trackAId, b.trackBId]) {
-        if (!battleStats[id]) battleStats[id] = { battles: 0, wins: 0 };
-        battleStats[id].battles += 1;
-      }
-      if (b.winnerId) {
-        if (!battleStats[b.winnerId]) battleStats[b.winnerId] = { battles: 0, wins: 0 };
-        battleStats[b.winnerId].wins += 1;
-      }
-    }
-
-    const top100 = await db.select({ id: tracks.id })
-      .from(tracks)
-      .where(
-        and(sql`${tracks.status} IN ('PUBLISHED', 'CHART')`, eq(tracks.isDeleted, false)),
-      )
-      .orderBy(desc(tracks.rankingScore))
-      .limit(100);
-    const top100Ids = new Set(top100.map(t => t.id));
-
-    const newPool: typeof pool = [];
-    const risingPool: typeof pool = [];
-    const chartPool: typeof pool = [];
-
-    for (const track of pool) {
-      if (track.status === "BATTLE_POOL" || track.status === "APPROVED") {
-        newPool.push(track);
-      } else {
-        const s = battleStats[track.id];
-        const winRate = s && s.battles > 0 ? s.wins / s.battles : 0;
-        if (s && s.battles >= 5 && winRate >= 0.6 && !top100Ids.has(track.id)) {
-          risingPool.push(track);
-        } else {
-          chartPool.push(track);
-        }
-      }
-    }
-
     const boostMultiplierByTrackId = await this.getBoostMultiplierByTrackIds(pool.map((t) => t.id));
     const fairnessMultiplierByTrackId = new Map<number, number>();
     for (const t of pool) {
@@ -1809,27 +1770,10 @@ export class DatabaseStorage implements IStorage {
       fairnessMultiplierByTrackId.set(t.id, m);
     }
 
-    const pools = [newPool, risingPool, chartPool];
-    const startIdx = Math.floor(Math.random() * 3);
-
-    let trackA: typeof pool[0] | null = null;
-    let trackB: typeof pool[0] | null = null;
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const currentPool = pools[(startIdx + attempt) % 3];
-      if (currentPool.length >= 2) {
-        [trackA, trackB] = weightedPickTwoDifferentCreators(currentPool, {
-          multiplierByTrackId: fairnessMultiplierByTrackId,
-        });
-        break;
-      }
-    }
-
-    if (!trackA || !trackB) {
-      [trackA, trackB] = weightedPickTwoDifferentCreators(pool, {
-        multiplierByTrackId: fairnessMultiplierByTrackId,
-      });
-    }
+    // Random pairing across the full NEW/Radio-eligible audio pool (not only status=BATTLE_POOL).
+    const [trackA, trackB] = weightedPickTwoDifferentCreators(pool, {
+      multiplierByTrackId: fairnessMultiplierByTrackId,
+    });
 
     const battleGenre = (genre && genre !== "ALL") ? genre : trackA.genre;
 
@@ -1843,16 +1787,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRisingTracks(q?: string): Promise<any[]> {
-    const eligibleSql = sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`;
+    const eligibleSql = inArray(tracks.status, [...BATTLE_AND_NEW_AUDIO_STATUSES]);
 
     const top100Rows = await db
       .select({ id: tracks.id })
       .from(tracks)
       .where(
-        and(
-          sql`${tracks.status} IN ('PUBLISHED', 'BATTLE_POOL', 'APPROVED', 'CHART')`,
-          eq(tracks.trackType, "audio"),
-        ),
+        and(eligibleSql, eq(tracks.trackType, "audio"), eq(tracks.isDeleted, false)),
       )
       .orderBy(desc(tracks.rankingScore))
       .limit(100);

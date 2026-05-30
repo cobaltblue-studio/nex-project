@@ -1905,7 +1905,16 @@ export async function registerRoutes(
   app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
     if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
 
-    const statuses = ["PENDING", "SUBMITTED", "BATTLE_POOL", "REJECTED", "CHART", "MV"];
+    const statuses = [
+      "PENDING",
+      "SUBMITTED",
+      "BATTLE_POOL",
+      "APPROVED",
+      "PUBLISHED",
+      "REJECTED",
+      "CHART",
+      "MV",
+    ];
     const all: any[] = [];
     for (const status of statuses) {
       const ts = await storage.getTracks({ status });

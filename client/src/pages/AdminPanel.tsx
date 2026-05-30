@@ -11,6 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+import { isBattleEligibleAudioTrack } from "@shared/constants";
 
 type Submission = {
   id: number;
@@ -527,6 +528,14 @@ export default function AdminPanel() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-[9px] text-zinc-700 hidden sm:block">{fmt(track.createdAt)}</span>
+                    {isBattleEligibleAudioTrack(track) ? (
+                      <span
+                        className="text-[8px] font-bold uppercase tracking-widest text-emerald-400/90 border border-emerald-500/25 px-1.5 py-0.5 rounded-sm"
+                        title="Included in Battle + NEW + Radio (audio pool)"
+                      >
+                        Battle
+                      </span>
+                    ) : null}
                     <StatusBadge status={track.status} />
                     {track.trackType === "video" && track.status !== "MV" && (
                       <button
@@ -854,9 +863,9 @@ export default function AdminPanel() {
         <p className="text-zinc-500 font-bold mb-2">System flow</p>
         <p className="text-zinc-500">
           Submit → <span className="text-yellow-400">PENDING</span>{" "}
-          → Approve → <span className="text-primary">BATTLE_POOL</span>{" "}
-          (appears in Music Chart + Battles){" "}
-          → Battle × 10 · Win Rate ≥ 55% → <span className="text-purple-400">CHART</span>
+          → Approve audio → <span className="text-primary">BATTLE_POOL</span>{" "}
+          (NEW + Radio + Battle pool) · Approve video → <span className="text-cyan-300">MV</span> (no battles){" "}
+          → Battle × 10 · Win Rate ≥ 55% → <span className="text-purple-400">CHART</span> (still in Battle pool)
         </p>
         <p className="mt-1">
           Reject → <span className="text-red-400">REJECTED</span> (excluded from chart and battles)
