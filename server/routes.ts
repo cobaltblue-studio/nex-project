@@ -29,7 +29,10 @@ import {
   sanitizeTrackDetailForPublic,
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
-import { resolveSunoShareToSongUuid } from "./suno-resolve";
+import {
+  fetchSunoSongDurationSeconds,
+  resolveSunoShareToSongUuid,
+} from "./suno-resolve";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
@@ -608,11 +611,32 @@ export async function registerRoutes(
           ),
         });
       }
-      res.json({ songUuid });
+      const durationSeconds = await fetchSunoSongDurationSeconds(songUuid);
+      res.json({ songUuid, durationSeconds });
     } catch {
       res.status(500).json({
         songUuid: null,
         message: apiMsg("Suno 링크 확인 중 서버 오류가 났습니다", "Server error while resolving Suno link"),
+      });
+    }
+  });
+
+  /** Best-effort song length for Suno AUTO NEXT timing (iframe has no onEnded). */
+  app.get("/api/suno/metadata", async (req, res) => {
+    const uuidRaw = typeof req.query.uuid === "string" ? req.query.uuid.trim().toLowerCase() : "";
+    if (!uuidRaw) {
+      return res.status(400).json({
+        durationSeconds: null,
+        message: apiMsg("uuid 쿼리가 필요합니다", "uuid query parameter is required"),
+      });
+    }
+    try {
+      const durationSeconds = await fetchSunoSongDurationSeconds(uuidRaw);
+      res.json({ durationSeconds });
+    } catch {
+      res.status(500).json({
+        durationSeconds: null,
+        message: apiMsg("Suno 메타데이터 조회 중 오류", "Server error while fetching Suno metadata"),
       });
     }
   });

@@ -17,6 +17,18 @@ import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { TrackClaimSection } from "@/components/TrackClaimSection";
+import { computeSunoAutonextDelayMs, formatSunoAutonextHint } from "@/lib/sunoAutonext";
+
+const SOUNDCLOUD_AUTONEXT_MS = 240_000;
+const OTHER_IFRAME_AUTONEXT_MS = 210_000;
+
+type AutoNextPoolTrack = { id: number; title?: string; creatorName?: string; coverImageUrl?: string | null };
+
+function pickRandomPoolTrack(pool: AutoNextPoolTrack[], excludeId: number): AutoNextPoolTrack | null {
+  const candidates = pool.filter((t) => t?.id != null && t.id !== excludeId);
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+}
 
 export function TrackDetail() {
   const { t } = useTranslation();
@@ -62,9 +74,16 @@ export function TrackDetail() {
     return mv || audio || undefined;
   }, [trackData]);
 
-  const { iframeSrc: playableSrc, loading: streamLoading, error: streamError } = usePlayableStreamingSrc(
-    rawForStreaming,
-    { autoplay: true, enableJsApi: true },
+  const {
+    iframeSrc: playableSrc,
+    loading: streamLoading,
+    error: streamError,
+    sunoDurationSeconds,
+  } = usePlayableStreamingSrc(rawForStreaming, { autoplay: true, enableJsApi: true });
+
+  const sunoAutonextDelayMs = useMemo(
+    () => computeSunoAutonextDelayMs(sunoDurationSeconds),
+    [sunoDurationSeconds],
   );
 
   const { data: myProfile } = useQuery({
@@ -78,6 +97,15 @@ export function TrackDetail() {
     retry: false,
   });
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
+  const { data: newFeedTracks } = useQuery<AutoNextPoolTrack[]>({
+    queryKey: ["/api/tracks/new", "track-detail-autonext"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const res = await fetch("/api/tracks/new");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
   const { data: chartTracks, isLoading: isChartTracksLoading } = useQuery<any[]>({
     queryKey: ["/api/tracks", "chart-rank-audio", "status-CHART", "audio"],
     queryFn: async () => {
@@ -109,6 +137,13 @@ export function TrackDetail() {
     [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
   , [allTracks]);
 
+  /** AUTO NEXT draws from the same pool as the NEW page (~97 audio tracks), not only chart vote order. */
+  const autoNextPool = useMemo((): AutoNextPoolTrack[] => {
+    const fromNew = (newFeedTracks ?? []).filter((t) => t?.id != null);
+    if (fromNew.length >= 2) return fromNew;
+    return sortedTracks.filter((t) => t?.id != null);
+  }, [newFeedTracks, sortedTracks]);
+
   const rankIndex = useMemo(() => (track ? sortedTracks.findIndex(st => st.id === track.id) : -1), [sortedTracks, track]);
 
   // Show rank only when this track is truly in CHART status.
@@ -122,12 +157,10 @@ export function TrackDetail() {
     if (sortedTracks.length === 0 || rankIndex === -1) return null;
     return sortedTracks[(rankIndex + 1) % sortedTracks.length];
   }, [sortedTracks, rankIndex]);
-  const randomNextTrack = useMemo(() => {
-    const candidates = sortedTracks.filter((t) => t?.id != null && t.id !== currentTrackId);
-    if (candidates.length === 0) return null;
-    const idx = Math.floor(Math.random() * candidates.length);
-    return candidates[idx] ?? null;
-  }, [sortedTracks, currentTrackId]);
+  const randomNextPreview = useMemo(
+    () => pickRandomPoolTrack(autoNextPool, currentTrackId),
+    [autoNextPool, currentTrackId],
+  );
 
   const prevTrack = useMemo(() => {
     if (sortedTracks.length === 0 || rankIndex === -1) return null;
@@ -144,13 +177,20 @@ export function TrackDetail() {
     setTimeout(() => setIsTransitioning(false), 400);
   }, [nextTrack, isTransitioning, setLocation]);
   const goToRandomNext = useCallback(() => {
-    if (!randomNextTrack || isTransitioning) return;
+    if (isTransitioning || autoNextPool.length < 2) return;
+    const picked = pickRandomPoolTrack(autoNextPool, currentTrackId);
+    if (!picked) return;
     setIsTransitioning(true);
     playerKey.current += 1;
-    setCurrentTrackId(randomNextTrack.id);
-    setLocation(`/track/${randomNextTrack.id}`, { replace: false });
+    setCurrentTrackId(picked.id);
+    setLocation(`/track/${picked.id}`, { replace: false });
     setTimeout(() => setIsTransitioning(false), 400);
-  }, [randomNextTrack, isTransitioning, setLocation]);
+  }, [autoNextPool, currentTrackId, isTransitioning, setLocation]);
+
+  const goToRandomNextRef = useRef(goToRandomNext);
+  useEffect(() => {
+    goToRandomNextRef.current = goToRandomNext;
+  }, [goToRandomNext]);
 
   const goToPrev = useCallback(() => {
     if (!prevTrack || isTransitioning) return;
@@ -316,21 +356,35 @@ export function TrackDetail() {
   const audioYtId = extractYoutubeId(track?.audioUrl);
   const ytId = mvYtId || audioYtId;
   const isWidePlayer = !!(mvYtId || (track?.mvUrl?.trim() && !mvYtId));
+  const embedKind = classifyStreamingSource(rawForStreaming ?? undefined);
   useEffect(() => {
     if (!autoPlayNext) return;
     if (ytId) return;
     if (!rawForStreaming) return;
-    if (!randomNextTrack) return;
+    if (!playableSrc || streamLoading) return;
+    if (autoNextPool.length < 2) return;
 
-    // Third-party iframes (Suno/SoundCloud) do not emit reliable end events to us.
-    // Force random-next after a safe window to avoid looping one track for hours.
-    const NON_YT_AUTONEXT_MS = 205_000;
+    const kind = classifyStreamingSource(rawForStreaming ?? undefined);
+    const ms =
+      kind === "suno"
+        ? sunoAutonextDelayMs
+        : kind === "soundcloud"
+          ? SOUNDCLOUD_AUTONEXT_MS
+          : OTHER_IFRAME_AUTONEXT_MS;
     const id = window.setTimeout(() => {
-      goToRandomNext();
-    }, NON_YT_AUTONEXT_MS);
+      goToRandomNextRef.current();
+    }, ms);
     return () => window.clearTimeout(id);
-  }, [autoPlayNext, ytId, rawForStreaming, randomNextTrack, goToRandomNext]);
-  const embedKind = classifyStreamingSource(rawForStreaming ?? undefined);
+  }, [
+    autoPlayNext,
+    ytId,
+    rawForStreaming,
+    playableSrc,
+    streamLoading,
+    currentTrackId,
+    autoNextPool.length,
+    sunoAutonextDelayMs,
+  ]);
   const iframeFrameClass =
     embedKind === "soundcloud"
       ? "min-h-[180px] h-[180px] sm:min-h-[200px] sm:h-[200px] w-full"
@@ -496,7 +550,7 @@ export function TrackDetail() {
                 ) : playableSrc ? (
                   <div className="absolute inset-0 w-full h-full">
                     <iframe
-                      key={playableSrc}
+                      key={`${currentTrackId}-${playerKey.current}-${playableSrc}`}
                       src={playableSrc}
                       width="100%"
                       height="100%"
@@ -532,7 +586,9 @@ export function TrackDetail() {
                 data-testid="button-autoplay-toggle"
                 title={
                   autoPlayNext
-                    ? "AUTO NEXT ON (YouTube: on end, Suno/SoundCloud: timed fail-safe)"
+                    ? embedKind === "suno"
+                      ? `AUTO NEXT ON — random from NEW (${formatSunoAutonextHint(sunoDurationSeconds)})`
+                      : "AUTO NEXT ON — random from NEW (YouTube: on end; Suno/SoundCloud: timed)"
                     : "Auto next OFF"
                 }
                 className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest transition-all ${autoPlayNext ? "text-primary" : "text-zinc-700 hover:text-zinc-500"}`}
@@ -557,8 +613,10 @@ export function TrackDetail() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={goToNext}
-                  disabled={!nextTrack || isTransitioning}
+                  onClick={autoPlayNext ? goToRandomNext : goToNext}
+                  disabled={
+                    (autoPlayNext ? autoNextPool.length < 2 : !nextTrack) || isTransitioning
+                  }
                   data-testid="button-next-track"
                   className="text-zinc-400 hover:text-primary transition-all disabled:opacity-30 text-base leading-none"
                   style={nextTrack ? { textShadow: "0 0 8px rgba(0,240,255,0.7)" } : undefined}
@@ -629,13 +687,13 @@ export function TrackDetail() {
             </div>
 
             {/* UP NEXT SECTION */}
-            {nextTrack && (
+            {(autoPlayNext ? randomNextPreview : nextTrack) && (
               <div className="pt-6 space-y-3">
                 <div className="flex items-center gap-3 justify-center">
                   <div className="h-px flex-1 bg-white/5" />
                   <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-600">
                     {autoPlayNext && <Infinity className="w-3 h-3 text-primary/60" />}
-                    UP NEXT
+                    {autoPlayNext ? "RANDOM NEXT (NEW)" : "UP NEXT"}
                   </span>
                   <div className="h-px flex-1 bg-white/5" />
                 </div>
@@ -643,20 +701,28 @@ export function TrackDetail() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={goToNext}
+                  onClick={autoPlayNext ? goToRandomNext : goToNext}
                   data-testid="button-up-next-card"
                   className="flex items-center gap-4 bg-white/[0.03] p-4 rounded-sm border border-white/5 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group max-w-sm mx-auto w-full"
                 >
                   <div className="w-12 h-12 bg-zinc-900 rounded-sm flex-shrink-0 flex items-center justify-center border border-white/10 group-hover:border-primary/20 overflow-hidden">
-                    {nextTrack.coverImageUrl ? (
-                      <img src={nextTrack.coverImageUrl} alt={nextTrack.title} className="w-full h-full object-cover" />
+                    {(autoPlayNext ? randomNextPreview : nextTrack)?.coverImageUrl ? (
+                      <img
+                        src={(autoPlayNext ? randomNextPreview : nextTrack)!.coverImageUrl!}
+                        alt={(autoPlayNext ? randomNextPreview : nextTrack)!.title}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <Music className="w-5 h-5 text-zinc-700 group-hover:text-primary transition-colors" />
                     )}
                   </div>
                   <div className="text-left min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white uppercase truncate group-hover:text-primary transition-colors">{nextTrack.title}</p>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest truncate">by {nextTrack.creatorName}</p>
+                    <p className="text-sm font-bold text-white uppercase truncate group-hover:text-primary transition-colors">
+                      {(autoPlayNext ? randomNextPreview : nextTrack)!.title}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest truncate">
+                      by {(autoPlayNext ? randomNextPreview : nextTrack)!.creatorName}
+                    </p>
                   </div>
                   <SkipForward className="w-4 h-4 text-zinc-700 group-hover:text-primary transition-colors flex-shrink-0" />
                 </motion.button>

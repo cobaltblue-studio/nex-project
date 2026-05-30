@@ -8,6 +8,7 @@ import {
   urlLooksLikeSoundCloudShare,
   urlLooksLikeSunoShare,
 } from "@/lib/streamingEmbed";
+import { extractSunoEmbedUuid } from "@/lib/extractSunoEmbedUuid";
 
 type Opts = { autoplay?: boolean; enableJsApi?: boolean; embedSeekSeconds?: number };
 
@@ -43,6 +44,7 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sunoDurationSeconds, setSunoDurationSeconds] = useState<number | null>(null);
 
   const needsSunoResolve = !!rawUrl?.trim() && syncSrc === null && urlLooksLikeSunoShare(rawUrl);
   const needsSoundCloudResolve =
@@ -54,6 +56,7 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
   useEffect(() => {
     setResolvedSunoSrc(null);
     setResolvedSoundCloudSrc(null);
+    setSunoDurationSeconds(null);
     setError(null);
     if (!rawUrl?.trim()) {
       setLoading(false);
@@ -74,7 +77,11 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     if (needsSunoResolve) {
       fetch(`/api/suno/resolve?url=${encodeURIComponent(rawUrl.trim())}`)
         .then(async (r) => {
-          const j = (await r.json()) as { songUuid?: string; message?: string };
+          const j = (await r.json()) as {
+            songUuid?: string;
+            durationSeconds?: number | null;
+            message?: string;
+          };
           if (cancelled) return;
           if (!r.ok || !j.songUuid) {
             setError(
@@ -83,6 +90,9 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
                 : t("suno.resolveFailed", "Could not resolve this Suno link."),
             );
             return;
+          }
+          if (typeof j.durationSeconds === "number" && j.durationSeconds > 0) {
+            setSunoDurationSeconds(j.durationSeconds);
           }
           const embed = buildSunoEmbedFromCanonicalUuid(j.songUuid, autoplay);
           if (embed) setResolvedSunoSrc(embed);
@@ -140,7 +150,7 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
   const iframeSrc = useMemo(() => {
     const base = resolvedSunoSrc ?? resolvedSoundCloudSrc ?? syncSrc ?? cachedSrc ?? null;
     if (!base || !autoplay) return base;
-    const sunoUuid = base.match(/suno\.com\/embed\/([0-9a-f-]{36})/i)?.[1];
+    const sunoUuid = extractSunoEmbedUuid(base);
     if (sunoUuid) return buildSunoEmbedFromCanonicalUuid(sunoUuid, true);
     if (base.includes("w.soundcloud.com/player")) {
       return base.replace(/auto_play=0/, "auto_play=1");
@@ -148,5 +158,25 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     return base;
   }, [resolvedSunoSrc, resolvedSoundCloudSrc, syncSrc, cachedSrc, autoplay]);
 
-  return { iframeSrc, loading: loading && !iframeSrc, error };
+  const sunoEmbedUuid = useMemo(() => extractSunoEmbedUuid(iframeSrc), [iframeSrc]);
+
+  useEffect(() => {
+    if (!sunoEmbedUuid) return;
+
+    let cancelled = false;
+    fetch(`/api/suno/metadata?uuid=${encodeURIComponent(sunoEmbedUuid)}`)
+      .then(async (r) => {
+        const j = (await r.json()) as { durationSeconds?: number | null };
+        if (cancelled) return;
+        if (typeof j.durationSeconds === "number" && j.durationSeconds > 0) {
+          setSunoDurationSeconds(j.durationSeconds);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sunoEmbedUuid]);
+
+  return { iframeSrc, loading: loading && !iframeSrc, error, sunoDurationSeconds };
 }
