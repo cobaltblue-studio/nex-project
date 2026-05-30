@@ -140,6 +140,8 @@ export type TrackAdminListItem = {
   aiPromptLastEditedAt?: string | null;
   /** From track_metrics when available (list APIs). */
   likesCount?: number | null;
+  /** Public comment count (excludes edit-request tickets). */
+  commentsCount?: number | null;
   /** When logged in: server says you already liked this track today (UTC day). */
   viewerHasLikedToday?: boolean;
 };
@@ -172,12 +174,14 @@ function TrackSocialActions({
   trackId,
   compact,
   likesCount,
+  commentsCount,
   viewerHasLikedToday,
   onCommentClick,
 }: {
   trackId: number;
   compact?: boolean;
   likesCount?: number | null;
+  commentsCount?: number | null;
   /** From GET /api/tracks/:id when logged in */
   viewerHasLikedToday?: boolean;
   onCommentClick?: () => void;
@@ -189,11 +193,16 @@ function TrackSocialActions({
   const [commentText, setCommentText] = useState("");
   const [guestCheerOpen, setGuestCheerOpen] = useState(false);
   const [displayLikes, setDisplayLikes] = useState(likesCount ?? 0);
+  const [displayComments, setDisplayComments] = useState(commentsCount ?? 0);
   const [likedToday, setLikedToday] = useState(!!viewerHasLikedToday);
 
   useEffect(() => {
     setDisplayLikes(likesCount ?? 0);
   }, [likesCount, trackId]);
+
+  useEffect(() => {
+    setDisplayComments(commentsCount ?? 0);
+  }, [commentsCount, trackId]);
 
   useEffect(() => {
     setLikedToday(!!viewerHasLikedToday);
@@ -239,10 +248,20 @@ function TrackSocialActions({
   });
 
   const commentMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/tracks/${trackId}/comments`, { content: commentText }),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/tracks/${trackId}/comments`, { content: commentText });
+      return (await res.json()) as { commentsCount?: number };
+    },
+    onSuccess: (data) => {
       setCommentOpen(false);
       setCommentText("");
+      if (typeof data?.commentsCount === "number") {
+        setDisplayComments(data.commentsCount);
+      } else {
+        setDisplayComments((c) => c + 1);
+      }
+      invalidateTrackQueries(trackId);
+      void queryClient.invalidateQueries({ queryKey: ["/api/tracks", trackId, "comments"] });
       toast({ title: "Comment posted" });
     },
     onError: (err: Error) => {
@@ -260,6 +279,7 @@ function TrackSocialActions({
     ? `${iconBtn} text-[8px] px-2 py-1 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/30`
     : `${iconBtn} text-[9px] px-3 py-2 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/20`;
   const likeCount = displayLikes;
+  const commentCount = displayComments;
   const heartTitle = likedToday
     ? t("likes.heartTitleYoursToday")
     : t("likes.heartTitle", { count: likeCount });
@@ -308,11 +328,14 @@ function TrackSocialActions({
           type="button"
           onClick={openComment}
           className={size}
-          title="COMMENT"
+          title={hasPublicCount(commentCount) ? `${commentCount} comments` : "Comment"}
           data-testid={`button-track-comment-${trackId}`}
         >
           <MessageCircle className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
-          <span className="hidden sm:inline">Comment</span>
+          {hasPublicCount(commentCount) && (
+            <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{commentCount}</span>
+          )}
+          <span className={hasPublicCount(commentCount) ? "hidden md:inline" : "hidden sm:inline"}>Comment</span>
         </button>
       </div>
 
@@ -540,6 +563,7 @@ export function TrackAdminActions({ track, compact, deleteRedirectTo = null, onC
           trackId={track.id}
           compact={compact}
           likesCount={track.likesCount}
+          commentsCount={track.commentsCount}
           viewerHasLikedToday={track.viewerHasLikedToday === true}
           onCommentClick={onCommentClick}
         />

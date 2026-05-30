@@ -295,6 +295,8 @@ export interface IStorage {
   listTrackComments(
     trackId: number,
   ): Promise<{ id: number; userId: string; content: string; createdAt: Date; authorName: string | null }[]>;
+  /** Public counts per track (excludes [EDIT REQUEST] admin tickets). */
+  getCommentCountsForTracks(trackIds: number[]): Promise<Record<number, number>>;
   listPendingTrackEditRequests(): Promise<
     {
       commentId: number;
@@ -1930,6 +1932,28 @@ export class DatabaseStorage implements IStorage {
       .where(eq(comments.trackId, trackId))
       .orderBy(desc(comments.createdAt))
       .limit(200);
+  }
+
+  async getCommentCountsForTracks(trackIds: number[]): Promise<Record<number, number>> {
+    if (trackIds.length === 0) return {};
+    const rows = await db
+      .select({
+        trackId: comments.trackId,
+        c: count(),
+      })
+      .from(comments)
+      .where(
+        and(
+          inArray(comments.trackId, trackIds),
+          sql`${comments.content} !~ '^\\[EDIT REQUEST\\]'`,
+        ),
+      )
+      .groupBy(comments.trackId);
+    const out: Record<number, number> = {};
+    for (const row of rows) {
+      out[row.trackId] = Number(row.c ?? 0);
+    }
+    return out;
   }
 
   async listPendingTrackEditRequests(): Promise<

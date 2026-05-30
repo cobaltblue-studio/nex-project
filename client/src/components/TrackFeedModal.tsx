@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { api } from "@shared/routes";
 import { Textarea } from "@/components/ui/textarea";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
@@ -95,6 +96,9 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
     onSuccess: () => {
       setCommentText("");
       queryClient.invalidateQueries({ queryKey: ["/api/tracks", trackId, "comments"] });
+      queryClient.invalidateQueries({ queryKey: [api.tracks.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+      queryClient.invalidateQueries({ queryKey: [api.tracks.get.path, String(trackId)] });
       toast({ title: "Comment posted" });
     },
     onError: () => {

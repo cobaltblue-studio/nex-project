@@ -26,6 +26,7 @@ interface MVTrack {
   winStreak: number;
   playCount?: number;
   likesCount?: number;
+  commentsCount?: number;
   claimableByCreators?: boolean;
 }
 
@@ -223,6 +224,7 @@ export function MusicVideo() {
                       aiPromptEditCount: track.aiPromptEditCount,
                       aiPromptLastEditedAt: track.aiPromptLastEditedAt,
                       likesCount: track.likesCount,
+                      commentsCount: track.commentsCount,
                     }}
                     onCommentClick={() =>
                       setFeed({

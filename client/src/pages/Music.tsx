@@ -20,6 +20,7 @@ interface ChartTrack {
   coverImageUrl?: string | null;
   playCount: number;
   likesCount?: number;
+  commentsCount?: number;
   claimableByCreators?: boolean;
   rankingScore: number;
   winStreak: number;
@@ -265,6 +266,7 @@ export function Music() {
                           aiPromptEditCount: track.aiPromptEditCount,
                           aiPromptLastEditedAt: track.aiPromptLastEditedAt,
                           likesCount: track.likesCount,
+                          commentsCount: track.commentsCount,
                         }}
                         onCommentClick={() =>
                           setFeed({

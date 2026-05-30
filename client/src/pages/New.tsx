@@ -19,6 +19,7 @@ interface NewTrack {
   genre: string;
   playCount: number;
   likesCount?: number;
+  commentsCount?: number;
   claimableByCreators?: boolean;
   aiPrompt?: string | null;
   aiPromptEditCount?: number;
@@ -242,6 +243,7 @@ export function New() {
                     aiPromptEditCount: track.aiPromptEditCount,
                     aiPromptLastEditedAt: track.aiPromptLastEditedAt,
                     likesCount: track.likesCount,
+                    commentsCount: track.commentsCount,
                   }}
                   onCommentClick={() =>
                     setFeed({

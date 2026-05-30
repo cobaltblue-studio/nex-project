@@ -490,7 +490,10 @@ export async function registerRoutes(
     const ts = await storage.getTracks(trackFilter);
 
     const trackIds = ts.map((t) => t.id);
-    const battleStats = await storage.getBattleStatsForTracks(trackIds);
+    const [battleStats, commentCounts] = await Promise.all([
+      storage.getBattleStatsForTracks(trackIds),
+      storage.getCommentCountsForTracks(trackIds),
+    ]);
 
     const formatted = ts.map((t) =>
       sanitizePublicTrack({
@@ -519,6 +522,7 @@ export async function registerRoutes(
         aiPromptLastEditedAt: t.aiPromptLastEditedAt,
         createdAt: t.createdAt,
         likesCount: (t as { likesCount?: number }).likesCount ?? 0,
+        commentsCount: commentCounts[t.id] ?? 0,
         claimableByCreators: !!(t as { claimableByCreators?: boolean }).claimableByCreators,
         ...(battleStats[t.id]
           ? {
@@ -798,7 +802,10 @@ export async function registerRoutes(
     const q = (req.query.q as string) || undefined;
     const ts = await storage.getNewFeedTracks(250, q);
     const trackIds = ts.map((t) => t.id);
-    const battleStats = await storage.getBattleStatsForTracks(trackIds);
+    const [battleStats, commentCounts] = await Promise.all([
+      storage.getBattleStatsForTracks(trackIds),
+      storage.getCommentCountsForTracks(trackIds),
+    ]);
     const formatted = ts.map((t) =>
       sanitizePublicTrack({
         id: t.id,
@@ -813,6 +820,7 @@ export async function registerRoutes(
         coverImageUrl: publicTrackCoverUrl(t),
         playCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
         likesCount: t.likesCount ?? 0,
+        commentsCount: commentCounts[t.id] ?? 0,
         rankingScore: t.rankingScore,
         trackType: t.trackType,
         status: t.status,
@@ -845,12 +853,14 @@ export async function registerRoutes(
       coverImageUrl: publicTrackCoverUrl(t),
       musicVideoUrl: (t as { mvUrl?: string | null }).mvUrl ?? null,
     });
+    const commentCounts = await storage.getCommentCountsForTracks([trackId]);
+    const withComments = { ...base, commentsCount: commentCounts[trackId] ?? 0 };
     const uid = req.user ? getUserId(req) : "";
     if (uid) {
       const viewerHasLikedToday = await storage.hasLikedTrackToday(uid, trackId);
-      return res.json({ ...base, viewerHasLikedToday });
+      return res.json({ ...withComments, viewerHasLikedToday });
     }
-    res.json(base);
+    res.json(withComments);
   });
 
   app.post("/api/tracks/:id/claim-request", isAuthenticated, async (req: any, res) => {
@@ -1486,7 +1496,16 @@ export async function registerRoutes(
   app.get("/api/tracks/rising", async (_req, res) => {
     const q = (_req.query.q as string) || undefined;
     const rising = await storage.getRisingTracks(q);
-    res.json(rising.map((row) => sanitizePublicTrack(row as Record<string, unknown>)));
+    const trackIds = rising.map((r) => r.id);
+    const commentCounts = await storage.getCommentCountsForTracks(trackIds);
+    res.json(
+      rising.map((row) =>
+        sanitizePublicTrack({
+          ...(row as Record<string, unknown>),
+          commentsCount: commentCounts[row.id] ?? 0,
+        }),
+      ),
+    );
   });
 
   const AVATAR_MAX_BYTES = 500 * 1024;
@@ -1538,7 +1557,11 @@ export async function registerRoutes(
     }
     try {
       await storage.addComment(getUserId(req), trackId, content);
-      res.status(201).json({ message: apiMsg("댓글이 등록되었습니다", "Comment posted") });
+      const commentCounts = await storage.getCommentCountsForTracks([trackId]);
+      res.status(201).json({
+        message: apiMsg("댓글이 등록되었습니다", "Comment posted"),
+        commentsCount: commentCounts[trackId] ?? 0,
+      });
     } catch (err: any) {
       const msg = err?.message;
       if (msg === "TRACK_NOT_FOUND") return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
