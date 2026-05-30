@@ -33,12 +33,26 @@ export function serveStatic(app: Express) {
 
   app.use(blockDevOnlyPaths);
 
-  app.use(express.static(CLIENT_DIST, { index: false, dotfiles: "deny" }));
+  app.use(
+    express.static(CLIENT_DIST, {
+      index: false,
+      dotfiles: "deny",
+      setHeaders(res, filePath) {
+        // Hashed Vite assets can be cached; index.html must revalidate after each deploy.
+        if (filePath.endsWith("index.html")) {
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    }),
+  );
 
   app.use("/{*path}", (req, res, next) => {
     if (requestPathname(req).startsWith("/api")) {
       return next();
     }
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.sendFile(path.resolve(CLIENT_DIST, "index.html"));
   });
 }

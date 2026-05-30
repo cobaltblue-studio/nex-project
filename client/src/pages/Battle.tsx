@@ -1133,33 +1133,35 @@ export function Battle() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className="text-center space-y-3"
+            className="text-center space-y-2 md:space-y-3"
           >
-            <div className="flex items-center justify-center gap-2">
-              <Trophy className="w-5 h-5 text-primary shrink-0" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">
-                Battle Result
-              </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-primary shrink-0" />
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">
+                  Battle Result
+                </p>
+              </div>
+              {winnerTrack ? (
+                <Link
+                  href={`/track/${winnerTrack.id}`}
+                  data-testid="button-view-winner-track-detail"
+                  className="inline-flex items-center text-[8px] font-bold uppercase tracking-[0.2em] text-primary/90 border border-primary/35 px-3 py-1.5 rounded-sm bg-primary/5 hover:bg-primary/15 transition-premium shrink-0"
+                >
+                  View Track Detail
+                </Link>
+              ) : null}
             </div>
 
             {winnerTrack && (
               <div className="space-y-0.5">
-                <p className="text-2xl font-display font-black text-white uppercase tracking-tight">
+                <p className="text-xl md:text-2xl font-display font-black text-white uppercase tracking-tight leading-tight">
                   {winnerTrack.title}
                 </p>
                 <p className="text-zinc-500 text-[10px] uppercase tracking-widest">
                   by {winnerTrack.creatorName}
                 </p>
                 <p className="text-[8px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
-                <div className="pt-1.5 flex justify-center">
-                  <Link
-                    href={`/track/${winnerTrack.id}`}
-                    data-testid="button-view-winner-track-detail"
-                    className="inline-block text-[8px] font-bold uppercase tracking-[0.2em] text-primary/90 border border-primary/35 px-3 py-1.5 rounded-sm bg-primary/5 hover:bg-primary/15 transition-premium"
-                  >
-                    View Track Detail
-                  </Link>
-                </div>
               </div>
             )}
 
@@ -1226,8 +1228,18 @@ export function Battle() {
               </p>
             )}
 
+            <div>
+              <button
+                onClick={nextBattle}
+                data-testid="button-next-battle"
+                className="px-8 py-3 glass-button text-primary font-bold text-[11px] uppercase tracking-[0.25em] rounded-xl transition-premium"
+              >
+                Next Battle <ChevronRight className="w-4 h-4 inline ml-1" />
+              </button>
+            </div>
+
             {winnerTrack && (
-              <div className="pt-2">
+              <div className="pt-1 border-t border-white/5">
                 <div className="mb-2">
                   <BattleStoryCardButton
                     battleId={battle.id}
@@ -1258,16 +1270,6 @@ export function Battle() {
                 />
               </div>
             )}
-
-            <div className="space-y-2">
-              <button
-                onClick={nextBattle}
-                data-testid="button-next-battle"
-                className="px-8 py-3 glass-button text-primary font-bold text-[11px] uppercase tracking-[0.25em] rounded-xl transition-premium"
-              >
-                Next Battle <ChevronRight className="w-4 h-4 inline ml-1" />
-              </button>
-            </div>
           </motion.div>
           );
         })()}
