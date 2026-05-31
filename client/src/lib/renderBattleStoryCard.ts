@@ -19,6 +19,90 @@ function trimText(value: string, max = 44): string {
   return `${v.slice(0, max - 1)}…`;
 }
 
+/** Word-wrap to maxLines; overflow becomes ellipsis on the last line. */
+function wrapLinesToWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+): string[] {
+  const words = (text ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return ["—"];
+
+  const lines: string[] = [];
+  let cur = "";
+  let wordIdx = 0;
+
+  while (wordIdx < words.length && lines.length < maxLines) {
+    const word = words[wordIdx];
+    const next = cur ? `${cur} ${word}` : word;
+    if (ctx.measureText(next).width <= maxWidth) {
+      cur = next;
+      wordIdx += 1;
+      continue;
+    }
+    if (cur) {
+      lines.push(cur);
+      cur = "";
+      continue;
+    }
+    lines.push(truncateToWidth(ctx, word, maxWidth));
+    cur = "";
+    wordIdx += 1;
+  }
+
+  if (lines.length < maxLines && cur) lines.push(cur);
+
+  if (wordIdx < words.length) {
+    const tail = words.slice(wordIdx).join(" ");
+    const lastIdx = Math.max(0, Math.min(lines.length, maxLines) - 1);
+    const merged = lines[lastIdx] ? `${lines[lastIdx]} ${tail}` : tail;
+    if (lines.length === 0) lines.push(truncateToWidth(ctx, merged, maxWidth));
+    else lines[lastIdx] = truncateToWidth(ctx, merged, maxWidth);
+  }
+
+  return lines.slice(0, maxLines).map((line) =>
+    ctx.measureText(line).width > maxWidth ? truncateToWidth(ctx, line, maxWidth) : line,
+  );
+}
+
+function truncateToWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string {
+  const raw = (text ?? "").trim() || "—";
+  if (ctx.measureText(raw).width <= maxWidth) return raw;
+  let out = raw;
+  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return `${out}…`;
+}
+
+/** Pick font size + wrapped lines so title stays inside the story card content box. */
+function fitTitleLayout(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+  startPx: number,
+  minPx: number,
+): { fontSize: number; lines: string[]; lineHeight: number } {
+  const title = (text ?? "").trim() || "—";
+  for (let size = startPx; size >= minPx; size -= 2) {
+    ctx.font = `900 ${size}px Inter, system-ui, sans-serif`;
+    const lines = wrapLinesToWidth(ctx, title, maxWidth, maxLines);
+    const tooWide = lines.some((line) => ctx.measureText(line).width > maxWidth + 0.5);
+    if (!tooWide) {
+      return { fontSize: size, lines, lineHeight: Math.round(size * 1.12) };
+    }
+  }
+  ctx.font = `900 ${minPx}px Inter, system-ui, sans-serif`;
+  const lines = wrapLinesToWidth(ctx, title, maxWidth, maxLines);
+  return { fontSize: minPx, lines, lineHeight: Math.round(minPx * 1.12) };
+}
+
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -41,33 +125,6 @@ function drawRoundedRect(
   ctx.closePath();
 }
 
-function fillWrappedText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-  maxLines = 2,
-) {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let cur = "";
-  for (const word of words) {
-    const next = cur ? `${cur} ${word}` : word;
-    if (ctx.measureText(next).width <= maxWidth) {
-      cur = next;
-      continue;
-    }
-    if (cur) lines.push(cur);
-    cur = word;
-    if (lines.length >= maxLines - 1) break;
-  }
-  if (cur && lines.length < maxLines) lines.push(cur);
-  const out = lines.slice(0, maxLines);
-  out.forEach((line, idx) => ctx.fillText(line, x, y + idx * lineHeight));
-}
-
 function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -78,22 +135,26 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
   });
 }
 
-function drawGlowText(
+function drawGlowTextLines(
   ctx: CanvasRenderingContext2D,
-  text: string,
+  lines: string[],
   x: number,
   y: number,
+  lineHeight: number,
   color: string,
   glow: string,
 ) {
-  ctx.save();
-  ctx.shadowColor = glow;
-  ctx.shadowBlur = 28;
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  ctx.restore();
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
+  lines.forEach((line, idx) => {
+    const ly = y + idx * lineHeight;
+    ctx.save();
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = color;
+    ctx.fillText(line, x, ly);
+    ctx.restore();
+    ctx.fillStyle = color;
+    ctx.fillText(line, x, ly);
+  });
 }
 
 export async function renderBattleStoryCardPng(input: BattleStoryCardInput): Promise<Blob> {
@@ -105,6 +166,8 @@ export async function renderBattleStoryCardPng(input: BattleStoryCardInput): Pro
 
   const W = canvas.width;
   const H = canvas.height;
+  const contentPadX = 100;
+  const contentMaxW = W - contentPadX * 2;
 
   const bg = ctx.createLinearGradient(0, 0, W, H);
   bg.addColorStop(0, "#02040a");
@@ -189,15 +252,39 @@ export async function renderBattleStoryCardPng(input: BattleStoryCardInput): Pro
   ctx.fillText("🏆  MY PICK WINS", W / 2, coverY + coverSize + 18);
   ctx.textAlign = "left";
 
-  ctx.font = "900 72px Inter, system-ui, sans-serif";
-  drawGlowText(ctx, trimText(input.winnerTitle, 40), 100, coverY + coverSize + 130, "#ffffff", "rgba(34,211,238,0.85)");
+  const titleBaseY = coverY + coverSize + 130;
+  const titleLayout = fitTitleLayout(
+    ctx,
+    input.winnerTitle,
+    contentMaxW,
+    3,
+    72,
+    34,
+  );
+  ctx.font = `900 ${titleLayout.fontSize}px Inter, system-ui, sans-serif`;
+  drawGlowTextLines(
+    ctx,
+    titleLayout.lines,
+    contentPadX,
+    titleBaseY,
+    titleLayout.lineHeight,
+    "#ffffff",
+    "rgba(34,211,238,0.85)",
+  );
 
+  const creatorY =
+    titleBaseY + titleLayout.lines.length * titleLayout.lineHeight + 28;
   ctx.fillStyle = "#cbd5e1";
   ctx.font = "600 36px Inter, system-ui, sans-serif";
-  ctx.fillText(`by ${trimText(input.winnerCreator, 28)}`, 100, coverY + coverSize + 200);
+  ctx.fillText(
+    `by ${truncateToWidth(ctx, input.winnerCreator, contentMaxW - 48)}`,
+    contentPadX,
+    creatorY,
+  );
 
+  const streakY = creatorY + 44;
   if (input.winStreak && input.winStreak > 0) {
-    drawRoundedRect(ctx, 100, coverY + coverSize + 230, 280, 48, 12);
+    drawRoundedRect(ctx, contentPadX, streakY, 280, 48, 12);
     ctx.fillStyle = "rgba(249, 115, 22, 0.2)";
     ctx.fill();
     ctx.strokeStyle = "rgba(249, 115, 22, 0.5)";
@@ -205,10 +292,11 @@ export async function renderBattleStoryCardPng(input: BattleStoryCardInput): Pro
     ctx.stroke();
     ctx.fillStyle = "#fb923c";
     ctx.font = "700 24px Inter, system-ui, sans-serif";
-    ctx.fillText(`🔥 WIN STREAK ${input.winStreak}`, 120, coverY + coverSize + 264);
+    ctx.fillText(`🔥 WIN STREAK ${input.winStreak}`, contentPadX + 20, streakY + 34);
   }
 
-  const barY = 1320;
+  const barY =
+    (input.winStreak && input.winStreak > 0 ? streakY + 72 : creatorY + 72);
   const barW = 880;
   const barH = 88;
 
@@ -220,10 +308,16 @@ export async function renderBattleStoryCardPng(input: BattleStoryCardInput): Pro
   ctx.fill();
   ctx.fillStyle = "#020617";
   ctx.font = "800 32px Inter, system-ui, sans-serif";
-  ctx.fillText(`A · ${input.pctA}%`, 120, barY + 56);
+  const labelA = `A · ${input.pctA}%`;
+  ctx.fillText(labelA, 120, barY + 56);
   ctx.fillStyle = "#e2e8f0";
   ctx.font = "600 26px Inter, system-ui, sans-serif";
-  ctx.fillText(trimText(input.trackATitle, 32), 280, barY + 56);
+  const titleBarMaxW = 100 + barW - 280 - 20;
+  ctx.fillText(
+    truncateToWidth(ctx, input.trackATitle, titleBarMaxW),
+    280,
+    barY + 56,
+  );
 
   drawRoundedRect(ctx, 100, barY + 110, barW, barH, 18);
   ctx.fillStyle = "rgba(255,255,255,0.08)";
@@ -233,10 +327,15 @@ export async function renderBattleStoryCardPng(input: BattleStoryCardInput): Pro
   ctx.fill();
   ctx.fillStyle = "#020617";
   ctx.font = "800 32px Inter, system-ui, sans-serif";
-  ctx.fillText(`B · ${input.pctB}%`, 120, barY + 166);
+  const labelB = `B · ${input.pctB}%`;
+  ctx.fillText(labelB, 120, barY + 166);
   ctx.fillStyle = "#e2e8f0";
   ctx.font = "600 26px Inter, system-ui, sans-serif";
-  ctx.fillText(trimText(input.trackBTitle, 32), 280, barY + 166);
+  ctx.fillText(
+    truncateToWidth(ctx, input.trackBTitle, titleBarMaxW),
+    280,
+    barY + 166,
+  );
 
   if (input.totalVotes != null && input.totalVotes >= 3) {
     ctx.fillStyle = "#94a3b8";
