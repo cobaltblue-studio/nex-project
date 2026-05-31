@@ -19,14 +19,42 @@ function trimText(value: string, max = 44): string {
   return `${v.slice(0, max - 1)}…`;
 }
 
-/** Word-wrap to maxLines; overflow becomes ellipsis on the last line. */
+function truncateToWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string {
+  const raw = (text ?? "").trim() || "—";
+  if (ctx.measureText(raw).width <= maxWidth) return raw;
+  let out = raw;
+  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return `${out}…`;
+}
+
+/** Split long unbroken strings (e.g. Korean titles without spaces). */
+function tokenizeForWrap(text: string): string[] {
+  const raw = (text ?? "").trim();
+  if (!raw) return ["—"];
+  const words = raw.split(/\s+/).filter(Boolean);
+  if (words.length > 1) return words;
+  const single = words[0] ?? raw;
+  if (single.length <= 24) return [single];
+  const chunks: string[] = [];
+  for (let i = 0; i < single.length; i += 12) {
+    chunks.push(single.slice(i, i + 12));
+  }
+  return chunks;
+}
+
 function wrapLinesToWidth(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
   maxLines: number,
 ): string[] {
-  const words = (text ?? "").trim().split(/\s+/).filter(Boolean);
+  const words = tokenizeForWrap(text);
   if (words.length === 0) return ["—"];
 
   const lines: string[] = [];
@@ -66,18 +94,49 @@ function wrapLinesToWidth(
   );
 }
 
-function truncateToWidth(
+function drawBattleResultBar(
   ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-): string {
-  const raw = (text ?? "").trim() || "—";
-  if (ctx.measureText(raw).width <= maxWidth) return raw;
-  let out = raw;
-  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) {
-    out = out.slice(0, -1);
-  }
-  return `${out}…`;
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  pct: number,
+  fillColor: string,
+  sideLabel: "A" | "B",
+  trackTitle: string,
+) {
+  const r = 18;
+  drawRoundedRect(ctx, x, y, w, h, r);
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  ctx.fill();
+
+  const fillW = Math.max(32, Math.round((w * pct) / 100));
+  drawRoundedRect(ctx, x, y, fillW, h, r);
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  const padX = 20;
+  const innerW = w - padX * 2;
+
+  ctx.save();
+  drawRoundedRect(ctx, x, y, w, h, r);
+  ctx.clip();
+
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = pct >= 50 ? "#020617" : "#e2e8f0";
+  ctx.font = "800 28px Inter, system-ui, sans-serif";
+  const pctLine = `${sideLabel} · ${pct}%`;
+  ctx.fillText(truncateToWidth(ctx, pctLine, innerW), x + padX, y + 38);
+
+  ctx.fillStyle = pct >= 50 ? "#0f172a" : "#cbd5e1";
+  ctx.font = "600 24px Inter, system-ui, sans-serif";
+  const titleLines = wrapLinesToWidth(ctx, trackTitle, innerW, 2);
+  const titleLineH = 30;
+  titleLines.forEach((line, idx) => {
+    ctx.fillText(line, x + padX, y + 68 + idx * titleLineH);
+  });
+
+  ctx.restore();
 }
 
 /** Pick font size + wrapped lines so title stays inside the story card content box. */
@@ -296,51 +355,40 @@ export async function renderBattleStoryCardPng(input: BattleStoryCardInput): Pro
   }
 
   const barY =
-    (input.winStreak && input.winStreak > 0 ? streakY + 72 : creatorY + 72);
-  const barW = 880;
-  const barH = 88;
+    input.winStreak && input.winStreak > 0 ? streakY + 72 : creatorY + 72;
+  const barX = contentPadX;
+  const barW = contentMaxW;
+  const barH = 108;
+  const barGap = 14;
 
-  drawRoundedRect(ctx, 100, barY, barW, barH, 18);
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
-  ctx.fill();
-  drawRoundedRect(ctx, 100, barY, Math.max(32, Math.round((barW * input.pctA) / 100)), barH, 18);
-  ctx.fillStyle = "#22d3ee";
-  ctx.fill();
-  ctx.fillStyle = "#020617";
-  ctx.font = "800 32px Inter, system-ui, sans-serif";
-  const labelA = `A · ${input.pctA}%`;
-  ctx.fillText(labelA, 120, barY + 56);
-  ctx.fillStyle = "#e2e8f0";
-  ctx.font = "600 26px Inter, system-ui, sans-serif";
-  const titleBarMaxW = 100 + barW - 280 - 20;
-  ctx.fillText(
-    truncateToWidth(ctx, input.trackATitle, titleBarMaxW),
-    280,
-    barY + 56,
+  drawBattleResultBar(
+    ctx,
+    barX,
+    barY,
+    barW,
+    barH,
+    input.pctA,
+    "#22d3ee",
+    "A",
+    input.trackATitle,
+  );
+  drawBattleResultBar(
+    ctx,
+    barX,
+    barY + barH + barGap,
+    barW,
+    barH,
+    input.pctB,
+    "#60a5fa",
+    "B",
+    input.trackBTitle,
   );
 
-  drawRoundedRect(ctx, 100, barY + 110, barW, barH, 18);
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
-  ctx.fill();
-  drawRoundedRect(ctx, 100, barY + 110, Math.max(32, Math.round((barW * input.pctB) / 100)), barH, 18);
-  ctx.fillStyle = "#60a5fa";
-  ctx.fill();
-  ctx.fillStyle = "#020617";
-  ctx.font = "800 32px Inter, system-ui, sans-serif";
-  const labelB = `B · ${input.pctB}%`;
-  ctx.fillText(labelB, 120, barY + 166);
-  ctx.fillStyle = "#e2e8f0";
-  ctx.font = "600 26px Inter, system-ui, sans-serif";
-  ctx.fillText(
-    truncateToWidth(ctx, input.trackBTitle, titleBarMaxW),
-    280,
-    barY + 166,
-  );
-
+  const afterBarsY = barY + barH * 2 + barGap + 24;
   if (input.totalVotes != null && input.totalVotes >= 3) {
     ctx.fillStyle = "#94a3b8";
     ctx.font = "600 24px Inter, system-ui, sans-serif";
-    ctx.fillText(`Community votes: ${input.totalVotes}`, 100, barY + 230);
+    ctx.fillText(`Community votes: ${input.totalVotes}`, barX, afterBarsY);
   }
 
   ctx.fillStyle = "#67e8f9";
