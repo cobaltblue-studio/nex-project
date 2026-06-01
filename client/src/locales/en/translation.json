@@ -286,6 +286,23 @@
     "noTracksYet": "No new releases yet.",
     "noSearch": "No tracks match \"{{q}}\"."
   },
+  "trackBoost": {
+    "title": "Battle boost (your track)",
+    "desc": "Spend 1 boost ticket to increase how often this track appears in battles until the impression goal (1000) is reached. One active boost per track; 48h cooldown after completion.",
+    "tickets": "Tickets",
+    "weekly": "This week (this track)",
+    "active": "Active: {{current}} / {{target}} impressions · 48h cooldown after completion",
+    "cooldown": "Cooldown: {{time}} left (48h after last run)",
+    "weeklyLimit": "Weekly boost starts on this track: {{used}}/{{max}} used",
+    "noTickets": "You have 0 tickets, so boost cannot start. (The amber box is the boost panel, not an error.)",
+    "earnTickets": "How to earn tickets: +10 when an admin approves your track ownership claim.",
+    "btnStart": "Use 1 ticket — start boost",
+    "btnStarting": "Starting…",
+    "btnRunning": "Boost running",
+    "btnNoTickets": "No tickets — unavailable",
+    "btnCooldown": "On cooldown",
+    "btnWeeklyLimit": "Weekly limit reached"
+  },
   "battle": {
     "sharePickText": "I picked {{creator}} on NEX Battle Arena 🎧",
     "shareResultText": "{{title}} by {{creator}} won my NEX battle vote!",

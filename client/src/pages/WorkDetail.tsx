@@ -335,6 +335,8 @@ export function TrackDetail() {
     (l) => l.trackId === currentTrackId && l.status === "ACTIVE",
   );
 
+  const boostTicketBalance = boostMe?.ticketBalance ?? 0;
+
   const boostActivateMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/boost/activate", {
@@ -351,6 +353,16 @@ export function TrackDetail() {
       toast({ title: "Could not start boost", description: err.message, variant: "destructive" });
     },
   });
+
+  const boostDisabledReason = (() => {
+    if (boostActivateMutation.isPending) return "pending" as const;
+    if (activeBoostForTrack) return "active" as const;
+    if (boostTicketBalance <= 0) return "no_tickets" as const;
+    if (boostCooldownRemainingMs > 0) return "cooldown" as const;
+    if (boostEligibility?.reason === "weekly_limit") return "weekly_limit" as const;
+    if (boostEligibility?.eligible === false) return "ineligible" as const;
+    return null;
+  })();
 
   const mvYtId = extractYoutubeId(track?.mvUrl);
   const audioYtId = extractYoutubeId(track?.audioUrl);
@@ -460,53 +472,78 @@ export function TrackDetail() {
       ) : null}
 
       {isTrackOwner ? (
-        <div className="rounded-sm border border-amber-500/25 bg-amber-500/5 p-4 sm:p-5 space-y-3">
+        <div
+          className="rounded-sm border border-amber-500/25 bg-amber-500/5 p-4 sm:p-5 space-y-3"
+          role="region"
+          aria-label={t("trackBoost.title")}
+        >
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/90 flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5" /> Battle boost (your track)
+            <Zap className="w-3.5 h-3.5" /> {t("trackBoost.title")}
           </p>
           {activeBoostForTrack ? (
             <p className="text-[11px] text-zinc-300">
-              Active: {activeBoostForTrack.currentImpressions} / {activeBoostForTrack.targetImpressions} impressions.
-              When complete, a 48h cooldown applies before you can boost this track again.
+              {t("trackBoost.active", {
+                current: activeBoostForTrack.currentImpressions,
+                target: activeBoostForTrack.targetImpressions,
+              })}
             </p>
           ) : boostEligibility?.reason === "cooldown_active" && boostCooldownRemainingMs > 0 ? (
             <p className="text-[11px] text-zinc-300">
-              Cooldown: <span className="font-mono text-amber-300">{formatBoostRemaining(boostCooldownRemainingMs)}</span>{" "}
-              remaining (global 48h after last run).
+              {t("trackBoost.cooldown", { time: formatBoostRemaining(boostCooldownRemainingMs) })}
             </p>
           ) : boostEligibility?.reason === "weekly_limit" ? (
             <p className="text-[11px] text-zinc-400">
-              Weekly boost starts used: {boostEligibility.weeklyStartsUsed} / {boostEligibility.weeklyStartsMax}. Try again
-              after older runs fall outside the rolling 7-day window.
+              {t("trackBoost.weeklyLimit", {
+                used: boostEligibility.weeklyStartsUsed,
+                max: boostEligibility.weeklyStartsMax,
+              })}
             </p>
           ) : (
-            <p className="text-[11px] text-zinc-400">
-              Spend one boost ticket to increase this track&apos;s chance of appearing in battles until the impression goal
-              is reached. One active boost per track; 48h cooldown after completion.
-            </p>
+            <p className="text-[11px] text-zinc-400">{t("trackBoost.desc")}</p>
           )}
           <div className="flex flex-wrap items-center gap-3 text-[10px] text-zinc-500 uppercase tracking-widest">
-            <span>Tickets: {boostMe?.ticketBalance ?? "—"}</span>
+            <span>
+              {t("trackBoost.tickets")}:{" "}
+              <span className={boostTicketBalance <= 0 ? "text-amber-300/90" : "text-zinc-300"}>
+                {boostTicketBalance}
+              </span>
+            </span>
             {boostEligibility ? (
               <span>
-                This week (this track): {boostEligibility.weeklyStartsUsed}/{boostEligibility.weeklyStartsMax}
+                {t("trackBoost.weekly")}: {boostEligibility.weeklyStartsUsed}/{boostEligibility.weeklyStartsMax}
               </span>
             ) : null}
           </div>
+          {boostDisabledReason === "no_tickets" ? (
+            <p className="text-[11px] text-amber-200/80 leading-relaxed">{t("trackBoost.noTickets")}</p>
+          ) : null}
+          {boostTicketBalance <= 0 ? (
+            <p className="text-[10px] text-zinc-500 leading-relaxed">{t("trackBoost.earnTickets")}</p>
+          ) : null}
           <button
             type="button"
-            disabled={
-              boostActivateMutation.isPending ||
-              !!activeBoostForTrack ||
-              (boostMe?.ticketBalance ?? 0) <= 0 ||
-              boostCooldownRemainingMs > 0 ||
-              boostEligibility?.reason === "weekly_limit" ||
-              boostEligibility?.eligible === false
-            }
+            disabled={boostDisabledReason != null}
             onClick={() => boostActivateMutation.mutate()}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-amber-500/90 text-black hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
+            title={
+              boostDisabledReason === "no_tickets"
+                ? t("trackBoost.noTickets")
+                : boostDisabledReason === "cooldown"
+                  ? t("trackBoost.cooldown", { time: formatBoostRemaining(boostCooldownRemainingMs) })
+                  : undefined
+            }
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-amber-500/90 text-black hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
           >
-            {boostActivateMutation.isPending ? "Starting…" : activeBoostForTrack ? "Boost running" : "Use 1 ticket — start boost"}
+            {boostDisabledReason === "pending"
+              ? t("trackBoost.btnStarting")
+              : boostDisabledReason === "active"
+                ? t("trackBoost.btnRunning")
+                : boostDisabledReason === "no_tickets"
+                  ? t("trackBoost.btnNoTickets")
+                  : boostDisabledReason === "cooldown"
+                    ? t("trackBoost.btnCooldown")
+                    : boostDisabledReason === "weekly_limit"
+                      ? t("trackBoost.btnWeeklyLimit")
+                      : t("trackBoost.btnStart")}
           </button>
         </div>
       ) : null}

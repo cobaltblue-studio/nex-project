@@ -286,6 +286,23 @@
     "noTracksYet": "아직 등록된 신곡이 없습니다.",
     "noSearch": "\"{{q}}\" 검색 결과가 없습니다."
   },
+  "trackBoost": {
+    "title": "배틀 부스트 (내 트랙)",
+    "desc": "부스트 티켓 1장을 쓰면, 노출 목표(1000회)에 도달할 때까지 이 곡이 배틀에 더 자주 매칭됩니다. 곡당 부스트 1개, 완료 후 48시간 쿨다운.",
+    "tickets": "보유 티켓",
+    "weekly": "이번 주 (이 곡)",
+    "active": "진행 중: {{current}} / {{target}} 노출 · 완료 후 48시간 쿨다운",
+    "cooldown": "쿨다운 {{time}} 남음 (마지막 부스트 완료 후 48시간)",
+    "weeklyLimit": "이번 주 이 곡 부스트 {{used}}/{{max}}회 사용됨",
+    "noTickets": "티켓이 0장이라 지금은 사용할 수 없습니다. (노란 박스는 부스터 안내 UI이며 오류가 아닙니다.)",
+    "earnTickets": "티켓 획득: 관리자가 트랙 소유권(클레임) 승인 시 +10장 지급됩니다.",
+    "btnStart": "티켓 1장 사용 — 부스트 시작",
+    "btnStarting": "시작 중…",
+    "btnRunning": "부스트 진행 중",
+    "btnNoTickets": "티켓 없음 — 사용 불가",
+    "btnCooldown": "쿨다운 중",
+    "btnWeeklyLimit": "주간 한도 도달"
+  },
   "battle": {
     "sharePickText": "NEX 배틀에서 {{creator}}에게 투표했어요 🎧",
     "shareResultText": "NEX 배틀 — {{creator}}의 「{{title}}」에 투표!",
