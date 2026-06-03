@@ -787,7 +787,7 @@ export function Battle() {
               className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
               data-testid="text-battle-label"
             >
-              Arena
+              {t("battle.label")}
             </h1>
           </div>
           <button
@@ -795,11 +795,7 @@ export function Battle() {
             onClick={() => setBlindMode((v) => !v)}
             data-testid="toggle-battle-blind-mode"
             aria-pressed={blindMode}
-            title={
-              blindMode
-                ? "Blind mode: track titles stay hidden until you vote. Click to reveal titles sooner."
-                : "Blind mode off. Click for blind judging (titles hidden until vote)."
-            }
+            title={blindMode ? t("battle.blindTitleOn") : t("battle.blindTitleOff")}
             className={[
               "inline-flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-lg border text-[9px] font-bold uppercase tracking-[0.18em] transition-premium",
               blindMode
@@ -813,7 +809,7 @@ export function Battle() {
               <Eye className="w-3.5 h-3.5 text-current shrink-0" aria-hidden strokeWidth={2.25} />
             )}
             <span className="whitespace-nowrap">
-              Blind <span className="opacity-80">·</span> {blindMode ? "On" : "Off"}
+              {blindMode ? t("battle.blindOn") : t("battle.blindOff")}
             </span>
           </button>
         </div>
@@ -821,11 +817,9 @@ export function Battle() {
           className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
           data-testid="text-battle-arena-title"
         >
-          BATTLE ARENA
+          {t("battle.title")}
         </h2>
-        <p className="text-zinc-500 text-sm mt-2">
-          Head-to-head track battles where the community decides the winner.
-        </p>
+        <p className="text-zinc-500 text-sm mt-2">{t("battle.subtitle")}</p>
       </div>
       <div className="battle-page-container">
         <AnimatePresence>
@@ -847,7 +841,7 @@ export function Battle() {
           data-testid="battle-progress-indicator"
           style={{ letterSpacing: "0.35em" }}
         >
-          {`TODAY'S BATTLES ${displayCount} / ${dailyMax} (DAILY LIMIT ${dailyMax})`}
+          {t("battle.dailyProgress", { count: displayCount, max: dailyMax })}
         </p>
       </div>
 
@@ -855,7 +849,7 @@ export function Battle() {
       <div className="mb-2 premium-card p-2.5 battle-stats-panel" data-testid="panel-today-stats">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400">
-            🔥 TODAY BATTLE STATS
+            🔥 {t("battle.statsTitle")}
           </span>
         </div>
         {arenaQuiet ? (
@@ -867,22 +861,22 @@ export function Battle() {
             <div className="text-center" data-testid="stat-votes-today">
               <Vote className="w-3 h-3 text-primary mx-auto mb-0.5" />
               <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.totalVotesToday)}</p>
-              <p className="text-[7px] uppercase tracking-widest text-zinc-600">Votes Today</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.votesToday")}</p>
             </div>
             <div className="text-center" data-testid="stat-battles-today">
               <BarChart3 className="w-3 h-3 text-primary mx-auto mb-0.5" />
               <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.battlesPlayedToday)}</p>
-              <p className="text-[7px] uppercase tracking-widest text-zinc-600">Battles Played</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.battlesPlayed")}</p>
             </div>
             <div className="text-center" data-testid="stat-tracks-pool">
               <ListMusic className="w-3 h-3 text-primary mx-auto mb-0.5" />
               <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.tracksInPool)}</p>
-              <p className="text-[7px] uppercase tracking-widest text-zinc-600">Current Battle Pool</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.poolTracks")}</p>
             </div>
             <div className="text-center" data-testid="stat-new-tracks">
               <Plus className="w-3 h-3 text-primary mx-auto mb-0.5" />
               <p className="text-sm font-display font-bold text-white">{statDisplay(todayStats?.newTracksToday)}</p>
-              <p className="text-[7px] uppercase tracking-widest text-zinc-600">New Today (Created)</p>
+              <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.newToday")}</p>
             </div>
           </div>
         )}
@@ -901,19 +895,17 @@ export function Battle() {
           >
             {limitReached ? (
               <p className="text-lg font-bold text-zinc-300 uppercase tracking-wider" data-testid="text-daily-limit-reached">
-                Daily limit of {dailyMax} reached. Come back tomorrow.
+                {t("battle.dailyLimitReached", { max: dailyMax })}
               </p>
             ) : !isAuthenticated ? (
               <div className="flex flex-col items-center gap-4 max-w-md text-center">
-                <p className="text-sm text-zinc-400">
-                  Start with Google to battle and vote. We&apos;ll return you here right after.
-                </p>
+                <p className="text-sm text-zinc-400">{t("battle.loginHint")}</p>
                 <a
                   href={battleLoginHref}
                   data-testid="button-battle-login"
                   className="px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105 inline-block"
                 >
-                  START WITH GOOGLE
+                  {t("battle.startWithGoogle")}
                 </a>
               </div>
             ) : (
@@ -922,7 +914,7 @@ export function Battle() {
                 data-testid="button-start-battle"
                 className="px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105"
               >
-                ⚡ NOW START BATTLE ⚡
+                ⚡ {t("battle.startBattle")} ⚡
               </button>
             )}
           </motion.div>
@@ -938,7 +930,7 @@ export function Battle() {
           >
             <Zap className="w-8 h-8 text-primary animate-pulse" />
             <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">
-              Loading Battle…
+              {t("battle.loadingBattle")}
             </p>
           </motion.div>
         )}

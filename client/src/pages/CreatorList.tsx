@@ -173,7 +173,7 @@ export function CreatorList() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by creator name or @username"
+              placeholder={t("common.creatorSearchPlaceholder")}
               className="w-full bg-black/40 border border-white/10 rounded-sm pl-10 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 transition-colors"
               data-testid="input-creator-search"
             />

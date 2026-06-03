@@ -199,22 +199,22 @@ export default function NexRadio() {
               <Radio className="w-7 h-7 text-primary" strokeWidth={1.5} />
             </div>
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
-              NEX Platform
+              {t("radio.platform")}
             </p>
             <h2 className="text-sm md:text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-green">
-              NEX TOP 100 RADIO
+              {t("radio.title")}
             </h2>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-8 max-w-xs">
-              Continuous AI stream from the global chart. Click to start the vibe.
+              {t("radio.subtitle")}
             </p>
             <button
               onClick={startRadio}
               data-testid="button-start-radio"
               className="flex items-center gap-3 px-8 py-3 border border-primary/40 text-primary bg-primary/10 hover:bg-primary/25 rounded-sm text-[11px] font-black uppercase tracking-[0.3em] transition-all mt-2"
-              aria-label="Start Radio"
+              aria-label={t("radio.start")}
             >
               <Play className="w-4 h-4" />
-              Start Radio
+              {t("radio.start")}
             </button>
             <button
               onClick={startRadio}
@@ -223,33 +223,31 @@ export default function NexRadio() {
               aria-label="Start Radio"
             />
             <p className="text-[8px] text-zinc-700 uppercase tracking-widest mt-4">
-              {isLoading ? "Loading tracks..." : `${tracks.length} tracks available`}
+              {isLoading ? t("radio.loadingTracks") : t("radio.tracksAvailable", { count: tracks.length })}
             </p>
         </div>
       ) : (
         <div className="flex flex-col flex-1 overflow-hidden gap-2">
           <div className="text-center shrink-0" style={{ minHeight: "10vh" }}>
-            <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">{t("radio.platform")}</p>
             <h1 data-testid="heading-radio" className="text-xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-green">
               <Radio className="w-6 h-6 text-primary inline mr-3" />
-              NEX TOP 100 RADIO
+              {t("radio.title")}
             </h1>
-            <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-2">
-              Continuous AI stream from the global chart. Click to start the vibe.
-            </p>
+            <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-2">{t("radio.subtitle")}</p>
           </div>
 
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-widest text-primary animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  On Air
+                  {t("radio.onAir")}
                 </span>
-                <span className="text-[8px] text-zinc-700 uppercase tracking-widest">NEX TOP 100</span>
+                <span className="text-[8px] text-zinc-700 uppercase tracking-widest">{t("musicChart.title")}</span>
               </div>
               <div className="flex items-center gap-1 text-[8px] text-zinc-700 uppercase tracking-widest">
                 <Shuffle className="w-3 h-3" />
-                Shuffled
+                {t("radio.shuffled")}
               </div>
             </div>
 
@@ -304,12 +302,12 @@ export default function NexRadio() {
                     {iframeError
                       ? iframeError
                       : playlist.length === 0
-                        ? "No tracks available"
-                        : "No playable link for this track"}
+                        ? t("radio.noTracks")
+                        : t("radio.noPlayableLink")}
                   </p>
                   {playlist.length > 0 && !iframeError && (
                     <button onClick={handleNext} className="text-[9px] text-primary/70 hover:text-primary uppercase tracking-widest transition-colors">
-                      Try next track →
+                      {t("radio.tryNext")}
                     </button>
                   )}
                 </div>
