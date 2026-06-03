@@ -40,6 +40,13 @@ const RANKING_WEIGHT_LIKES = 0.2;
 const RANKING_WEIGHT_PLAYS = 0.2;
 const RANKING_WEIGHT_FOLLOWERS = 0.1;
 
+/** MV chart: engagement only (no battles). */
+const MV_RANKING_WEIGHT_PLAYS = 0.4;
+const MV_RANKING_WEIGHT_LIKES = 0.35;
+const MV_RANKING_WEIGHT_COMMENTS = 0.25;
+
+const MV_CHART_STATUSES_SQL = sql`${tracks.status} IN ('MV', 'CHART', 'BATTLE_POOL', 'PUBLISHED', 'APPROVED')`;
+
 /** Same pool as `/api/tracks/new` (audio only; not MV/video). */
 function battleEligibleTracksFilter() {
   return and(
@@ -122,6 +129,52 @@ export function computeRankingScore(input: {
 
   const recentBoost = getRecentBoost(input.createdAt);
   return Number((weightedCore * (1 + qualityBonusFactor) * 100 + recentBoost).toFixed(4));
+}
+
+/**
+ * Music Video TOP 100: plays + likes + comments (no battle signal).
+ */
+export function computeMvRankingScore(input: {
+  likesCount: number;
+  playCount: number;
+  commentsCount: number;
+  completionRate: number;
+  saveRelistenRate: number;
+  createdAt: Date;
+}): number {
+  const playsNorm = Math.log1p(Math.max(0, input.playCount));
+  const likesNorm = Math.log1p(Math.max(0, input.likesCount));
+  const commentsNorm = Math.log1p(Math.max(0, input.commentsCount));
+
+  const weightedCore =
+    playsNorm * MV_RANKING_WEIGHT_PLAYS +
+    likesNorm * MV_RANKING_WEIGHT_LIKES +
+    commentsNorm * MV_RANKING_WEIGHT_COMMENTS;
+
+  const qualityBonusFactor =
+    Math.max(0, Math.min(1, input.completionRate)) * 0.06 +
+    Math.max(0, Math.min(1, input.saveRelistenRate)) * 0.04;
+
+  const recentBoost = getRecentBoost(input.createdAt);
+  return Number((weightedCore * (1 + qualityBonusFactor) * 100 + recentBoost).toFixed(4));
+}
+
+/** MV chart API sort: live plays/likes/comments only (no stale DB score, no freshness skew). */
+export function computeMvChartLiveScore(input: {
+  likesCount: number;
+  playCount: number;
+  commentsCount: number;
+}): number {
+  const playsNorm = Math.log1p(Math.max(0, input.playCount));
+  const likesNorm = Math.log1p(Math.max(0, input.likesCount));
+  const commentsNorm = Math.log1p(Math.max(0, input.commentsCount));
+  return Number(
+    (
+      playsNorm * MV_RANKING_WEIGHT_PLAYS +
+      likesNorm * MV_RANKING_WEIGHT_LIKES +
+      commentsNorm * MV_RANKING_WEIGHT_COMMENTS
+    ).toFixed(6),
+  );
 }
 
 function weightedPickTwo<T extends { rankingScore: number; id: number }>(
@@ -492,12 +545,21 @@ export class DatabaseStorage implements IStorage {
 
   private scheduleRecomputeTrackRankingScore(trackId: number): void {
     if (!Number.isFinite(trackId)) return;
-    this.pendingRankingRecomputeTrackIds.add(trackId);
-    if (this.rankingRecomputeFlushTimer) return;
-
-    this.rankingRecomputeFlushTimer = setTimeout(() => {
-      void this.flushRankingRecomputeQueue();
-    }, this.rankingRecomputeDebounceMs);
+    void (async () => {
+      const [row] = await db
+        .select({ trackType: tracks.trackType })
+        .from(tracks)
+        .where(eq(tracks.id, trackId));
+      if (row?.trackType === "video") {
+        await this.recomputeTrackRankingScore(trackId);
+        return;
+      }
+      this.pendingRankingRecomputeTrackIds.add(trackId);
+      if (this.rankingRecomputeFlushTimer) return;
+      this.rankingRecomputeFlushTimer = setTimeout(() => {
+        void this.flushRankingRecomputeQueue();
+      }, this.rankingRecomputeDebounceMs);
+    })();
   }
 
   private async flushRankingRecomputeQueue(): Promise<void> {
@@ -628,17 +690,31 @@ export class DatabaseStorage implements IStorage {
     const saveRate = m.uniqueListenersCount > 0 ? Math.min(1, m.likesCount / m.uniqueListenersCount) : 0;
     const saveRelistenRate = (saveRate + relistenRate) / 2;
 
-    const rs = computeRankingScore({
-      battleWins: m.battleWinsCount,
-      battleTotal: m.battleTotalCount,
-      likesCount: m.likesCount,
-      playCount: m.playsCount,
-      followerCount: m.followerCount,
-      completionRate,
-      saveRelistenRate,
-      uniqueListeners: m.uniqueListenersCount,
-      createdAt: t.createdAt,
-    });
+    const playCount = Math.max(t.playCount ?? 0, m.playsCount ?? 0);
+    let rs: number;
+    if (t.trackType === "video") {
+      const commentCounts = await this.getCommentCountsForTracks([trackId]);
+      rs = computeMvRankingScore({
+        likesCount: m.likesCount,
+        playCount,
+        commentsCount: commentCounts[trackId] ?? 0,
+        completionRate,
+        saveRelistenRate,
+        createdAt: t.createdAt,
+      });
+    } else {
+      rs = computeRankingScore({
+        battleWins: m.battleWinsCount,
+        battleTotal: m.battleTotalCount,
+        likesCount: m.likesCount,
+        playCount,
+        followerCount: m.followerCount,
+        completionRate,
+        saveRelistenRate,
+        uniqueListeners: m.uniqueListenersCount,
+        createdAt: t.createdAt,
+      });
+    }
 
     await db.update(tracks).set({ rankingScore: rs }).where(eq(tracks.id, trackId));
   }
@@ -913,11 +989,11 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
       .$dynamic();
     const filters = [];
-    if (status) {
+    if (trackType === "video") {
+      filters.push(MV_CHART_STATUSES_SQL);
+    } else if (status) {
       if (status === "MV" && mvChartListing) {
-        filters.push(
-          sql`${tracks.status} IN ('MV', 'CHART', 'BATTLE_POOL', 'PUBLISHED', 'APPROVED')`,
-        );
+        filters.push(MV_CHART_STATUSES_SQL);
       } else {
         filters.push(eq(tracks.status, status));
       }
@@ -1189,17 +1265,27 @@ export class DatabaseStorage implements IStorage {
 
   async createTrack(t: any): Promise<Track> {
     const now = new Date();
-    const rs = computeRankingScore({
-      battleWins: 0,
-      battleTotal: 0,
-      likesCount: 0,
-      playCount: 0,
-      followerCount: 0,
-      completionRate: 0,
-      saveRelistenRate: 0,
-      uniqueListeners: 0,
-      createdAt: now,
-    });
+    const isVideo = t.trackType === "video";
+    const rs = isVideo
+      ? computeMvRankingScore({
+          likesCount: 0,
+          playCount: 0,
+          commentsCount: 0,
+          completionRate: 0,
+          saveRelistenRate: 0,
+          createdAt: now,
+        })
+      : computeRankingScore({
+          battleWins: 0,
+          battleTotal: 0,
+          likesCount: 0,
+          playCount: 0,
+          followerCount: 0,
+          completionRate: 0,
+          saveRelistenRate: 0,
+          uniqueListeners: 0,
+          createdAt: now,
+        });
     const [nt] = await db.insert(tracks).values({ ...t, rankingScore: rs }).returning();
     await this.ensureTrackMetricsRow(nt.id, nt.creatorId);
     this.scheduleRecomputeTrackRankingScore(nt.id);
@@ -1531,6 +1617,18 @@ export class DatabaseStorage implements IStorage {
     this.scheduleRecomputeTrackRankingScore(id);
   }
 
+  /** Recompute MV chart scores from current plays/likes/comments (e.g. after deploy). */
+  async recalculateAllMvRankingScores(): Promise<number> {
+    const rows = await db
+      .select({ id: tracks.id })
+      .from(tracks)
+      .where(and(eq(tracks.isDeleted, false), eq(tracks.trackType, "video"), MV_CHART_STATUSES_SQL));
+    for (const row of rows) {
+      await this.recomputeTrackRankingScore(row.id);
+    }
+    return rows.length;
+  }
+
   async updateTrackMetadata(
     id: number,
     data: {
@@ -1852,9 +1950,13 @@ export class DatabaseStorage implements IStorage {
     const body = content.trim();
     if (!body) throw new Error("EMPTY_COMMENT");
     if (body.length > 2000) throw new Error("COMMENT_TOO_LONG");
-    const [t] = await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.id, trackId));
+    const [t] = await db
+      .select({ id: tracks.id, trackType: tracks.trackType })
+      .from(tracks)
+      .where(eq(tracks.id, trackId));
     if (!t) throw new Error("TRACK_NOT_FOUND");
     await db.insert(comments).values({ userId, trackId, content: body });
+    this.scheduleRecomputeTrackRankingScore(trackId);
   }
 
   async listTrackComments(
@@ -3107,23 +3209,42 @@ export class DatabaseStorage implements IStorage {
 
   private async emailCreator(
     recipientUserId: string,
-    send: (to: string) => Promise<void>,
-  ): Promise<void> {
-    if (!isEmailEnabled()) return;
+    send: (to: string) => Promise<{ sent: boolean; reason?: string; detail?: string }>,
+  ): Promise<{ sent: boolean; skipReason?: string; detail?: string }> {
+    if (!isEmailEnabled()) {
+      return { sent: false, skipReason: "email_disabled" };
+    }
     const user = await this.getUserById(recipientUserId);
     const email = user?.email?.trim();
-    if (!email) return;
+    if (!email) {
+      console.warn("[email] no address for user", recipientUserId);
+      return { sent: false, skipReason: "no_creator_email" };
+    }
     try {
-      await send(email);
+      const result = await send(email);
+      if (!result.sent) {
+        console.warn("[email] not sent", { recipientUserId, to: email, ...result });
+        return { sent: false, skipReason: result.reason, detail: result.detail };
+      }
+      console.info("[email] sent", { recipientUserId, to: email });
+      return { sent: true };
     } catch (err) {
       console.warn("[email] creator notify failed", err);
+      return { sent: false, skipReason: "exception", detail: err instanceof Error ? err.message : String(err) };
     }
   }
 
-  async notifyTrackReviewed(trackId: number, status: string): Promise<void> {
+  async notifyTrackReviewed(trackId: number, status: string): Promise<{
+    notified: boolean;
+    email: { sent: boolean; skipReason?: string; detail?: string };
+  }> {
+    const empty = { notified: false, email: { sent: false, skipReason: "skipped" as const } };
     const track = await this.getTrack(trackId);
     const recipientUserId = track?.creator?.userId;
-    if (!recipientUserId) return;
+    if (!recipientUserId) {
+      console.warn("[notify] track review — missing creator userId", { trackId, status });
+      return { ...empty, email: { sent: false, skipReason: "no_creator_user" } };
+    }
 
     const title = track.title ?? "Your track";
     if (status === "REJECTED") {
@@ -3135,14 +3256,22 @@ export class DatabaseStorage implements IStorage {
         trackId,
         href: "/my-tracks",
       });
-      void this.emailCreator(recipientUserId, (to) =>
+      const email = await this.emailCreator(recipientUserId, (to) =>
         sendTrackRejectedEmail({ to, trackTitle: title }),
       );
-      return;
+      return { notified: true, email };
     }
-    if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
+
+    const approvedStatuses = ["BATTLE_POOL", "PUBLISHED", "MV", "APPROVED", "CHART"] as const;
+    if ((approvedStatuses as readonly string[]).includes(status)) {
       const dest =
-        status === "MV" ? "Music Video chart" : status === "BATTLE_POOL" ? "Battle pool" : "NEX";
+        status === "MV"
+          ? "Music Video chart"
+          : status === "CHART"
+            ? "Music chart"
+            : status === "BATTLE_POOL"
+              ? "Battle pool"
+              : "NEX";
       await this.createNotification({
         recipientUserId,
         type: "track_approved",
@@ -3151,10 +3280,13 @@ export class DatabaseStorage implements IStorage {
         trackId,
         href: `/track/${trackId}`,
       });
-      void this.emailCreator(recipientUserId, (to) =>
+      const email = await this.emailCreator(recipientUserId, (to) =>
         sendTrackApprovedEmail({ to, trackTitle: title, trackId, destination: dest }),
       );
+      return { notified: true, email };
     }
+
+    return empty;
   }
 
   async notifyTrackLiked(trackId: number, likerUserId: string): Promise<void> {

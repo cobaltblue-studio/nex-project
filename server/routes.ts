@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, computeMvChartLiveScore } from "./storage";
 import { seed } from "./seed";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
@@ -498,8 +498,11 @@ export async function registerRoutes(
       storage.getCommentCountsForTracks(trackIds),
     ]);
 
-    const formatted = ts.map((t) =>
-      sanitizePublicTrack({
+    const formatted = ts.map((t) => {
+      const playCount = publicTrackPlayCount(t as { playCount?: number; playsCount?: number });
+      const likesCount = (t as { likesCount?: number }).likesCount ?? 0;
+      const commentsCount = commentCounts[t.id] ?? 0;
+      return sanitizePublicTrack({
         id: t.id,
         title: t.title,
         creatorName: t.artistName || t.creator.username,
@@ -514,8 +517,8 @@ export async function registerRoutes(
         description: t.description,
         aiCraftScore: t.aiCraftScore,
         neoScore: t.neoScore,
-        playCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
-        playsCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
+        playCount,
+        playsCount: playCount,
         rankingScore: t.rankingScore,
         trackType: t.trackType,
         status: t.status,
@@ -524,8 +527,8 @@ export async function registerRoutes(
         aiPromptEditCount: t.aiPromptEditCount,
         aiPromptLastEditedAt: t.aiPromptLastEditedAt,
         createdAt: t.createdAt,
-        likesCount: (t as { likesCount?: number }).likesCount ?? 0,
-        commentsCount: commentCounts[t.id] ?? 0,
+        likesCount,
+        commentsCount,
         claimableByCreators: !!(t as { claimableByCreators?: boolean }).claimableByCreators,
         ...(battleStats[t.id]
           ? {
@@ -534,8 +537,33 @@ export async function registerRoutes(
               winRate: battleStats[t.id].winRate,
             }
           : {}),
-      } as Record<string, unknown>),
-    );
+      } as Record<string, unknown>);
+    });
+
+    if (resolvedTrackType === "video") {
+      const sortByEngagement = requestedSortBy === "rankingScore" || requestedSortBy === undefined;
+      if (sortByEngagement) {
+        formatted.sort((a, b) => {
+          const scoreA = computeMvChartLiveScore({
+            playCount: Number(a.playCount ?? 0),
+            likesCount: Number(a.likesCount ?? 0),
+            commentsCount: Number(a.commentsCount ?? 0),
+          });
+          const scoreB = computeMvChartLiveScore({
+            playCount: Number(b.playCount ?? 0),
+            likesCount: Number(b.likesCount ?? 0),
+            commentsCount: Number(b.commentsCount ?? 0),
+          });
+          if (scoreB !== scoreA) return scoreB - scoreA;
+          const playDiff = Number(b.playCount ?? 0) - Number(a.playCount ?? 0);
+          if (playDiff !== 0) return playDiff;
+          const likeDiff = Number(b.likesCount ?? 0) - Number(a.likesCount ?? 0);
+          if (likeDiff !== 0) return likeDiff;
+          return Number(b.commentsCount ?? 0) - Number(a.commentsCount ?? 0);
+        });
+      }
+    }
+
     res.json(formatted);
   });
 
@@ -1986,7 +2014,19 @@ export async function registerRoutes(
       status,
       req.body.aiCraftScore,
     );
-    void storage.notifyTrackReviewed(reviewedTrackId, status).catch(() => {});
+    let notifyResult: Awaited<ReturnType<typeof storage.notifyTrackReviewed>> = {
+      notified: false,
+      email: { sent: false, skipReason: "skipped" },
+    };
+    try {
+      notifyResult = await storage.notifyTrackReviewed(reviewedTrackId, status);
+    } catch (err) {
+      console.error("[admin/review] notifyTrackReviewed failed", reviewedTrackId, err);
+      notifyResult = {
+        notified: false,
+        email: { sent: false, skipReason: "notify_failed" },
+      };
+    }
     if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
       const reviewedTrack = await storage.getTrack(reviewedTrackId);
       const profileId = reviewedTrack?.creatorId;
@@ -2000,7 +2040,32 @@ export async function registerRoutes(
         }
       }
     }
-    res.json({ message: apiMsg("검토가 완료되었습니다", "Review completed") });
+    res.json({
+      message: apiMsg("검토가 완료되었습니다", "Review completed"),
+      emailSent: notifyResult.email.sent,
+      emailSkipReason: notifyResult.email.skipReason ?? null,
+      emailDetail: notifyResult.email.detail ?? null,
+    });
+  });
+
+  /** Re-send approval/rejection email for an already-reviewed track (admin only). */
+  app.post("/api/admin/tracks/:id/resend-review-email", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const trackId = Number(req.params.id);
+    const track = await storage.getTrack(trackId);
+    if (!track) {
+      return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    }
+    const notifyResult = await storage.notifyTrackReviewed(trackId, track.status);
+    res.json({
+      ok: true,
+      status: track.status,
+      emailSent: notifyResult.email.sent,
+      emailSkipReason: notifyResult.email.skipReason ?? null,
+      emailDetail: notifyResult.email.detail ?? null,
+    });
   });
 
   app.get("/api/admin/creator-applications", isAuthenticated, async (req: any, res) => {
