@@ -140,6 +140,18 @@
     "failedDesc": "Please try again in a moment. If it keeps happening, sign out and sign back in."
   },
   "layout": {
+    "nav": {
+      "home": "HOME",
+      "new": "NEW",
+      "music": "MUSIC",
+      "musicVideo": "MUSIC VIDEO",
+      "battle": "BATTLE",
+      "rising": "RISING",
+      "creators": "CREATORS",
+      "radio": "RADIO",
+      "submitTrack": "SUBMIT TRACK",
+      "adminPanel": "ADMIN PANEL"
+    },
     "login": "LOGIN",
     "myPage": "MY PAGE",
     "viewProfile": "View profile",
@@ -268,11 +280,90 @@
     "linkCopiedDesc": "Paste into Instagram, KakaoTalk, or anywhere you like.",
     "copyFailedTitle": "Copy this link"
   },
+  "common": {
+    "searchPlaceholder": "Search by title, creator, or genre",
+    "searchHintAudio": "Searching across all active audio tracks.",
+    "searchHintVideo": "Searching across all active video tracks.",
+    "loadingChart": "Loading chart…",
+    "loadingNew": "Loading new tracks…",
+    "failedLoadChart": "Failed to load chart",
+    "failedLoadRetry": "Something went wrong while loading the chart. Please try again later.",
+    "noSearchResults": "No results for \"{{q}}\"",
+    "searchKeywordsHint": "Try title, creator, or genre keywords.",
+    "chartLoadingEmpty": "Chart tracks are loading onto NEX",
+    "chartEmptyHint": "New submissions appear here after chart placement.",
+    "mvLoadingEmpty": "Music videos are loading onto NEX",
+    "plays": "Plays",
+    "comment": "Comment",
+    "commentsTitle": "{{count}} comments",
+    "commentDialogTitle": "Comment",
+    "writeComment": "Write a comment…",
+    "cancel": "Cancel",
+    "post": "Post",
+    "sending": "Sending…",
+    "commentPosted": "Comment posted",
+    "playTrackAria": "Play {{title}}",
+    "dismiss": "Dismiss"
+  },
+  "musicChart": {
+    "label": "Music Chart",
+    "title": "NEX TOP 100",
+    "subtitle": "The definitive ranking of the top 100 tracks on NEX.",
+    "zoneLegend": "Legend Zone",
+    "zoneElite": "Elite Zone",
+    "zoneRising": "Rising Zone"
+  },
+  "musicVideo": {
+    "label": "Music Video Chart",
+    "title": "MV TOP 100",
+    "subtitle": "The top 100 tracks with music videos on NEX."
+  },
+  "newPage": {
+    "label": "New Releases",
+    "title": "NEW ON NEX"
+  },
+  "rising": {
+    "label": "Music Chart",
+    "title": "RISING",
+    "subtitle": "Tracks outside the top chart — surfaced by play momentum (views).",
+    "badgeAudioOnly": "Audio only",
+    "badgeNotTop100": "Not in top 100",
+    "badgePlaysSort": "Plays ↓ sort",
+    "loading": "Loading rising tracks…",
+    "failedLoad": "Failed to load",
+    "empty": "No rising tracks yet",
+    "emptyHint": "When audio tracks pick up plays outside the top 100, they appear here.",
+    "fuelChart": "Fuel the chart",
+    "goBattle": "Go to Battle"
+  },
+  "auth": {
+    "title": "Start with Google",
+    "subtitle": "One tap to create or sign in to your NEX account. You'll return to the page you were viewing.",
+    "inAppTitleWithApp": "{{app}} — sign-in not available here",
+    "inAppTitleGeneric": "In-app browser — sign-in not available",
+    "inAppBody": "Google blocks sign-in inside Threads, Instagram, KakaoTalk, and other in-app browsers (Error 403). This is not a NEX or US server issue.",
+    "inAppSteps": "1) Tap ⋯ → Open in Safari or Chrome\n2) Or copy the link below into your browser",
+    "inAppOAuthHint": "After opening in an external browser, use Google sign-in below.",
+    "continueGoogle": "Continue with Google",
+    "backHome": "Back to home"
+  },
+  "inAppBrowser": {
+    "titleWithApp": "{{app}} in-app browser — Google sign-in blocked",
+    "titleGeneric": "In-app browser — Google sign-in blocked",
+    "body": "Google blocks sign-in inside Threads, Instagram, and other in-app browsers (403). Tap ⋯ → Open in Safari or Chrome, then sign in again.",
+    "copyLink": "Copy page link",
+    "copied": "Link copied"
+  },
   "chart": {
     "showingTop": "Showing top {{count}} on the chart right now.",
     "vote": "Vote"
   },
   "creators": {
+    "label": "Creators",
+    "title": "NEX CREATORS",
+    "follow": "Follow",
+    "following": "Following",
+    "followFailed": "Follow failed",
     "statHidden": "—",
     "plays": "Plays",
     "likes": "Likes",

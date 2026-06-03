@@ -262,7 +262,7 @@ function TrackSocialActions({
       }
       invalidateTrackQueries(trackId);
       void queryClient.invalidateQueries({ queryKey: ["/api/tracks", trackId, "comments"] });
-      toast({ title: "Comment posted" });
+      toast({ title: t("common.commentPosted") });
     },
     onError: (err: Error) => {
       if (String(err?.message ?? "").startsWith("401")) {
@@ -328,26 +328,26 @@ function TrackSocialActions({
           type="button"
           onClick={openComment}
           className={size}
-          title={hasPublicCount(commentCount) ? `${commentCount} comments` : "Comment"}
+          title={hasPublicCount(commentCount) ? t("common.commentsTitle", { count: commentCount }) : t("common.comment")}
           data-testid={`button-track-comment-${trackId}`}
         >
           <MessageCircle className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
           {hasPublicCount(commentCount) && (
             <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{commentCount}</span>
           )}
-          <span className={hasPublicCount(commentCount) ? "hidden md:inline" : "hidden sm:inline"}>Comment</span>
+          <span className={hasPublicCount(commentCount) ? "hidden md:inline" : "hidden sm:inline"}>{t("common.comment")}</span>
         </button>
       </div>
 
       <Dialog open={commentOpen} onOpenChange={setCommentOpen}>
         <DialogContent className="max-w-md bg-[#0a0a0a] border-white/10 text-white">
           <DialogHeader>
-            <DialogTitle className="text-sm font-display uppercase tracking-[0.2em] text-primary">Comment</DialogTitle>
+            <DialogTitle className="text-sm font-display uppercase tracking-[0.2em] text-primary">{t("common.commentDialogTitle")}</DialogTitle>
           </DialogHeader>
           <Textarea
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
-            placeholder="Write a comment…"
+            placeholder={t("common.writeComment")}
             className="min-h-[100px] bg-black/40 border-white/10 text-sm text-white"
             data-testid={`textarea-track-comment-${trackId}`}
           />
@@ -357,7 +357,7 @@ function TrackSocialActions({
               onClick={() => setCommentOpen(false)}
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-4 py-2 border border-white/10 rounded-sm hover:bg-white/5"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -366,7 +366,7 @@ function TrackSocialActions({
               className="text-[10px] font-bold uppercase tracking-widest bg-primary/15 border border-primary/40 text-primary px-4 py-2 rounded-sm hover:bg-primary/25 disabled:opacity-40"
               data-testid={`submit-track-comment-${trackId}`}
             >
-              {commentMutation.isPending ? "Sending…" : "Post"}
+              {commentMutation.isPending ? t("common.sending") : t("common.post")}
             </button>
           </DialogFooter>
         </DialogContent>

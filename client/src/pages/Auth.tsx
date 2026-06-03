@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Copy, UserPlus } from "lucide-react";
 import { Link, useSearch } from "wouter";
+import { useTranslation } from "react-i18next";
 import { getGoogleOAuthUrl } from "@/lib/loginRedirect";
 import { inAppBrowserLabel, isLikelyInAppBrowser } from "@/lib/inapp-browser";
 
 export default function Auth() {
+  const { t } = useTranslation();
   const search = useSearch();
   const [copied, setCopied] = useState(false);
   const oauthHref = useMemo(() => {
@@ -36,11 +38,9 @@ export default function Auth() {
       <div className="space-y-3">
         <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-primary">NEX</p>
         <h1 className="text-2xl md:text-3xl font-display font-bold text-white uppercase tracking-tight">
-          Start with Google
+          {t("auth.title")}
         </h1>
-        <p className="text-sm text-zinc-500 leading-relaxed">
-          One tap to create or sign in to your NEX account. You&apos;ll return to the page you were viewing.
-        </p>
+        <p className="text-sm text-zinc-500 leading-relaxed">{t("auth.subtitle")}</p>
       </div>
       {inApp && (
         <div
@@ -50,20 +50,11 @@ export default function Auth() {
           <div className="flex items-center gap-2 text-amber-300">
             <AlertTriangle className="w-4 h-4" />
             <p className="text-[11px] font-bold uppercase tracking-widest">
-              {appLabel ? `${appLabel} 앱 안에서는 로그인 불가` : "앱 브라우저에서는 로그인 불가"}
+              {appLabel ? t("auth.inAppTitleWithApp", { app: appLabel }) : t("auth.inAppTitleGeneric")}
             </p>
           </div>
-          <p className="text-xs text-zinc-300 leading-relaxed">
-            Google이 Threads·Instagram·카카오톡 등 <strong className="text-amber-100 font-medium">앱 내 브라우저</strong>
-            에서의 로그인을 차단합니다(Error 403). NEX·미국 서버 문제가 아닙니다.
-          </p>
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            1) 화면 우측 상단 <span className="text-amber-200">⋯</span> →{" "}
-            <span className="text-amber-200">Safari에서 열기</span> 또는{" "}
-            <span className="text-amber-200">Chrome에서 열기</span>
-            <br />
-            2) 아래 링크를 복사해 브라우저 주소창에 붙여넣기
-          </p>
+          <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">{t("auth.inAppBody")}</p>
+          <p className="text-xs text-zinc-400 leading-relaxed whitespace-pre-line">{t("auth.inAppSteps")}</p>
           <button
             type="button"
             onClick={() => void copyCurrentUrl()}
@@ -71,7 +62,7 @@ export default function Auth() {
             data-testid="button-copy-auth-url"
           >
             <Copy className="w-3.5 h-3.5" />
-            {copied ? "링크 복사됨" : "페이지 링크 복사"}
+            {copied ? t("inAppBrowser.copied") : t("inAppBrowser.copyLink")}
           </button>
         </div>
       )}
@@ -80,7 +71,7 @@ export default function Auth() {
           className="text-[10px] text-zinc-500 uppercase tracking-widest max-w-sm mx-auto leading-relaxed"
           data-testid="text-auth-oauth-blocked"
         >
-          외부 브라우저에서 연 뒤 아래 Google 로그인을 사용하세요.
+          {t("auth.inAppOAuthHint")}
         </p>
       ) : null}
       <a
@@ -95,11 +86,11 @@ export default function Auth() {
         onClick={inApp ? (e) => e.preventDefault() : undefined}
       >
         <UserPlus className="w-4 h-4" />
-        Continue with Google
+        {t("auth.continueGoogle")}
       </a>
       <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-        <Link href="/" className="text-zinc-500 hover:text-primary transition-colors">
-          Back to home
+        <Link href="/" className="hover:text-primary transition-colors">
+          {t("auth.backHome")}
         </Link>
       </p>
     </motion.div>

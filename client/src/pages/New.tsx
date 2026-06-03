@@ -95,14 +95,14 @@ export function New() {
             className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
             data-testid="text-new-label"
           >
-            Music Chart
+            {t("newPage.label")}
           </h1>
         </div>
         <h2
           className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
           data-testid="text-new-title"
         >
-          NEW ON NEX
+          {t("newPage.title")}
         </h2>
         <p className="text-zinc-500 text-sm mt-2">
           {t("new.listSub")}
@@ -112,7 +112,7 @@ export function New() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title, creator, or genre"
+            placeholder={t("common.searchPlaceholder")}
             className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
             data-testid="input-search-new"
           />
@@ -122,12 +122,12 @@ export function New() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">Loading New Tracks…</p>
+          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">{t("common.loadingNew")}</p>
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
           <Clock className="w-10 h-10 text-zinc-700" />
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-new-error">Failed to Load</p>
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-new-error">{t("common.failedLoadChart")}</p>
         </div>
       ) : sortedTracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">

@@ -9,6 +9,7 @@ import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
+import { useTranslation } from "react-i18next";
 
 interface RisingTrack {
   id: number;
@@ -32,6 +33,7 @@ interface RisingTrack {
 }
 
 export function Rising() {
+  const { t } = useTranslation();
   const [playId, setPlayId] = useState<number | null>(null);
   const [feed, setFeed] = useState<{ track: TrackFeedSnapshot; focusComment: boolean } | null>(null);
   const [search, setSearch] = useState("");
@@ -77,24 +79,22 @@ export function Rising() {
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <TrendingUp className="w-5 h-5 text-primary" />
-          <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">Music Chart</h1>
+          <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">{t("rising.label")}</h1>
         </div>
         <h2 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green">
-          RISING
+          {t("rising.title")}
         </h2>
-        <p className="text-zinc-500 text-sm mt-2">
-          Tracks outside the top chart — surfaced by play momentum (views).
-        </p>
+        <p className="text-zinc-500 text-sm mt-2">{t("rising.subtitle")}</p>
 
         <div className="flex flex-wrap gap-2 mt-4">
           <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            Audio only
+            {t("rising.badgeAudioOnly")}
           </span>
           <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            Not in top 100
+            {t("rising.badgeNotTop100")}
           </span>
           <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            Plays ↓ sort
+            {t("rising.badgePlaysSort")}
           </span>
         </div>
         <div className="mt-4 relative max-w-md">
@@ -102,7 +102,7 @@ export function Rising() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title, creator, or genre"
+            placeholder={t("common.searchPlaceholder")}
             className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
             data-testid="input-search-rising"
           />
@@ -112,22 +112,20 @@ export function Rising() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">Loading Rising Tracks…</p>
+          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">{t("rising.loading")}</p>
         </div>
       ) : !tracks || tracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
           <Flame className="w-10 h-10 text-zinc-700" />
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">No Rising Tracks Yet</p>
-          <p className="text-zinc-700 text-[11px] max-w-sm">
-            When audio tracks pick up plays outside the top 100, they appear here.
-          </p>
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">{t("rising.empty")}</p>
+          <p className="text-zinc-700 text-[11px] max-w-sm">{t("rising.emptyHint")}</p>
           <div className="flex items-center gap-2 mt-2">
             <Clock className="w-4 h-4 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))", animation: "neon-pulse 2s ease-in-out infinite" }} />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Fuel the chart</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">{t("rising.fuelChart")}</span>
           </div>
           <Link href="/battle">
             <button className="mt-2 px-6 py-2.5 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all">
-              Go to Battle
+              {t("rising.goBattle")}
             </button>
           </Link>
         </div>
@@ -149,7 +147,7 @@ export function Rising() {
                   type="button"
                   onClick={() => setPlayId(track.id)}
                   className="shrink-0 w-10 h-10 rounded-md overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                  aria-label={`Play ${track.title}`}
+                  aria-label={t("common.playTrackAria", { title: track.title })}
                 >
                   {track.coverImageUrl ? (
                     <img src={track.coverImageUrl} alt="" className="w-full h-full object-cover" />

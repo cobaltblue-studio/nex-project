@@ -33,10 +33,13 @@ interface ChartTrack {
   trackType?: string;
 }
 
-function getZoneForRank(rank: number): { label: string; icon: typeof Crown; color: string; bgColor: string; borderColor: string } | null {
-  if (rank === 1) return { label: "Legend Zone", icon: Crown, color: "text-[#FFD700]", bgColor: "bg-[#FFD700]/10", borderColor: "border-[#FFD700]/30" };
-  if (rank === 11) return { label: "Elite Zone", icon: Star, color: "text-[#00D1FF]", bgColor: "bg-[#00D1FF]/10", borderColor: "border-[#00D1FF]/30" };
-  if (rank === 51) return { label: "Rising Zone", icon: TrendingUp, color: "text-[#00FF9C]", bgColor: "bg-[#00FF9C]/10", borderColor: "border-[#00FF9C]/30" };
+function getZoneForRank(
+  rank: number,
+  zoneLabel: (key: "zoneLegend" | "zoneElite" | "zoneRising") => string,
+): { label: string; icon: typeof Crown; color: string; bgColor: string; borderColor: string } | null {
+  if (rank === 1) return { label: zoneLabel("zoneLegend"), icon: Crown, color: "text-[#FFD700]", bgColor: "bg-[#FFD700]/10", borderColor: "border-[#FFD700]/30" };
+  if (rank === 11) return { label: zoneLabel("zoneElite"), icon: Star, color: "text-[#00D1FF]", bgColor: "bg-[#00D1FF]/10", borderColor: "border-[#00D1FF]/30" };
+  if (rank === 51) return { label: zoneLabel("zoneRising"), icon: TrendingUp, color: "text-[#00FF9C]", bgColor: "bg-[#00FF9C]/10", borderColor: "border-[#00FF9C]/30" };
   return null;
 }
 
@@ -98,18 +101,16 @@ export function Music() {
             className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
             data-testid="text-chart-label"
           >
-            Music Chart
+            {t("musicChart.label")}
           </h1>
         </div>
         <h2
           className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
           data-testid="text-chart-title"
         >
-          NEX TOP 100
+          {t("musicChart.title")}
         </h2>
-        <p className="text-zinc-500 text-sm mt-2">
-          The definitive ranking of the top 100 tracks on NEX.
-        </p>
+        <p className="text-zinc-500 text-sm mt-2">{t("musicChart.subtitle")}</p>
         {!isSearching && chartTracks.length > 0 && chartTracks.length < 100 && (
           <p className="text-[11px] text-zinc-600 mt-1" data-testid="text-chart-live-count">
             {t("chart.showingTop", { count: chartTracks.length })}
@@ -120,14 +121,14 @@ export function Music() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title, creator, or genre"
+            placeholder={t("common.searchPlaceholder")}
             className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
             data-testid="input-search-music"
           />
         </div>
         {isSearching && (
           <p className="text-[10px] text-zinc-600 mt-2">
-            Searching across all active audio tracks.
+            {t("common.searchHintAudio")}
           </p>
         )}
       </div>
@@ -135,30 +136,28 @@ export function Music() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">Loading Chart…</p>
+          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">{t("common.loadingChart")}</p>
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
           <MusicIcon className="w-10 h-10 text-zinc-700" />
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-chart-error">Failed to Load Chart</p>
-          <p className="text-zinc-700 text-[11px] max-w-sm">
-            Something went wrong while loading the chart. Please try again later.
-          </p>
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-chart-error">{t("common.failedLoadChart")}</p>
+          <p className="text-zinc-700 text-[11px] max-w-sm">{t("common.failedLoadRetry")}</p>
         </div>
       ) : chartTracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
           {isSearching ? <Search className="w-8 h-8 text-zinc-700" /> : <MusicIcon className="w-10 h-10 text-zinc-700" />}
           <p className="text-sm font-bold uppercase tracking-widest text-zinc-400" data-testid="text-chart-empty">
-            {isSearching ? `No results for "${search.trim()}"` : "Chart tracks are loading onto NEX"}
+            {isSearching ? t("common.noSearchResults", { q: search.trim() }) : t("common.chartLoadingEmpty")}
           </p>
           <p className="text-[11px] text-zinc-600">
-            {isSearching ? "Try title, creator, or genre keywords." : "New submissions appear here after chart placement."}
+            {isSearching ? t("common.searchKeywordsHint") : t("common.chartEmptyHint")}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
           {slots.map(({ rank, track }) => {
-            const zone = getZoneForRank(rank);
+            const zone = getZoneForRank(rank, (key) => t(`musicChart.${key}`));
             const ChartGenreIcon = getOfficialGenreIcon(track.genre);
             return (
               <div key={track.id}>

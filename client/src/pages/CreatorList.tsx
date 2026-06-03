@@ -42,6 +42,7 @@ function CreatorFollowChip({
   creatorId: number;
   username: string;
 }) {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [guestOpen, setGuestOpen] = useState(false);
@@ -61,7 +62,7 @@ function CreatorFollowChip({
       void queryClient.invalidateQueries({ queryKey: ["/api/profiles", String(creatorId), "follow"] });
     },
     onError: () => {
-      toast({ title: "Follow failed", variant: "destructive" });
+      toast({ title: t("creators.followFailed"), variant: "destructive" });
     },
   });
 
@@ -87,7 +88,8 @@ function CreatorFollowChip({
         data-testid={`button-follow-creator-${creatorId}`}
         title={isFollowing ? `Unfollow @${username}` : `Follow @${username}`}
       >
-        Follow <Heart className={`inline w-2.5 h-2.5 ml-0.5 -mt-0.5 ${isFollowing ? "fill-pink-400 text-pink-400" : ""}`} />
+        {isFollowing ? t("creators.following") : t("creators.follow")}{" "}
+        <Heart className={`inline w-2.5 h-2.5 ml-0.5 -mt-0.5 ${isFollowing ? "fill-pink-400 text-pink-400" : ""}`} />
       </button>
     </>
   );
@@ -145,14 +147,14 @@ export function CreatorList() {
             className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
             data-testid="text-creators-label"
           >
-            Creators
+            {t("creators.label")}
           </h1>
         </div>
         <h2
           className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
           data-testid="text-creators-title"
         >
-          NEX CREATORS
+          {t("creators.title")}
         </h2>
         <p className="text-zinc-500 text-sm mt-2">
           {t("creators.directorySub", {

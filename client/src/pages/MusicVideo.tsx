@@ -98,18 +98,16 @@ export function MusicVideo() {
             className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
             data-testid="text-mv-chart-label"
           >
-            Music Video Chart
+            {t("musicVideo.label")}
           </h1>
         </div>
         <h2
           className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
           data-testid="text-mv-chart-title"
         >
-          MV TOP 100
+          {t("musicVideo.title")}
         </h2>
-        <p className="text-zinc-500 text-sm mt-2">
-          The top 100 tracks with music videos on NEX.
-        </p>
+        <p className="text-zinc-500 text-sm mt-2">{t("musicVideo.subtitle")}</p>
         {!isSearching && chartTracks.length > 0 && chartTracks.length < 100 && (
           <p className="text-[11px] text-zinc-600 mt-1">{t("chart.showingTop", { count: chartTracks.length })}</p>
         )}
@@ -118,14 +116,14 @@ export function MusicVideo() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title, creator, or genre"
+            placeholder={t("common.searchPlaceholder")}
             className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
             data-testid="input-search-mv"
           />
         </div>
         {isSearching && (
           <p className="text-[10px] text-zinc-600 mt-2">
-            Searching across all active video tracks.
+            {t("common.searchHintVideo")}
           </p>
         )}
       </div>
@@ -133,18 +131,18 @@ export function MusicVideo() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">Loading Chart…</p>
+          <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">{t("common.loadingChart")}</p>
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
           <Video className="w-10 h-10 text-zinc-700" />
-          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-mv-chart-error">Failed to Load Chart</p>
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm" data-testid="text-mv-chart-error">{t("common.failedLoadChart")}</p>
         </div>
       ) : chartTracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
           {isSearching ? <Search className="w-8 h-8 text-zinc-700" /> : <Video className="w-10 h-10 text-zinc-700" />}
           <p className="text-sm font-bold uppercase tracking-widest text-zinc-400">
-            {isSearching ? `No results for "${search.trim()}"` : "Music videos are loading onto NEX"}
+            {isSearching ? t("common.noSearchResults", { q: search.trim() }) : t("common.mvLoadingEmpty")}
           </p>
         </div>
       ) : (
@@ -170,7 +168,7 @@ export function MusicVideo() {
                     onClick={() => setPlayId(track.id)}
                     className="w-10 h-10 rounded-md overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     data-testid={`img-mv-cover-${track.id}`}
-                    aria-label={`Play ${track.title}`}
+                    aria-label={t("common.playTrackAria", { title: track.title })}
                   >
                     {thumbnailFor(track) ? (
                       <img
