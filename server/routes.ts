@@ -37,6 +37,7 @@ import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
+import { rejectArtisticIntent } from "./artisticIntent";
 
 function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
@@ -671,22 +672,6 @@ export async function registerRoutes(
 
   const validGenres = ["Pop", "Dance", "Rock", "Hip-Hop & Rap", "Funk", "Lo-Fi & Chill"];
 
-  function looksLikeGibberish(input: string): boolean {
-    const s = input.trim();
-    if (!s) return true;
-    const compact = s.replace(/\s+/g, "");
-    if (!compact) return true;
-    if (/([A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ])\1{4,}/.test(compact)) return true;
-    if (/^([ㄱ-ㅎㅏ-ㅣㅋㅋㅎ]+)$/.test(compact) && compact.length >= 5) return true;
-    if (/^(?:[a-z]{2,4}){3,}$/i.test(compact) && !/[aeiou]/i.test(compact)) return true;
-    const uniqueChars = new Set(compact.toLowerCase()).size;
-    const uniqueRatio = uniqueChars / compact.length;
-    if (compact.length >= 12 && uniqueRatio < 0.25) return true;
-    const meaningfulTokenCount = (s.match(/[A-Za-z가-힣]{2,}/g) || []).length;
-    if (s.length >= 20 && meaningfulTokenCount < 3) return true;
-    return false;
-  }
-
   async function submitPublicTrack(req: any, res: any): Promise<void> {
     if (!req.isAuthenticated?.()) {
       res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
@@ -750,7 +735,7 @@ export async function registerRoutes(
       });
       return;
     }
-    if (looksLikeGibberish(intentTrim)) {
+    if (rejectArtisticIntent(intentTrim, { isAdmin: await isAdmin(req) })) {
       res.status(400).json({
         message: apiMsg(
           "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
@@ -1038,7 +1023,7 @@ export async function registerRoutes(
           ),
         });
       }
-      if (looksLikeGibberish(intentTrim)) {
+      if (rejectArtisticIntent(intentTrim)) {
         return res.status(400).json({
           message: apiMsg(
             "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
@@ -1223,14 +1208,6 @@ export async function registerRoutes(
               message: apiMsg(
                 "창작 의도 및 프롬프트가 허용된 최대 길이를 초과했습니다",
                 "Artistic intent & prompt is too long",
-              ),
-            });
-          }
-          if (looksLikeGibberish(intentTrim)) {
-            return res.status(400).json({
-              message: apiMsg(
-                "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
-                "Gibberish or repetitive spam text is not allowed. Please describe your artistic intent in natural language.",
               ),
             });
           }
