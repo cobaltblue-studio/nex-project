@@ -418,7 +418,11 @@
     "startWithGoogle": "Start with Google",
     "startBattle": "Start battle now",
     "loadingBattle": "Loading battle…",
-    "syncingVote": "Saving your vote…"
+    "syncingVote": "Saving your vote…",
+    "syncingListen": "Saving listen progress…",
+    "votingUnlocked": "Voting unlocked. Choose your winner.",
+    "tapToVote": "Tap to vote · Track {{badge}}",
+    "listenFirst": "Listen to both tracks first"
   },
   "radio": {
     "platform": "NEX Platform",

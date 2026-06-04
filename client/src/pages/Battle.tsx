@@ -90,31 +90,32 @@ function BattleBlindCard({
   accentClass,
   canVote,
   disabled,
-  isVoted,
+  pickedTrackId,
   isWinner,
   isRevealed,
   voteReady,
+  voteLocked,
   onVote,
   dataTestIdPrefix,
+  selectLabel,
 }: {
   track: BattleTrack;
   badge: string;
   accentClass: string;
   canVote: boolean;
   disabled: boolean;
-  isVoted: boolean;
+  pickedTrackId: number | null;
   isWinner: boolean;
   isRevealed: boolean;
   voteReady: boolean;
+  voteLocked: boolean;
   onVote: () => void;
   dataTestIdPrefix: string;
+  selectLabel: string;
 }) {
   const maskedLabel = "[HIDDEN] · UNLOCK AFTER VOTE";
-  const selectStateLabel = isVoted
-    ? `VOTED TRACK ${badge}`
-    : voteReady
-      ? `TAP TO VOTE TRACK ${badge}`
-      : "LISTEN FIRST";
+  const isPicked = pickedTrackId === track.id;
+  const selectStateLabel = selectLabel;
 
   const onSelect = () => {
     if (!disabled) onVote();
@@ -123,9 +124,9 @@ function BattleBlindCard({
     <motion.div
       className={[
         "premium-card p-4 flex flex-col gap-3 transition-premium battle-blind-card",
-        canVote ? "cursor-pointer" : "opacity-60",
-        isVoted && isWinner ? "battle-winner-focus" : "",
-        isVoted && !isWinner ? "battle-loser-dimmed" : "",
+        canVote && !disabled ? "cursor-pointer" : "opacity-60",
+        voteLocked && isWinner ? "battle-winner-focus" : "",
+        voteLocked && !isWinner && isPicked ? "battle-loser-dimmed" : "",
       ].join(" ")}
       onClick={onSelect}
       role="button"
@@ -138,8 +139,8 @@ function BattleBlindCard({
         }
       }}
       animate={{
-        opacity: isVoted && !isWinner ? 0.3 : 1,
-        scale: isVoted && isWinner ? 1.02 : 1,
+        opacity: voteLocked && isPicked && !isWinner ? 0.3 : 1,
+        scale: voteLocked && isPicked && isWinner ? 1.02 : 1,
       }}
       transition={{ duration: 0.4, ease: "easeOut" }}
     >
@@ -198,7 +199,7 @@ function BattleBlindCard({
       </div>
       <div
         data-testid={`button-vote-${dataTestIdPrefix.replace("vote-", "")}`}
-        className={`w-full py-2 text-center rounded-xl border uppercase tracking-[0.18em] text-[10px] font-bold transition-premium ${voteReady && !isVoted ? "battle-vote-ready-glow border-primary/50 text-primary" : "border-white/15 text-zinc-500"}`}
+        className={`w-full py-2 text-center rounded-xl border uppercase tracking-[0.18em] text-[10px] font-bold transition-premium ${voteReady && !disabled && !voteLocked ? "battle-vote-ready-glow border-primary/50 text-primary" : "border-white/15 text-zinc-500"}`}
       >
         {selectStateLabel}
       </div>
@@ -435,6 +436,10 @@ export function Battle() {
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultPhaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countedImpressionsRef = useRef<Set<string>>(new Set());
+  const activeBattleIdRef = useRef<number | null>(null);
+  const trackAEndedHandledRef = useRef(false);
+  const trackBEndedHandledRef = useRef(false);
+  const [listenSyncing, setListenSyncing] = useState(false);
 
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
     queryKey: ["/api/battles/daily-count"],
@@ -474,6 +479,11 @@ export function Battle() {
         const raw = t?.musicVideoUrl || t?.audioUrl;
         if (raw) prefetchPlayableStreamingEmbed(raw);
       }
+      activeBattleIdRef.current = data.id;
+      trackAEndedHandledRef.current = false;
+      trackBEndedHandledRef.current = false;
+      voteMutation.reset();
+      setListenSyncing(false);
       setBattle(data);
       setListenReplayA(0);
       setListenReplayB(0);
@@ -518,12 +528,13 @@ export function Battle() {
       battleId: number;
       trackId: number;
     }) => apiRequest("POST", `/api/battles/${battleId}/vote`, { trackId }),
-    onSuccess: async (res: any) => {
+    onSuccess: async (res: any, variables) => {
+      if (variables.battleId !== activeBattleIdRef.current) return;
       const data = await res.json();
       setVoteResult(data);
       setIsVoted(true);
       setIsRevealed(true);
-      setVotedId(data.winnerId);
+      setVotedId(variables.trackId);
       setShowSharePopup(false);
       setPhase("result");
 
@@ -531,7 +542,8 @@ export function Battle() {
       void queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
+      if (variables?.battleId !== activeBattleIdRef.current) return;
       setPhase("vote");
       setVoteResult(null);
       setVotedId(null);
@@ -558,18 +570,22 @@ export function Battle() {
   });
 
   const onBattleTrackAEnded = useCallback(() => {
-    if (!battle) return;
+    if (!battle || trackAEndedHandledRef.current || listenSyncing) return;
+    trackAEndedHandledRef.current = true;
     const battleId = battle.id;
     const trackId = battle.trackAId;
-    // Optimistic step transition for snappier UX; rollback only if sync fails.
-    setListenedA(true);
-    setPhase("track-b");
+    setListenSyncing(true);
     void (async () => {
       try {
         await apiRequest("POST", `/api/battles/${battleId}/listen-complete`, {
           trackId,
         });
+        if (battleId !== activeBattleIdRef.current) return;
+        setListenedA(true);
+        setPhase("track-b");
       } catch (e: any) {
+        if (battleId !== activeBattleIdRef.current) return;
+        trackAEndedHandledRef.current = false;
         const raw = String(e?.message ?? "").trim();
         const detail = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
         toast({
@@ -580,23 +596,34 @@ export function Battle() {
         setListenedA(false);
         setPhase("track-a");
         setListenReplayA((n) => n + 1);
+      } finally {
+        if (battleId === activeBattleIdRef.current) setListenSyncing(false);
       }
     })();
-  }, [battle, toast]);
+  }, [battle, listenSyncing, toast]);
 
   const onBattleTrackBEnded = useCallback(() => {
-    if (!battle) return;
+    if (!battle || trackBEndedHandledRef.current || listenSyncing) return;
+    trackBEndedHandledRef.current = true;
     const battleId = battle.id;
     const trackId = battle.trackBId;
-    // Optimistic step transition for snappier UX; rollback only if sync fails.
-    setListenedB(true);
-    setPhase("vote");
+    setListenSyncing(true);
     void (async () => {
       try {
         await apiRequest("POST", `/api/battles/${battleId}/listen-complete`, {
           trackId,
         });
+        if (battleId !== activeBattleIdRef.current) return;
+        setListenedB(true);
+        setIsVoted(false);
+        setVoteResult(null);
+        setVotedId(null);
+        setIsRevealed(false);
+        voteMutation.reset();
+        setPhase("vote");
       } catch (e: any) {
+        if (battleId !== activeBattleIdRef.current) return;
+        trackBEndedHandledRef.current = false;
         const raw = String(e?.message ?? "").trim();
         const detail = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
         toast({
@@ -607,9 +634,11 @@ export function Battle() {
         setListenedB(false);
         setPhase("track-b");
         setListenReplayB((n) => n + 1);
+      } finally {
+        if (battleId === activeBattleIdRef.current) setListenSyncing(false);
       }
     })();
-  }, [battle, toast]);
+  }, [battle, listenSyncing, toast, voteMutation]);
 
   const startBattle = useCallback(
     (genre: string) => {
@@ -641,6 +670,11 @@ export function Battle() {
   );
 
   const nextBattle = useCallback(() => {
+    activeBattleIdRef.current = null;
+    trackAEndedHandledRef.current = false;
+    trackBEndedHandledRef.current = false;
+    voteMutation.reset();
+    setListenSyncing(false);
     setBattle(null);
     setVoteResult(null);
     setListenedA(false);
@@ -672,8 +706,21 @@ export function Battle() {
   }, []);
 
   useEffect(() => {
+    activeBattleIdRef.current = battle?.id ?? null;
+    trackAEndedHandledRef.current = false;
+    trackBEndedHandledRef.current = false;
     countedImpressionsRef.current.clear();
   }, [battle?.id]);
+
+  useEffect(() => {
+    if (phase !== "vote" || !battle) return;
+    setIsVoted(false);
+    setVoteResult(null);
+    setVotedId(null);
+    setIsRevealed(false);
+    voteMutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when entering vote for this battle
+  }, [phase, battle?.id]);
 
   useEffect(() => {
     if (!battle) return;
@@ -753,7 +800,6 @@ export function Battle() {
       setVotedId(trackId);
       setShowFlash(true);
       setShowSharePopup(false);
-      setIsVoted(true);
       setIsRevealed(true);
       setVoteResult({
         winnerId: trackId,
@@ -1055,9 +1101,14 @@ export function Battle() {
                 Listen to both tracks before voting
               </p>
             )}
-            {voteReady && !isVoted && (
+            {listenSyncing && (
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-2 animate-pulse">
+                {t("battle.syncingListen")}
+              </p>
+            )}
+            {voteReady && !listenSyncing && !voteMutation.isPending && (
               <p className="text-[10px] text-primary uppercase tracking-widest text-center mb-2 animate-pulse">
-                Voting unlocked. Choose your winner.
+                {t("battle.votingUnlocked")}
               </p>
             )}
 
@@ -1069,12 +1120,20 @@ export function Battle() {
                 track={battle.trackA}
                 badge="A"
                 accentClass="bg-primary/10 border-primary/30 text-primary"
-                canVote={listenedA && listenedB}
-                disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
-                isVoted={isVoted}
+                canVote={voteReady && !listenSyncing}
+                disabled={voteMutation.isPending || showFlash || listenSyncing || !voteReady}
+                pickedTrackId={votedId}
                 isWinner={voteResult?.winnerId === battle.trackAId}
                 isRevealed={isRevealed || !blindMode}
-                voteReady={voteReady}
+                voteReady={voteReady && !listenSyncing}
+                voteLocked={false}
+                selectLabel={
+                  listenSyncing
+                    ? t("battle.syncingListen")
+                    : voteReady
+                      ? t("battle.tapToVote", { badge: "A" })
+                      : t("battle.listenFirst")
+                }
                 onVote={() => castVote(battle.trackAId)}
                 dataTestIdPrefix="vote-track-a"
               />
@@ -1083,12 +1142,20 @@ export function Battle() {
                 track={battle.trackB}
                 badge="B"
                 accentClass="bg-blue-500/10 border-blue-500/30 text-blue-400"
-                canVote={listenedA && listenedB}
-                disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
-                isVoted={isVoted}
+                canVote={voteReady && !listenSyncing}
+                disabled={voteMutation.isPending || showFlash || listenSyncing || !voteReady}
+                pickedTrackId={votedId}
                 isWinner={voteResult?.winnerId === battle.trackBId}
                 isRevealed={isRevealed || !blindMode}
-                voteReady={voteReady}
+                voteReady={voteReady && !listenSyncing}
+                voteLocked={false}
+                selectLabel={
+                  listenSyncing
+                    ? t("battle.syncingListen")
+                    : voteReady
+                      ? t("battle.tapToVote", { badge: "B" })
+                      : t("battle.listenFirst")
+                }
                 onVote={() => castVote(battle.trackBId)}
                 dataTestIdPrefix="vote-track-b"
               />

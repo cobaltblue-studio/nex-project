@@ -418,7 +418,11 @@
     "startWithGoogle": "Google로 시작",
     "startBattle": "지금 배틀 시작",
     "loadingBattle": "배틀 불러오는 중…",
-    "syncingVote": "투표 저장 중…"
+    "syncingVote": "투표 저장 중…",
+    "syncingListen": "청취 기록 저장 중…",
+    "votingUnlocked": "투표 가능합니다. 승자를 골라 주세요.",
+    "tapToVote": "탭하여 투표 · 트랙 {{badge}}",
+    "listenFirst": "양쪽 트랙을 모두 들어 주세요"
   },
   "radio": {
     "platform": "NEX 플랫폼",
