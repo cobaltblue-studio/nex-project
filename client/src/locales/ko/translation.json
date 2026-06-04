@@ -417,7 +417,8 @@
     "loginHint": "Google로 시작하면 배틀·투표가 가능합니다. 로그인 후 이 화면으로 돌아옵니다.",
     "startWithGoogle": "Google로 시작",
     "startBattle": "지금 배틀 시작",
-    "loadingBattle": "배틀 불러오는 중…"
+    "loadingBattle": "배틀 불러오는 중…",
+    "syncingVote": "투표 저장 중…"
   },
   "radio": {
     "platform": "NEX 플랫폼",

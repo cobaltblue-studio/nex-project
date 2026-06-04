@@ -417,7 +417,8 @@
     "loginHint": "Start with Google to battle and vote. We'll return you here right after.",
     "startWithGoogle": "Start with Google",
     "startBattle": "Start battle now",
-    "loadingBattle": "Loading battle…"
+    "loadingBattle": "Loading battle…",
+    "syncingVote": "Saving your vote…"
   },
   "radio": {
     "platform": "NEX Platform",
