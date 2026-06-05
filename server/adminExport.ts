@@ -57,6 +57,7 @@ function csvCell(value: string | number | boolean | null | undefined): string {
 
 export function adminCreatorTrackExportCsv(rows: AdminCreatorTrackExportRow[]): string {
   const headers = [
+    "no",
     "creator_name",
     "yt_handle",
     "track_name",
@@ -70,9 +71,10 @@ export function adminCreatorTrackExportCsv(rows: AdminCreatorTrackExportRow[]): 
     "registration_email",
   ];
   const lines = [headers.join(",")];
-  for (const r of rows) {
+  rows.forEach((r, index) => {
     lines.push(
       [
+        csvCell(index + 1),
         csvCell(r.creatorName),
         csvCell(r.ytHandle),
         csvCell(r.trackName),
@@ -86,6 +88,6 @@ export function adminCreatorTrackExportCsv(rows: AdminCreatorTrackExportRow[]): 
         csvCell(r.registrationEmail),
       ].join(","),
     );
-  }
+  });
   return lines.join("\n") + "\n";
 }
