@@ -58,6 +58,11 @@ export const tracks = pgTable("tracks", {
   isDeleted: boolean("is_deleted").default(false).notNull(),
   /** Platform-seeded track; creators may request ownership (admin or secret code). */
   claimableByCreators: boolean("claimable_by_creators").default(false).notNull(),
+  /**
+   * Badge / ownership display: verified (creator-submitted or claimed) | nex_pick (NEX curated).
+   * Separate from `status` (approval pipeline: PENDING, APPROVED, CHART, …).
+   */
+  provenanceStatus: text("provenance_status"),
 });
 
 /** Pending ownership transfers from creators → admin approval */
