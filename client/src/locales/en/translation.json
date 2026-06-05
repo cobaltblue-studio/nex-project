@@ -173,7 +173,47 @@
   "adminPanel": {
     "insightsTitle": "Channel insights",
     "insightsBody": "Open your personal NEX snapshot: followers, plays, likes, battles, and per-track stats (same as the “Insights” item in the account menu).",
-    "insightsCta": "Open insights"
+    "insightsCta": "Open insights",
+    "creatorCleanupTitle": "Creator cleanup",
+    "creatorCleanupBody": "Deactivate a creator username to hide their profile from public lists. Their tracks remain in the database for admin review.",
+    "trackOwnershipTitle": "Track ownership requests",
+    "trackOwnershipEmpty": "No pending ownership requests",
+    "allowClaimsTitle": "Allow creator claims (seed track)",
+    "allowClaimsBody": "Mark a track as claimable so the artist sees “Claim this track” on the detail page. Use bulk sync to align all NEX picks.",
+    "syncNexPickCta": "Sync all nex_pick → claimable",
+    "syncNexPickDone": "Synced: {{nexPick}} nex_pick claimable, {{verified}} verified not claimable",
+    "markClaimable": "Mark claimable",
+    "trackEditTitle": "Track edit requests",
+    "trackEditEmpty": "No pending edit requests",
+    "systemFlowTitle": "System flow",
+    "systemFlowBody": "Submit → admin review → chart / battle / MV. Ownership claims approve in this panel or via instant code.",
+    "transfer": "Transfer",
+    "deny": "Deny",
+    "open": "Open",
+    "approveCreator": "Approve creator",
+    "rejectCreator": "Reject",
+    "deactivate": "Deactivate"
+  },
+  "provenance": {
+    "nexPickBanner": "This track was discovered & featured by NEX. If it's yours, claim it.",
+    "removalLink": "Prefer it taken down? Contact us →"
+  },
+  "trackClaim": {
+    "heading": "Claim this track",
+    "body": "This release was featured by NEX. If you are the artist, request ownership so you can manage it — or use an instant code from staff.",
+    "cta": "Claim this track",
+    "sending": "Sending…",
+    "proofPlaceholder": "Artist verification (min 10 chars): proof, channel link, etc.",
+    "adminHint": "Admin approval or instant code required.",
+    "instantLabel": "Instant claim (secret code)",
+    "instantPlaceholder": "Code from staff",
+    "instantCta": "Claim now",
+    "requestSentTitle": "Request sent",
+    "requestSentDesc": "An admin will review your ownership request.",
+    "requestFailTitle": "Could not submit",
+    "instantSuccessTitle": "Track claimed",
+    "instantSuccessDesc": "This track is now linked to your creator account.",
+    "instantFailTitle": "Claim failed"
   },
   "creatorAnalytics": {
     "loading": "Loading analytics…",
@@ -369,7 +409,10 @@
     "plays": "Plays",
     "likes": "Likes",
     "battleWins": "Wins",
-    "directorySub": "Ranked by plays, likes & battle wins ({{tracks}} tracks · {{count}} creators)"
+    "directorySub": "Ranked by plays, likes & battle wins ({{tracks}} tracks · {{count}} creators)",
+    "verifiedLabel": "Verified",
+    "claimProfile": "Is this you? Claim your profile →",
+    "statsLine": "{{plays}} plays · {{likes}} likes · {{wins}} wins"
   },
   "new": {
     "listSub": "Newest releases first; tracks with no plays yet stay at the end so every creator stays visible.",

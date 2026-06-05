@@ -267,6 +267,22 @@ export default function AdminPanel() {
       toast({ title: "Update failed", description: e.message, variant: "destructive" }),
   });
 
+  const syncNexPickMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/tracks/sync-nex-pick-claimable", {}),
+    onSuccess: async (res) => {
+      const data = (await res.json()) as { nexPickClaimable: number; verifiedNotClaimable: number };
+      toast({
+        title: "Sync complete",
+        description: t("adminPanel.syncNexPickDone", {
+          nexPick: data.nexPickClaimable,
+          verified: data.verifiedNotClaimable,
+        }),
+      });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Sync failed", description: e.message, variant: "destructive" }),
+  });
+
   const isAwaitingReview = (s: Submission) => s.status === "PENDING" || s.status === "SUBMITTED";
   const pending   = submissions?.filter(isAwaitingReview)   ?? [];
   const processed = submissions?.filter((s) => !isAwaitingReview(s))   ?? [];
@@ -624,7 +640,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
                     >
                       <CheckCircle className="w-3 h-3" />
-                      Approve creator
+                      {t("adminPanel.approveCreator")}
                     </button>
                     <button
                       type="button"
@@ -633,7 +649,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
                     >
                       <XCircle className="w-3 h-3" />
-                      Reject
+                      {t("adminPanel.rejectCreator")}
                     </button>
                   </div>
                 </motion.div>
@@ -647,9 +663,11 @@ export default function AdminPanel() {
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-300">Creator Cleanup (Danger)</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-300">
+              {t("adminPanel.creatorCleanupTitle")}
+            </p>
             <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-              Deactivate one creator by username. This hides all of their owned tracks (archives them) and removes the profile from public creator listings.
+              {t("adminPanel.creatorCleanupBody")}
             </p>
           </div>
         </div>
@@ -666,7 +684,7 @@ export default function AdminPanel() {
             onClick={() => deactivateCreatorMutation.mutate(deactivateUsername.trim())}
             className="px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-300 hover:bg-red-500/10 disabled:opacity-40"
           >
-            {deactivateCreatorMutation.isPending ? "Processing..." : "Deactivate creator"}
+            {deactivateCreatorMutation.isPending ? "…" : t("adminPanel.deactivate")}
           </button>
         </div>
       </div>
@@ -676,7 +694,7 @@ export default function AdminPanel() {
         <div className="flex items-center gap-3 mb-4">
           <Handshake className="w-4 h-4 text-amber-400" />
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400">
-            Track ownership requests
+            {t("adminPanel.trackOwnershipTitle")}
           </p>
           {(trackClaimRequests?.length ?? 0) > 0 && (
             <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-sm">
@@ -690,7 +708,9 @@ export default function AdminPanel() {
           </div>
         ) : !trackClaimRequests?.length ? (
           <div className="border border-white/5 rounded-sm p-6 text-center bg-black/10">
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending ownership requests</p>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
+              {t("adminPanel.trackOwnershipEmpty")}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -718,7 +738,7 @@ export default function AdminPanel() {
                       rel="noreferrer"
                       className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-primary"
                     >
-                      <ExternalLink className="w-3 h-3" /> Open
+                      <ExternalLink className="w-3 h-3" /> {t("adminPanel.open")}
                     </a>
                     <button
                       type="button"
@@ -727,7 +747,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
                     >
                       <CheckCircle className="w-3 h-3" />
-                      Transfer
+                      {t("adminPanel.transfer")}
                     </button>
                     <button
                       type="button"
@@ -736,7 +756,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
                     >
                       <XCircle className="w-3 h-3" />
-                      Deny
+                      {t("adminPanel.deny")}
                     </button>
                   </div>
                 </motion.div>
@@ -747,11 +767,20 @@ export default function AdminPanel() {
 
         <div className="mt-6 border border-white/5 rounded-sm p-4 bg-black/20 space-y-3">
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-            Allow creator claims (seed track)
+            {t("adminPanel.allowClaimsTitle")}
           </p>
           <p className="text-[11px] text-zinc-600 leading-relaxed">
-            Enter a track ID to mark it as claimable. The artist will see “Claim this track” on the track page and can request approval or use the instant code.
+            {t("adminPanel.allowClaimsBody")}
           </p>
+          <button
+            type="button"
+            disabled={syncNexPickMutation.isPending}
+            onClick={() => syncNexPickMutation.mutate()}
+            className="w-full sm:w-auto px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            <RefreshCw className={`w-3 h-3 ${syncNexPickMutation.isPending ? "animate-spin" : ""}`} />
+            {t("adminPanel.syncNexPickCta")}
+          </button>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             <input
               type="number"
@@ -771,7 +800,7 @@ export default function AdminPanel() {
               }}
               className="px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-40"
             >
-              Mark claimable
+              {t("adminPanel.markClaimable")}
             </button>
           </div>
         </div>
@@ -782,7 +811,7 @@ export default function AdminPanel() {
         <div className="flex items-center gap-3 mb-4">
           <Handshake className="w-4 h-4 text-emerald-400" />
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">
-            Track edit requests
+            {t("adminPanel.trackEditTitle")}
           </p>
           {(trackEditRequests?.length ?? 0) > 0 && (
             <span className="text-[9px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-sm">
@@ -796,7 +825,9 @@ export default function AdminPanel() {
           </div>
         ) : !trackEditRequests?.length ? (
           <div className="border border-white/5 rounded-sm p-6 text-center bg-black/10">
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending edit requests</p>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
+              {t("adminPanel.trackEditEmpty")}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">

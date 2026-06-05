@@ -385,6 +385,7 @@ export interface IStorage {
   rejectTrackClaimRequest(requestId: number): Promise<boolean>;
   claimTrackWithSecret(trackId: number, requesterProfileId: number, secret: string): Promise<{ ok: boolean; reason?: string }>;
   setTrackClaimableByCreators(trackId: number, claimable: boolean): Promise<Track | null>;
+  syncNexPickClaimableFlags(): Promise<{ nexPickClaimable: number; verifiedNotClaimable: number }>;
   getLatestBattleSummariesForCreatorProfile(creatorProfileId: number): Promise<
     {
       trackId: number;
@@ -2280,6 +2281,7 @@ export class DatabaseStorage implements IStorage {
       neoScore: 0,
       rankingScore: 0,
       claimableByCreators: false,
+      provenanceStatus: "verified",
     }).returning();
     return t;
   }
@@ -2290,6 +2292,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         creatorId: newCreatorProfileId,
         claimableByCreators: false,
+        provenanceStatus: "verified",
       })
       .where(eq(tracks.id, trackId))
       .returning();
@@ -2359,7 +2362,11 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       await tx
         .update(tracks)
-        .set({ creatorId: req.requesterProfileId, claimableByCreators: false })
+        .set({
+          creatorId: req.requesterProfileId,
+          claimableByCreators: false,
+          provenanceStatus: "verified",
+        })
         .where(eq(tracks.id, req.trackId));
       await tx
         .update(trackClaimRequests)
@@ -2418,7 +2425,11 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       await tx
         .update(tracks)
-        .set({ creatorId: requesterProfileId, claimableByCreators: false })
+        .set({
+          creatorId: requesterProfileId,
+          claimableByCreators: false,
+          provenanceStatus: "verified",
+        })
         .where(eq(tracks.id, trackId));
       await tx
         .update(trackClaimRequests)
@@ -2429,12 +2440,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setTrackClaimableByCreators(trackId: number, claimable: boolean): Promise<Track | null> {
+    const patch: { claimableByCreators: boolean; provenanceStatus?: string } = {
+      claimableByCreators: claimable,
+    };
+    if (claimable) patch.provenanceStatus = "nex_pick";
     const [updated] = await db
       .update(tracks)
-      .set({ claimableByCreators: claimable })
+      .set(patch)
       .where(eq(tracks.id, trackId))
       .returning();
     return updated ?? null;
+  }
+
+  async syncNexPickClaimableFlags(): Promise<{ nexPickClaimable: number; verifiedNotClaimable: number }> {
+    await db
+      .update(tracks)
+      .set({ claimableByCreators: true })
+      .where(and(eq(tracks.isDeleted, false), eq(tracks.provenanceStatus, "nex_pick")));
+    await db
+      .update(tracks)
+      .set({ claimableByCreators: false })
+      .where(and(eq(tracks.isDeleted, false), eq(tracks.provenanceStatus, "verified")));
+    const [row] = await db
+      .select({
+        nexPickClaimable: sql<number>`count(*) filter (where ${tracks.isDeleted} = false and ${tracks.provenanceStatus} = 'nex_pick' and ${tracks.claimableByCreators} = true)::int`,
+        verifiedNotClaimable: sql<number>`count(*) filter (where ${tracks.isDeleted} = false and ${tracks.provenanceStatus} = 'verified' and ${tracks.claimableByCreators} = false)::int`,
+      })
+      .from(tracks);
+    return {
+      nexPickClaimable: Number(row?.nexPickClaimable ?? 0),
+      verifiedNotClaimable: Number(row?.verifiedNotClaimable ?? 0),
+    };
   }
 
   async getBoostTicketBalance(profileId: number): Promise<number> {
@@ -3009,6 +3045,8 @@ export class DatabaseStorage implements IStorage {
       battleTotal: number;
       featuredTrackTitle: string | null;
       popularityScore: number;
+      provenanceStatus: "verified" | "nex_pick";
+      claimProfileTrackId: number | null;
     }>
   > {
     const profiles = await this.getCreators();
@@ -3025,6 +3063,8 @@ export class DatabaseStorage implements IStorage {
       stageName: string | null;
       featuredTrackTitle: string | null;
       topPlayCount: number;
+      hasVerifiedTrack: boolean;
+      claimProfileTrackId: number | null;
     };
     const agg = new Map<number, Agg>();
 
@@ -3041,10 +3081,21 @@ export class DatabaseStorage implements IStorage {
           stageName: null,
           featuredTrackTitle: null,
           topPlayCount: -1,
+          hasVerifiedTrack: false,
+          claimProfileTrackId: null,
         };
         agg.set(cid, row);
       }
       row.totalTracks += 1;
+      const prov = String((t as { provenanceStatus?: string | null }).provenanceStatus ?? "verified");
+      if (prov !== "nex_pick") row.hasVerifiedTrack = true;
+      if (
+        prov === "nex_pick" &&
+        (t as { claimableByCreators?: boolean }).claimableByCreators &&
+        row.claimProfileTrackId == null
+      ) {
+        row.claimProfileTrackId = t.id as number;
+      }
       const plays = resolvePublicPlayCount({
         playCount: t.playCount,
         playsCount: (t as { playsCount?: number }).playsCount,
@@ -3076,6 +3127,7 @@ export class DatabaseStorage implements IStorage {
         totalLikes,
         battleWins,
       });
+      const provenanceStatus = a?.hasVerifiedTrack ? ("verified" as const) : ("nex_pick" as const);
       return {
         id: p.id,
         username: p.username,
@@ -3090,6 +3142,8 @@ export class DatabaseStorage implements IStorage {
         battleTotal,
         featuredTrackTitle: a?.featuredTrackTitle ?? null,
         popularityScore,
+        provenanceStatus,
+        claimProfileTrackId: provenanceStatus === "nex_pick" ? (a?.claimProfileTrackId ?? null) : null,
       };
     });
 

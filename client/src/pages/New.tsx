@@ -10,6 +10,7 @@ import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
+import { CreatorNameWithBadge } from "@/components/CreatorNameWithBadge";
 
 interface NewTrack {
   id: number;
@@ -21,6 +22,7 @@ interface NewTrack {
   likesCount?: number;
   commentsCount?: number;
   claimableByCreators?: boolean;
+  provenanceStatus?: string;
   aiPrompt?: string | null;
   aiPromptEditCount?: number;
   aiPromptLastEditedAt?: string | null;
@@ -198,12 +200,12 @@ export function New() {
                     {track.title}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span
-                      className="text-[9px] font-bold text-primary/70 uppercase tracking-widest truncate"
-                      data-testid={`text-new-track-creator-${track.id}`}
-                    >
-                      {track.creatorName}
-                    </span>
+                    <CreatorNameWithBadge
+                      name={track.creatorName}
+                      provenanceStatus={track.provenanceStatus}
+                      nameClassName="text-[9px] font-bold text-primary/70 uppercase tracking-widest"
+                      testId={`text-new-track-creator-${track.id}`}
+                    />
                     <span className="text-[8px] text-zinc-600 uppercase tracking-widest">
                       {track.genre}
                     </span>

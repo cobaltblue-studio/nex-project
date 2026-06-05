@@ -10,6 +10,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { VerifiedCheckIcon } from "@/components/VerifiedCheckIcon";
+import { TRACK_PROVENANCE_VERIFIED } from "@shared/constants";
 
 interface CreatorDirectoryRow {
   id: number;
@@ -25,6 +27,8 @@ interface CreatorDirectoryRow {
   battleTotal: number;
   popularityScore: number;
   featuredTrackTitle: string | null;
+  provenanceStatus?: "verified" | "nex_pick";
+  claimProfileTrackId?: number | null;
 }
 
 function initialsFromUsername(name: string): string {
@@ -84,12 +88,11 @@ function CreatorFollowChip({
         type="button"
         onClick={onClick}
         disabled={followMutation.isPending}
-        className="text-[7px] font-bold uppercase tracking-widest text-zinc-500 hover:text-pink-400 border border-white/10 px-1.5 py-0.5 rounded-sm shrink-0"
+        className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-pink-400 border border-white/10 px-3 py-1.5 rounded-sm shrink-0"
         data-testid={`button-follow-creator-${creatorId}`}
         title={isFollowing ? `Unfollow @${username}` : `Follow @${username}`}
       >
-        {isFollowing ? t("creators.following") : t("creators.follow")}{" "}
-        <Heart className={`inline w-2.5 h-2.5 ml-0.5 -mt-0.5 ${isFollowing ? "fill-pink-400 text-pink-400" : ""}`} />
+        {isFollowing ? t("creators.following") : t("creators.follow")}
       </button>
     </>
   );
@@ -101,7 +104,7 @@ export function CreatorList() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: directory, isLoading } = useQuery<CreatorDirectoryRow[]>({
-    queryKey: ["/api/creators/directory", "v3"],
+    queryKey: ["/api/creators/directory", "v4"],
     queryFn: async () => {
       const res = await fetch("/api/creators/directory", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch creators");
@@ -139,8 +142,8 @@ export function CreatorList() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-16 pb-24">
-      <div className="mb-10">
+    <div className="max-w-4xl mx-auto space-y-10 pb-24">
+      <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <User className="w-5 h-5 text-primary" />
           <h1
@@ -181,89 +184,123 @@ export function CreatorList() {
         </div>
       </div>
 
-      <div className="creators-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-5">
-        {filteredCreators.map((creator, idx) => (
-          <motion.div
-            key={creator.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(idx * 0.02, 0.8) }}
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate(`/profile/${encodeURIComponent(creator.username.toLowerCase())}`)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                navigate(`/profile/${encodeURIComponent(creator.username.toLowerCase())}`);
+      <div className="flex flex-col gap-2 mt-4">
+        {filteredCreators.map((creator, idx) => {
+          const isVerified = creator.provenanceStatus === TRACK_PROVENANCE_VERIFIED;
+          const showClaim =
+            !isVerified &&
+            creator.claimProfileTrackId != null &&
+            creator.claimProfileTrackId > 0;
+          const plays = hasPublicCount(creator.totalPlays)
+            ? creator.totalPlays.toLocaleString()
+            : t("creators.statHidden");
+          const likes = hasPublicCount(creator.totalLikes)
+            ? creator.totalLikes.toLocaleString()
+            : t("creators.statHidden");
+          const wins = hasPublicCount(creator.battleWins)
+            ? creator.battleWins.toLocaleString()
+            : t("creators.statHidden");
+
+          return (
+            <motion.div
+              key={creator.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(idx * 0.015, 0.6) }}
+              role="button"
+              tabIndex={0}
+              onClick={() =>
+                navigate(`/profile/${encodeURIComponent(creator.username.toLowerCase())}`)
               }
-            }}
-            className={`premium-card creator-card p-4 pt-[15px] cursor-pointer group h-full flex flex-col items-center text-center gap-3 creator-card-overflow min-h-[160px] col-span-1 ${
-              !hasPublicCount(creator.totalPlays) ? "opacity-80" : ""
-            }`}
-            style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.1)", transition: "transform 0.3s ease-in-out", boxSizing: "border-box" }}
-            whileHover={{ scale: 1.03 }}
-            data-testid={`card-creator-${creator.id}`}
-          >
-            <div
-              className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 group-hover:bg-primary/20 transition-premium shrink-0 overflow-hidden"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/profile/${encodeURIComponent(creator.username.toLowerCase())}`);
+                }
+              }}
+              className={`premium-card flex items-center gap-3 sm:gap-4 p-3 sm:p-3.5 cursor-pointer group border border-white/10 rounded-sm hover:border-primary/25 transition-colors ${
+                !hasPublicCount(creator.totalPlays) ? "opacity-85" : ""
+              }`}
+              data-testid={`card-creator-${creator.id}`}
             >
-              {creator.avatarUrl ? (
-                <img src={creator.avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-lg font-display font-bold" data-testid={`text-creator-initials-${creator.id}`}>
-                  {initialsFromUsername(creator.displayName)}
-                </span>
-              )}
-            </div>
-
-            <div className="text-center min-w-0 w-full flex flex-col items-center gap-1.5">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 w-full min-w-0">
-                <h3
-                  className="text-sm font-display font-bold text-white uppercase truncate group-hover:text-primary transition-premium min-w-0 max-w-full"
-                  data-testid={`text-creator-name-${creator.id}`}
-                >
-                  {creator.displayName}
-                </h3>
-                <CreatorFollowChip creatorId={creator.id} username={creator.username} />
-              </div>
-              {creator.country && (
-                <div className="flex items-center justify-center gap-1 mt-0.5">
-                  <MapPin className="w-3 h-3 text-zinc-600" />
-                  <span
-                    className="text-[10px] text-zinc-500 uppercase tracking-widest"
-                    data-testid={`text-creator-country-${creator.id}`}
-                  >
-                    {creator.country}
-                  </span>
+              <div className="relative shrink-0">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 overflow-hidden">
+                  {creator.avatarUrl ? (
+                    <img src={creator.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span
+                      className="text-sm font-display font-bold"
+                      data-testid={`text-creator-initials-${creator.id}`}
+                    >
+                      {initialsFromUsername(creator.displayName)}
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
+                {isVerified ? (
+                  <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#050505] p-0.5">
+                    <VerifiedCheckIcon provenanceStatus="verified" size={14} />
+                  </span>
+                ) : null}
+              </div>
 
-            <div className="grid grid-cols-3 gap-1 w-full pt-2 border-t border-white/5">
-              <div className="text-center">
-                <p className="text-xs font-bold text-white flex items-center justify-center gap-0.5" data-testid={`text-creator-plays-${creator.id}`}>
-                  <Headphones className="w-3 h-3 text-zinc-500" />
-                  {hasPublicCount(creator.totalPlays) ? creator.totalPlays.toLocaleString() : t("creators.statHidden")}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <h3
+                    className="text-sm font-display font-bold text-white uppercase truncate group-hover:text-primary transition-colors"
+                    data-testid={`text-creator-name-${creator.id}`}
+                  >
+                    {creator.displayName}
+                  </h3>
+                  {creator.country ? (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0">
+                      <MapPin className="w-2.5 h-2.5" />
+                      {creator.country}
+                    </span>
+                  ) : null}
+                  {isVerified ? (
+                    <span className="text-[8px] font-bold uppercase tracking-widest text-primary/80 shrink-0">
+                      {t("creators.verifiedLabel")}
+                    </span>
+                  ) : null}
+                </div>
+                <p
+                  className="text-[9px] text-zinc-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5"
+                  data-testid={`text-creator-stats-${creator.id}`}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    <Headphones className="w-3 h-3 text-zinc-600" />
+                    {plays}
+                  </span>
+                  <span className="text-zinc-700">·</span>
+                  <span className="inline-flex items-center gap-0.5">
+                    <Heart className="w-3 h-3 text-pink-400/60" />
+                    {likes}
+                  </span>
+                  <span className="text-zinc-700">·</span>
+                  <span className="inline-flex items-center gap-0.5 text-primary/80">
+                    <Trophy className="w-3 h-3 text-primary/40" />
+                    {wins}
+                  </span>
                 </p>
-                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{t("creators.plays")}</p>
+                {showClaim ? (
+                  <button
+                    type="button"
+                    className="mt-1.5 text-[9px] text-zinc-400 hover:text-primary underline-offset-2 hover:underline text-left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/track/${creator.claimProfileTrackId}`);
+                    }}
+                    data-testid={`button-claim-profile-${creator.id}`}
+                  >
+                    {t("creators.claimProfile")}
+                  </button>
+                ) : null}
               </div>
-              <div className="text-center">
-                <p className="text-xs font-bold text-white flex items-center justify-center gap-0.5" data-testid={`text-creator-likes-${creator.id}`}>
-                  <Heart className="w-3 h-3 text-pink-400/70" />
-                  {hasPublicCount(creator.totalLikes) ? creator.totalLikes.toLocaleString() : t("creators.statHidden")}
-                </p>
-                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{t("creators.likes")}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs font-bold text-primary flex items-center justify-center gap-0.5" data-testid={`text-creator-wins-${creator.id}`}>
-                  <Trophy className="w-3 h-3 text-primary/50" />
-                  {hasPublicCount(creator.battleWins) ? creator.battleWins.toLocaleString() : t("creators.statHidden")}
-                </p>
-                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">{t("creators.battleWins")}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+
+              <CreatorFollowChip creatorId={creator.id} username={creator.username} />
+            </motion.div>
+          );
+        })}
       </div>
       {filteredCreators.length === 0 && (
         <div className="text-center py-10 text-zinc-500 text-sm" data-testid="text-no-creator-results">

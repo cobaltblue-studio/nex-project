@@ -8,6 +8,7 @@ import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
 import { TrackPlaysStat } from "@/components/TrackPlaysStat";
+import { CreatorNameWithBadge } from "@/components/CreatorNameWithBadge";
 import { useTranslation } from "react-i18next";
 
 interface ChartTrack {
@@ -22,6 +23,7 @@ interface ChartTrack {
   likesCount?: number;
   commentsCount?: number;
   claimableByCreators?: boolean;
+  provenanceStatus?: string;
   rankingScore: number;
   winStreak: number;
   aiPrompt?: string | null;
@@ -211,12 +213,12 @@ export function Music() {
                         >
                           {track.title}
                         </p>
-                        <span
-                          className="text-[9px] font-bold text-primary/70 uppercase tracking-widest truncate block"
-                          data-testid={`text-chart-creator-${track.id}`}
-                        >
-                          {track.creatorName}
-                        </span>
+                        <CreatorNameWithBadge
+                          name={track.creatorName}
+                          provenanceStatus={track.provenanceStatus}
+                          nameClassName="text-[9px] font-bold text-primary/70 uppercase tracking-widest"
+                          testId={`text-chart-creator-${track.id}`}
+                        />
                         <div className="flex items-center gap-2 mt-1 flex-wrap md:hidden">
                           <span className="text-[7px] text-zinc-700 uppercase tracking-[0.2em] border border-white/5 px-1 py-0.5 rounded-xs">
                             {track.genre}

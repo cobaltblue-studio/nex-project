@@ -33,6 +33,19 @@ export const HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS = 48;
 /** Canonical NEX founder account (Google OAuth email). Override on server with NEX_FOUNDER_ADMIN_EMAIL. */
 export const NEX_FOUNDER_ADMIN_EMAIL = "d9ckoblack@gmail.com";
 
+/** Badge / ownership: creator-submitted or claimed (not chart approval `tracks.status`). */
+export const TRACK_PROVENANCE_VERIFIED = "verified" as const;
+export const TRACK_PROVENANCE_NEX_PICK = "nex_pick" as const;
+export type TrackProvenanceStatus =
+  | typeof TRACK_PROVENANCE_VERIFIED
+  | typeof TRACK_PROVENANCE_NEX_PICK;
+
+export function normalizeTrackProvenanceStatus(
+  raw: string | null | undefined,
+): TrackProvenanceStatus {
+  return raw === TRACK_PROVENANCE_NEX_PICK ? TRACK_PROVENANCE_NEX_PICK : TRACK_PROVENANCE_VERIFIED;
+}
+
 export function normalizeAuthEmail(email: string | null | undefined): string {
   return (email ?? "").trim().toLowerCase();
 }
@@ -78,6 +91,11 @@ export function isBattleEligibleAudioTrack(track: {
   if (track.trackType === "video") return false;
   const s = (track.status ?? "").trim();
   return (BATTLE_AND_NEW_AUDIO_STATUSES as readonly string[]).includes(s);
+}
+
+/** MV chart uses trackType video; ranking is plays/likes/comments only (see computeMvRankingScore in server/storage). */
+export function isMusicVideoChartTrack(track: { trackType?: string | null }): boolean {
+  return track.trackType === "video";
 }
 
 /** Same query shape for Music chart, Radio, and any “NEX TOP 100” style list (audio chart). */

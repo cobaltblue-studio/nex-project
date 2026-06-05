@@ -16,7 +16,8 @@ import { api } from "@shared/routes";
 import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
-import { TrackClaimSection } from "@/components/TrackClaimSection";
+import { NexPickTrackBanner } from "@/components/NexPickTrackBanner";
+import { TRACK_PROVENANCE_NEX_PICK } from "@shared/constants";
 import { computeSunoAutonextDelayMs, formatSunoAutonextHint } from "@/lib/sunoAutonext";
 
 const SOUNDCLOUD_AUTONEXT_MS = 240_000;
@@ -264,7 +265,10 @@ export function TrackDetail() {
   };
 
   const claimable = !!(track as { claimableByCreators?: boolean } | null)?.claimableByCreators;
+  const provenanceStatus = (track as { provenanceStatus?: string } | null)?.provenanceStatus;
   const trackOwnerId = (track as { creatorId?: number } | null)?.creatorId;
+  const artistDisplay =
+    (track as { artistName?: string | null } | null)?.artistName || track?.creatorName || "";
   const isTrackOwner =
     isAuthenticated &&
     myProfile?.id != null &&
@@ -464,10 +468,14 @@ export function TrackDetail() {
       </div>
 
       {currentTrackId && trackOwnerId != null ? (
-        <TrackClaimSection
+        <NexPickTrackBanner
           trackId={currentTrackId}
+          provenanceStatus={provenanceStatus}
           claimableByCreators={claimable}
           trackOwnerProfileId={trackOwnerId}
+          artistName={
+            provenanceStatus !== TRACK_PROVENANCE_NEX_PICK ? artistDisplay : undefined
+          }
         />
       ) : null}
 

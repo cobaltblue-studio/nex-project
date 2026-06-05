@@ -60,17 +60,26 @@ function emailLayout(opts: { headline: string; bodyHtml: string; ctaLabel: strin
 </html>`;
 }
 
+export type EmailSendResult =
+  | { sent: true }
+  | { sent: false; reason: "disabled" | "invalid_to" | "resend_error"; detail?: string };
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
   text?: string;
-}): Promise<boolean> {
+}): Promise<EmailSendResult> {
   const key = process.env.RESEND_API_KEY?.trim();
-  if (!key) return false;
+  if (!key) {
+    console.warn("[email] skipped — RESEND_API_KEY is not set");
+    return { sent: false, reason: "disabled" };
+  }
 
   const to = opts.to.trim().toLowerCase();
-  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return false;
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return { sent: false, reason: "invalid_to" };
+  }
 
   try {
     const res = await fetch(RESEND_API, {
@@ -90,12 +99,12 @@ export async function sendEmail(opts: {
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.warn("[email] Resend error", res.status, body.slice(0, 300));
-      return false;
+      return { sent: false, reason: "resend_error", detail: `${res.status}: ${body.slice(0, 200)}` };
     }
-    return true;
+    return { sent: true };
   } catch (err) {
     console.warn("[email] send failed", err);
-    return false;
+    return { sent: false, reason: "resend_error", detail: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -104,7 +113,7 @@ export async function sendTrackApprovedEmail(opts: {
   trackTitle: string;
   trackId: number;
   destination: string;
-}): Promise<void> {
+}): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
   const href = `${siteOrigin()}/track/${opts.trackId}`;
   const subject = `[NEX] 승인 완료 — ${opts.trackTitle}`;
@@ -116,13 +125,13 @@ export async function sendTrackApprovedEmail(opts: {
     ctaLabel: "트랙 보기",
     ctaHref: href,
   });
-  await sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, subject, html, text });
 }
 
 export async function sendTrackRejectedEmail(opts: {
   to: string;
   trackTitle: string;
-}): Promise<void> {
+}): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
   const href = `${siteOrigin()}/my-tracks`;
   const subject = `[NEX] 승인 안내 — ${opts.trackTitle}`;
@@ -134,14 +143,14 @@ export async function sendTrackRejectedEmail(opts: {
     ctaLabel: "내 트랙",
     ctaHref: href,
   });
-  await sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, subject, html, text });
 }
 
 export async function sendTrackLikedEmail(opts: {
   to: string;
   trackTitle: string;
   trackId: number;
-}): Promise<void> {
+}): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
   const href = `${siteOrigin()}/track/${opts.trackId}`;
   const subject = `[NEX] 새 좋아요 — ${opts.trackTitle}`;
@@ -152,5 +161,5 @@ export async function sendTrackLikedEmail(opts: {
     ctaLabel: "트랙 보기",
     ctaHref: href,
   });
-  await sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, subject, html, text });
 }

@@ -10,6 +10,7 @@ import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
 import { useTranslation } from "react-i18next";
+import { CreatorNameWithBadge } from "@/components/CreatorNameWithBadge";
 
 interface RisingTrack {
   id: number;
@@ -24,6 +25,7 @@ interface RisingTrack {
   playCount?: number;
   likesCount?: number;
   claimableByCreators?: boolean;
+  provenanceStatus?: string;
   rankingScore: number;
   totalBattles: number;
   wins: number;
@@ -161,9 +163,12 @@ export function Rising() {
                     {track.title}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-primary/70 uppercase tracking-widest truncate" data-testid={`text-rising-creator-${track.id}`}>
-                      {track.creatorName}
-                    </span>
+                    <CreatorNameWithBadge
+                      name={track.creatorName}
+                      provenanceStatus={track.provenanceStatus}
+                      nameClassName="text-[9px] sm:text-[10px] font-bold text-primary/70 uppercase tracking-widest"
+                      testId={`text-rising-creator-${track.id}`}
+                    />
                     <span className="text-[8px] text-zinc-700 px-1.5 py-0.5 border border-white/5 rounded-sm">
                       {track.genre}
                     </span>

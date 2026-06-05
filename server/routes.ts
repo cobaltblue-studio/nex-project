@@ -29,6 +29,7 @@ import {
   sanitizeTrackDetailForPublic,
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
+import { publicTrackProvenanceExtras } from "./trackProvenance";
 import {
   fetchSunoSongDurationSeconds,
   resolveSunoShareToSongUuid,
@@ -462,6 +463,7 @@ export async function registerRoutes(
               winRate: battleStats[t.id].winRate,
             }
           : {}),
+        ...publicTrackProvenanceExtras(t),
       } as Record<string, unknown>),
     );
     res.json(formatted);
@@ -530,7 +532,7 @@ export async function registerRoutes(
         createdAt: t.createdAt,
         likesCount,
         commentsCount,
-        claimableByCreators: !!(t as { claimableByCreators?: boolean }).claimableByCreators,
+        ...publicTrackProvenanceExtras(t),
         ...(battleStats[t.id]
           ? {
               totalBattles: battleStats[t.id].totalBattles,
@@ -873,6 +875,7 @@ export async function registerRoutes(
               winRate: battleStats[t.id].winRate,
             }
           : {}),
+        ...publicTrackProvenanceExtras(t),
       } as Record<string, unknown>),
     );
     res.json(formatted);
@@ -889,6 +892,7 @@ export async function registerRoutes(
       playsCount: playCount,
       coverImageUrl: publicTrackCoverUrl(t),
       musicVideoUrl: (t as { mvUrl?: string | null }).mvUrl ?? null,
+      ...publicTrackProvenanceExtras(t as { provenanceStatus?: string | null; claimableByCreators?: boolean }),
     });
     const commentCounts = await storage.getCommentCountsForTracks([trackId]);
     const withComments = { ...base, commentsCount: commentCounts[trackId] ?? 0 };
@@ -1532,6 +1536,7 @@ export async function registerRoutes(
         sanitizePublicTrack({
           ...(row as Record<string, unknown>),
           commentsCount: commentCounts[row.id] ?? 0,
+          ...publicTrackProvenanceExtras(row as { provenanceStatus?: string | null; claimableByCreators?: boolean }),
         }),
       ),
     );
@@ -2207,7 +2212,19 @@ export async function registerRoutes(
     if (!updated) {
       return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
     }
-    res.json({ ok: true, claimableByCreators: updated.claimableByCreators });
+    res.json({
+      ok: true,
+      claimableByCreators: updated.claimableByCreators,
+      provenanceStatus: updated.provenanceStatus,
+    });
+  });
+
+  app.post("/api/admin/tracks/sync-nex-pick-claimable", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const counts = await storage.syncNexPickClaimableFlags();
+    res.json({ ok: true, ...counts });
   });
 
   return httpServer;

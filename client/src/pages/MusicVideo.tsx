@@ -8,6 +8,7 @@ import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedMo
 import { resolveTrackThumbnailUrl } from "@/lib/trackThumbnail";
 import { TrackPlaysStat } from "@/components/TrackPlaysStat";
 import { useTranslation } from "react-i18next";
+import { CreatorNameWithBadge } from "@/components/CreatorNameWithBadge";
 
 interface MVTrack {
   id: number;
@@ -28,6 +29,7 @@ interface MVTrack {
   likesCount?: number;
   commentsCount?: number;
   claimableByCreators?: boolean;
+  provenanceStatus?: string;
 }
 
 export function MusicVideo() {
@@ -189,12 +191,12 @@ export function MusicVideo() {
                     >
                       {track.title}
                     </p>
-                    <span
-                      className="text-[9px] font-bold text-primary/70 uppercase tracking-widest truncate block"
-                      data-testid={`text-mv-creator-${track.id}`}
-                    >
-                      {track.creatorName}
-                    </span>
+                    <CreatorNameWithBadge
+                      name={track.creatorName}
+                      provenanceStatus={track.provenanceStatus}
+                      nameClassName="text-[9px] font-bold text-primary/70 uppercase tracking-widest"
+                      testId={`text-mv-creator-${track.id}`}
+                    />
                     {track.winStreak > 0 && (
                       <span
                         className="inline-block mt-1 px-1.5 py-0.5 bg-orange-500/10 text-orange-400 rounded-xs text-[7px] font-bold border border-orange-500/20"
