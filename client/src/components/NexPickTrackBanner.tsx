@@ -30,7 +30,7 @@ export function NexPickTrackBanner({
     <div className="space-y-3">
       {isVerified && artistName ? (
         <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary/90">
-          <VerifiedCheckIcon provenanceStatus={provenanceStatus} size={16} />
+          <VerifiedCheckIcon provenanceStatus={provenanceStatus} size={14} filled showTooltip />
           <span>{artistName}</span>
         </div>
       ) : null}

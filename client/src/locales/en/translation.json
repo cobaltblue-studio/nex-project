@@ -196,7 +196,8 @@
   },
   "provenance": {
     "nexPickBanner": "This track was discovered & featured by NEX. If it's yours, claim it.",
-    "removalLink": "Prefer it taken down? Contact us →"
+    "removalLink": "Prefer it taken down? Contact us →",
+    "verifiedCreatorTooltip": "Verified Creator"
   },
   "trackClaim": {
     "heading": "Claim this track",

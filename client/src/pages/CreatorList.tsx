@@ -11,6 +11,7 @@ import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { VerifiedCheckIcon } from "@/components/VerifiedCheckIcon";
+import { VerifiedPillBadge } from "@/components/VerifiedPillBadge";
 import { TRACK_PROVENANCE_VERIFIED } from "@shared/constants";
 
 interface CreatorDirectoryRow {
@@ -237,8 +238,8 @@ export function CreatorList() {
                   )}
                 </div>
                 {isVerified ? (
-                  <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#050505] p-0.5">
-                    <VerifiedCheckIcon provenanceStatus="verified" size={14} />
+                  <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#050505] p-0.5 ring-1 ring-primary/30">
+                    <VerifiedCheckIcon provenanceStatus="verified" size={13} filled />
                   </span>
                 ) : null}
               </div>
@@ -257,11 +258,7 @@ export function CreatorList() {
                       {creator.country}
                     </span>
                   ) : null}
-                  {isVerified ? (
-                    <span className="text-[8px] font-bold uppercase tracking-widest text-primary/80 shrink-0">
-                      {t("creators.verifiedLabel")}
-                    </span>
-                  ) : null}
+                  {isVerified ? <VerifiedPillBadge /> : null}
                 </div>
                 <p
                   className="text-[9px] text-zinc-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5"

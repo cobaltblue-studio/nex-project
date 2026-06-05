@@ -10,7 +10,7 @@ type Props = {
   testId?: string;
 };
 
-/** Artist line on track lists — verified gets a single cyan check, nex_pick stays plain. */
+/** Artist line on track lists — verified gets filled cyan check + tooltip, nex_pick stays plain. */
 export function CreatorNameWithBadge({
   name,
   provenanceStatus,
@@ -25,7 +25,14 @@ export function CreatorNameWithBadge({
       data-testid={testId}
     >
       <span className={`truncate ${nameClassName}`}>{name}</span>
-      {verified ? <VerifiedCheckIcon provenanceStatus={provenanceStatus} size={12} /> : null}
+      {verified ? (
+        <VerifiedCheckIcon
+          provenanceStatus={provenanceStatus}
+          size={12}
+          filled
+          showTooltip
+        />
+      ) : null}
     </span>
   );
 }
