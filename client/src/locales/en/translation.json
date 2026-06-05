@@ -195,7 +195,7 @@
     "deactivate": "Deactivate",
     "exportCta": "Export creator data",
     "exportDoneTitle": "Export ready",
-    "exportDoneDesc": "CSV downloaded with the latest catalog from the database.",
+    "exportDoneDesc": "CSV downloaded. Check no and total_tracks columns for the live track count.",
     "exportFailTitle": "Export failed",
     "exportFailDesc": "Could not download the export file."
   },

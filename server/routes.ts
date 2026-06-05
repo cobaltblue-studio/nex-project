@@ -30,7 +30,7 @@ import {
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
 import { publicTrackProvenanceExtras } from "./trackProvenance";
-import { adminCreatorTrackExportCsv } from "./adminExport";
+import { adminCreatorTrackExportCsv, adminCreatorTrackExportFilename } from "./adminExport";
 import {
   fetchSunoSongDurationSeconds,
   resolveSunoShareToSongUuid,
@@ -2234,9 +2234,8 @@ export async function registerRoutes(
     }
     const rows = await storage.getAdminCreatorTrackExportRows();
     const csv = adminCreatorTrackExportCsv(rows);
-    const stamp = new Date().toISOString().slice(0, 10);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="nex-creator-tracks-${stamp}.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${adminCreatorTrackExportFilename(rows.length)}"`);
     res.send("\uFEFF" + csv);
   });
 

@@ -195,7 +195,7 @@
     "deactivate": "비활성화",
     "exportCta": "크리에이터 데이터보내기",
     "exportDoneTitle": "보내기 완료",
-    "exportDoneDesc": "DB 최신 기준 CSV가 다운로드되었습니다.",
+    "exportDoneDesc": "DB 최신 기준 CSV가 다운로드되었습니다. 맨 앞 no·total_tracks 열로 곡 수를 확인하세요.",
     "exportFailTitle": "보내기 실패",
     "exportFailDesc": "파일을 받지 못했습니다."
   },

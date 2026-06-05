@@ -277,11 +277,12 @@ export default function AdminPanel() {
         throw new Error((err as { message?: string }).message || `Export failed (${res.status})`);
       }
       const blob = await res.blob();
-      const stamp = new Date().toISOString().slice(0, 10);
+      const disp = res.headers.get("Content-Disposition") ?? "";
+      const nameMatch = /filename="([^"]+)"/.exec(disp);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `nex-creator-tracks-${stamp}.csv`;
+      a.download = nameMatch?.[1] ?? `nex-creator-tracks-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();

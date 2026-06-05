@@ -56,8 +56,11 @@ function csvCell(value: string | number | boolean | null | undefined): string {
 }
 
 export function adminCreatorTrackExportCsv(rows: AdminCreatorTrackExportRow[]): string {
+  const total = rows.length;
   const headers = [
     "no",
+    "total_tracks",
+    "track_id",
     "creator_name",
     "yt_handle",
     "track_name",
@@ -75,6 +78,8 @@ export function adminCreatorTrackExportCsv(rows: AdminCreatorTrackExportRow[]): 
     lines.push(
       [
         csvCell(index + 1),
+        csvCell(total),
+        csvCell(r.trackId),
         csvCell(r.creatorName),
         csvCell(r.ytHandle),
         csvCell(r.trackName),
@@ -90,4 +95,9 @@ export function adminCreatorTrackExportCsv(rows: AdminCreatorTrackExportRow[]): 
     );
   });
   return lines.join("\n") + "\n";
+}
+
+export function adminCreatorTrackExportFilename(rowCount: number): string {
+  const stamp = new Date().toISOString().slice(0, 10);
+  return `nex-creator-tracks-${stamp}-${rowCount}tracks.csv`;
 }
