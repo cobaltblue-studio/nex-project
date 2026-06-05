@@ -30,6 +30,7 @@ import {
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
 import { publicTrackProvenanceExtras } from "./trackProvenance";
+import { adminCreatorTrackExportCsv } from "./adminExport";
 import {
   fetchSunoSongDurationSeconds,
   resolveSunoShareToSongUuid,
@@ -2225,6 +2226,18 @@ export async function registerRoutes(
     }
     const counts = await storage.syncNexPickClaimableFlags();
     res.json({ ok: true, ...counts });
+  });
+
+  app.get("/api/admin/export/creator-tracks.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const rows = await storage.getAdminCreatorTrackExportRows();
+    const csv = adminCreatorTrackExportCsv(rows);
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="nex-creator-tracks-${stamp}.csv"`);
+    res.send("\uFEFF" + csv);
   });
 
   return httpServer;

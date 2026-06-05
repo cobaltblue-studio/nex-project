@@ -26,6 +26,12 @@ import type { User } from "@shared/models/auth";
 import { BATTLE_AND_NEW_AUDIO_STATUSES } from "@shared/constants";
 import { computeCreatorPopularityScore } from "@shared/creatorPopularity";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
+import {
+  type AdminCreatorTrackExportRow,
+  extractYoutubeHandle,
+  isExportableRegistrationEmail,
+  publicTrackPageUrl,
+} from "./adminExport";
 import { db } from "./db";
 import {
   isEmailEnabled,
@@ -386,6 +392,7 @@ export interface IStorage {
   claimTrackWithSecret(trackId: number, requesterProfileId: number, secret: string): Promise<{ ok: boolean; reason?: string }>;
   setTrackClaimableByCreators(trackId: number, claimable: boolean): Promise<Track | null>;
   syncNexPickClaimableFlags(): Promise<{ nexPickClaimable: number; verifiedNotClaimable: number }>;
+  getAdminCreatorTrackExportRows(): Promise<AdminCreatorTrackExportRow[]>;
   getLatestBattleSummariesForCreatorProfile(creatorProfileId: number): Promise<
     {
       trackId: number;
@@ -2471,6 +2478,82 @@ export class DatabaseStorage implements IStorage {
       nexPickClaimable: Number(row?.nexPickClaimable ?? 0),
       verifiedNotClaimable: Number(row?.verifiedNotClaimable ?? 0),
     };
+  }
+
+  /** Live catalog export for admin CSV (sorted by battle wins desc). */
+  async getAdminCreatorTrackExportRows(): Promise<AdminCreatorTrackExportRow[]> {
+    const rows = await db
+      .select({
+        track: tracks,
+        profile: profiles,
+        email: users.email,
+        metrics: trackMetrics,
+      })
+      .from(tracks)
+      .innerJoin(profiles, eq(tracks.creatorId, profiles.id))
+      .leftJoin(users, eq(users.id, profiles.userId))
+      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
+      .where(eq(tracks.isDeleted, false))
+      .orderBy(desc(tracks.rankingScore));
+
+    const trackIds = rows.map((r) => r.track.id);
+    const battleStats = trackIds.length > 0 ? await this.getBattleStatsForTracks(trackIds) : {};
+
+    const audioChart = await db
+      .select({ id: tracks.id })
+      .from(tracks)
+      .where(
+        and(eq(tracks.isDeleted, false), eq(tracks.status, "CHART"), eq(tracks.trackType, "audio")),
+      )
+      .orderBy(desc(tracks.rankingScore));
+    const audioChartRank = new Map(audioChart.map((t, i) => [t.id, i + 1]));
+
+    const mvChart = await db
+      .select({ id: tracks.id, playCount: tracks.playCount, rankingScore: tracks.rankingScore })
+      .from(tracks)
+      .where(and(eq(tracks.isDeleted, false), eq(tracks.status, "MV"), eq(tracks.trackType, "video")))
+      .orderBy(desc(tracks.rankingScore), desc(tracks.playCount));
+    const mvChartRank = new Map(mvChart.map((t, i) => [t.id, i + 1]));
+
+    const out: AdminCreatorTrackExportRow[] = rows.map((r) => {
+      const t = r.track;
+      const bs = battleStats[t.id];
+      const battleWins = bs?.wins ?? r.metrics?.battleWinsCount ?? 0;
+      const plays = resolvePublicPlayCount({
+        playCount: t.playCount,
+        playsCount: r.metrics?.playsCount,
+      });
+      const likes = r.metrics?.likesCount ?? 0;
+      const creatorName = String(t.artistName ?? "").trim() || r.profile.username;
+      const chartRank =
+        t.status === "CHART" && t.trackType === "audio"
+          ? (audioChartRank.get(t.id) ?? null)
+          : t.status === "MV" && t.trackType === "video"
+            ? (mvChartRank.get(t.id) ?? null)
+            : null;
+
+      return {
+        trackId: t.id,
+        creatorName,
+        ytHandle: extractYoutubeHandle(t.audioUrl, t.mvUrl, r.profile.username),
+        trackName: String(t.title ?? "").trim(),
+        provenanceStatus: t.provenanceStatus ?? "verified",
+        claimableByCreators: !!t.claimableByCreators,
+        plays,
+        likes,
+        battleWins,
+        chartRank,
+        trackUrl: publicTrackPageUrl(t.id),
+        registrationEmail: isExportableRegistrationEmail(r.email),
+      };
+    });
+
+    out.sort((a, b) => {
+      if (b.battleWins !== a.battleWins) return b.battleWins - a.battleWins;
+      if (b.plays !== a.plays) return b.plays - a.plays;
+      return a.trackId - b.trackId;
+    });
+    return out;
   }
 
   async getBoostTicketBalance(profileId: number): Promise<number> {

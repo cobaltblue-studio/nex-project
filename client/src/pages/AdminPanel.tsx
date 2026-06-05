@@ -6,7 +6,7 @@ import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
-  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3, AlertTriangle,
+  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3, AlertTriangle, Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -112,6 +112,7 @@ export default function AdminPanel() {
   const { t } = useTranslation();
   const [claimableTrackId, setClaimableTrackId] = useState("");
   const [deactivateUsername, setDeactivateUsername] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const isAdmin = user?.role === "admin";
 
@@ -267,6 +268,36 @@ export default function AdminPanel() {
       toast({ title: "Update failed", description: e.message, variant: "destructive" }),
   });
 
+  const downloadCreatorExport = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/admin/export/creator-tracks.csv", { credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message || `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const stamp = new Date().toISOString().slice(0, 10);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nex-creator-tracks-${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: t("adminPanel.exportDoneTitle"), description: t("adminPanel.exportDoneDesc") });
+    } catch (e) {
+      toast({
+        title: t("adminPanel.exportFailTitle"),
+        description: e instanceof Error ? e.message : t("adminPanel.exportFailDesc"),
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const syncNexPickMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/admin/tracks/sync-nex-pick-claimable", {}),
     onSuccess: async (res) => {
@@ -337,20 +368,33 @@ export default function AdminPanel() {
             Track submission review · Creator applications
           </p>
         </div>
-        <button
-          onClick={() => {
-            void refetchInsights();
-            void refetch();
-            void refetchCreatorApps();
-            void refetchClaimReq();
-            void refetchEditReq();
-          }}
-          data-testid="button-refresh"
-          className="p-2 border border-white/10 rounded-sm text-zinc-500 hover:text-primary hover:border-primary/30 transition-all"
-          title="Refresh"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void downloadCreatorExport()}
+            disabled={exporting}
+            data-testid="button-export-creator-tracks"
+            className="flex items-center gap-2 px-3 py-2 border border-primary/30 rounded-sm text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 disabled:opacity-40 transition-all"
+            title={t("adminPanel.exportCta")}
+          >
+            {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            {t("adminPanel.exportCta")}
+          </button>
+          <button
+            onClick={() => {
+              void refetchInsights();
+              void refetch();
+              void refetchCreatorApps();
+              void refetchClaimReq();
+              void refetchEditReq();
+            }}
+            data-testid="button-refresh"
+            className="p-2 border border-white/10 rounded-sm text-zinc-500 hover:text-primary hover:border-primary/30 transition-all"
+            title="Refresh"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="mb-10">

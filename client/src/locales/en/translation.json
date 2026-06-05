@@ -192,7 +192,12 @@
     "open": "Open",
     "approveCreator": "Approve creator",
     "rejectCreator": "Reject",
-    "deactivate": "Deactivate"
+    "deactivate": "Deactivate",
+    "exportCta": "Export creator data",
+    "exportDoneTitle": "Export ready",
+    "exportDoneDesc": "CSV downloaded with the latest catalog from the database.",
+    "exportFailTitle": "Export failed",
+    "exportFailDesc": "Could not download the export file."
   },
   "provenance": {
     "nexPickBanner": "This track was discovered & featured by NEX. If it's yours, claim it.",

@@ -192,7 +192,12 @@
     "open": "열기",
     "approveCreator": "크리에이터 승인",
     "rejectCreator": "거절",
-    "deactivate": "비활성화"
+    "deactivate": "비활성화",
+    "exportCta": "크리에이터 데이터보내기",
+    "exportDoneTitle": "보내기 완료",
+    "exportDoneDesc": "DB 최신 기준 CSV가 다운로드되었습니다.",
+    "exportFailTitle": "보내기 실패",
+    "exportFailDesc": "파일을 받지 못했습니다."
   },
   "provenance": {
     "nexPickBanner": "이 트랙은 NEX가 발굴해 소개 중입니다. 본인이라면 클레임하세요.",
