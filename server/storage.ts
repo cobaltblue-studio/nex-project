@@ -2480,7 +2480,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  /** Live catalog export for admin CSV (sorted by battle wins desc). */
+  /** Live catalog export — claimable FALSE first, then TRUE; battle wins desc within each group. */
   async getAdminCreatorTrackExportRows(): Promise<AdminCreatorTrackExportRow[]> {
     const rows = await db
       .select({
@@ -2549,6 +2549,9 @@ export class DatabaseStorage implements IStorage {
     });
 
     out.sort((a, b) => {
+      if (a.claimableByCreators !== b.claimableByCreators) {
+        return a.claimableByCreators ? 1 : -1;
+      }
       if (b.battleWins !== a.battleWins) return b.battleWins - a.battleWins;
       if (b.plays !== a.plays) return b.plays - a.plays;
       return a.trackId - b.trackId;
