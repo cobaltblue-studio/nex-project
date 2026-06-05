@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, computeMvChartLiveScore } from "./storage";
+import { storage } from "./storage";
 import { seed } from "./seed";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
@@ -29,17 +29,12 @@ import {
   sanitizeTrackDetailForPublic,
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
-import { publicTrackProvenanceExtras } from "./trackProvenance";
 import { adminCreatorTrackExportCsv, adminCreatorTrackExportFilename } from "./adminExport";
-import {
-  fetchSunoSongDurationSeconds,
-  resolveSunoShareToSongUuid,
-} from "./suno-resolve";
+import { resolveSunoShareToSongUuid } from "./suno-resolve";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
-import { rejectArtisticIntent } from "./artisticIntent";
 
 function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
@@ -179,10 +174,9 @@ async function assertCreatorCanPublishAnotherTrack(req: any, res: any, creatorPr
   const activeCount = activeCountRow?.n ?? 0;
   if (activeCount >= MAX_ACTIVE_TRACKS_PER_CREATOR) {
     res.status(409).json({
-      code: "ACTIVE_TRACK_LIMIT",
       message: apiMsg(
-        "1인당 최대 제출곡은 2곡입니다. 건투를 빕니다",
-        "You can have at most 2 active tracks. Good luck out there!",
+        `활성 트랙은 최대 ${MAX_ACTIVE_TRACKS_PER_CREATOR}개입니다. 새로 올리려면 하나를 아카이브하세요`,
+        `Active track limit reached (${MAX_ACTIVE_TRACKS_PER_CREATOR}). Archive one track before uploading a new one.`,
       ),
     });
     return false;
@@ -255,33 +249,6 @@ export async function registerRoutes(
     const followerCount = await storage.getFollowerCount(p.id);
     const { userId: _uid, ...pub } = p;
     res.json({ ...pub, followerCount });
-  });
-
-  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
-    const rows = await storage.listNotifications(userId, { limit: 50 });
-    const unreadCount = await storage.getUnreadNotificationCount(userId);
-    res.json({ unreadCount, items: rows });
-  });
-
-  app.post("/api/notifications/read-all", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
-    await storage.markAllNotificationsRead(userId);
-    res.json({ ok: true });
-  });
-
-  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ message: apiMsg("잘못된 알림 ID입니다", "Invalid notification id") });
-    }
-    const ok = await storage.markNotificationRead(userId, id);
-    if (!ok) return res.status(404).json({ message: apiMsg("알림을 찾을 수 없습니다", "Notification not found") });
-    res.json({ ok: true });
   });
 
   /** Creator dashboard: followers, per-track plays/likes/battles, boost tickets (snapshot — not historical charts). */
@@ -464,7 +431,6 @@ export async function registerRoutes(
               winRate: battleStats[t.id].winRate,
             }
           : {}),
-        ...publicTrackProvenanceExtras(t),
       } as Record<string, unknown>),
     );
     res.json(formatted);
@@ -483,7 +449,6 @@ export async function registerRoutes(
     }
     const trackFilter = {
       status: requestedStatus,
-      mvChartListing: requestedStatus === "MV",
       featured: req.query.featured === "true",
       limit: req.query.limit ? Number(req.query.limit) : undefined,
       genre: (req.query.genre as string) || undefined,
@@ -497,16 +462,10 @@ export async function registerRoutes(
     const ts = await storage.getTracks(trackFilter);
 
     const trackIds = ts.map((t) => t.id);
-    const [battleStats, commentCounts] = await Promise.all([
-      storage.getBattleStatsForTracks(trackIds),
-      storage.getCommentCountsForTracks(trackIds),
-    ]);
+    const battleStats = await storage.getBattleStatsForTracks(trackIds);
 
-    const formatted = ts.map((t) => {
-      const playCount = publicTrackPlayCount(t as { playCount?: number; playsCount?: number });
-      const likesCount = (t as { likesCount?: number }).likesCount ?? 0;
-      const commentsCount = commentCounts[t.id] ?? 0;
-      return sanitizePublicTrack({
+    const formatted = ts.map((t) =>
+      sanitizePublicTrack({
         id: t.id,
         title: t.title,
         creatorName: t.artistName || t.creator.username,
@@ -521,8 +480,8 @@ export async function registerRoutes(
         description: t.description,
         aiCraftScore: t.aiCraftScore,
         neoScore: t.neoScore,
-        playCount,
-        playsCount: playCount,
+        playCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
+        playsCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
         rankingScore: t.rankingScore,
         trackType: t.trackType,
         status: t.status,
@@ -531,9 +490,8 @@ export async function registerRoutes(
         aiPromptEditCount: t.aiPromptEditCount,
         aiPromptLastEditedAt: t.aiPromptLastEditedAt,
         createdAt: t.createdAt,
-        likesCount,
-        commentsCount,
-        ...publicTrackProvenanceExtras(t),
+        likesCount: (t as { likesCount?: number }).likesCount ?? 0,
+        claimableByCreators: !!(t as { claimableByCreators?: boolean }).claimableByCreators,
         ...(battleStats[t.id]
           ? {
               totalBattles: battleStats[t.id].totalBattles,
@@ -541,33 +499,8 @@ export async function registerRoutes(
               winRate: battleStats[t.id].winRate,
             }
           : {}),
-      } as Record<string, unknown>);
-    });
-
-    if (resolvedTrackType === "video") {
-      const sortByEngagement = requestedSortBy === "rankingScore" || requestedSortBy === undefined;
-      if (sortByEngagement) {
-        formatted.sort((a, b) => {
-          const scoreA = computeMvChartLiveScore({
-            playCount: Number(a.playCount ?? 0),
-            likesCount: Number(a.likesCount ?? 0),
-            commentsCount: Number(a.commentsCount ?? 0),
-          });
-          const scoreB = computeMvChartLiveScore({
-            playCount: Number(b.playCount ?? 0),
-            likesCount: Number(b.likesCount ?? 0),
-            commentsCount: Number(b.commentsCount ?? 0),
-          });
-          if (scoreB !== scoreA) return scoreB - scoreA;
-          const playDiff = Number(b.playCount ?? 0) - Number(a.playCount ?? 0);
-          if (playDiff !== 0) return playDiff;
-          const likeDiff = Number(b.likesCount ?? 0) - Number(a.likesCount ?? 0);
-          if (likeDiff !== 0) return likeDiff;
-          return Number(b.commentsCount ?? 0) - Number(a.commentsCount ?? 0);
-        });
-      }
-    }
-
+      } as Record<string, unknown>),
+    );
     res.json(formatted);
   });
 
@@ -643,8 +576,7 @@ export async function registerRoutes(
           ),
         });
       }
-      const durationSeconds = await fetchSunoSongDurationSeconds(songUuid);
-      res.json({ songUuid, durationSeconds });
+      res.json({ songUuid });
     } catch {
       res.status(500).json({
         songUuid: null,
@@ -653,27 +585,23 @@ export async function registerRoutes(
     }
   });
 
-  /** Best-effort song length for Suno AUTO NEXT timing (iframe has no onEnded). */
-  app.get("/api/suno/metadata", async (req, res) => {
-    const uuidRaw = typeof req.query.uuid === "string" ? req.query.uuid.trim().toLowerCase() : "";
-    if (!uuidRaw) {
-      return res.status(400).json({
-        durationSeconds: null,
-        message: apiMsg("uuid 쿼리가 필요합니다", "uuid query parameter is required"),
-      });
-    }
-    try {
-      const durationSeconds = await fetchSunoSongDurationSeconds(uuidRaw);
-      res.json({ durationSeconds });
-    } catch {
-      res.status(500).json({
-        durationSeconds: null,
-        message: apiMsg("Suno 메타데이터 조회 중 오류", "Server error while fetching Suno metadata"),
-      });
-    }
-  });
-
   const validGenres = ["Pop", "Dance", "Rock", "Hip-Hop & Rap", "Funk", "Lo-Fi & Chill"];
+
+  function looksLikeGibberish(input: string): boolean {
+    const s = input.trim();
+    if (!s) return true;
+    const compact = s.replace(/\s+/g, "");
+    if (!compact) return true;
+    if (/([A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ])\1{4,}/.test(compact)) return true;
+    if (/^([ㄱ-ㅎㅏ-ㅣㅋㅋㅎ]+)$/.test(compact) && compact.length >= 5) return true;
+    if (/^(?:[a-z]{2,4}){3,}$/i.test(compact) && !/[aeiou]/i.test(compact)) return true;
+    const uniqueChars = new Set(compact.toLowerCase()).size;
+    const uniqueRatio = uniqueChars / compact.length;
+    if (compact.length >= 12 && uniqueRatio < 0.25) return true;
+    const meaningfulTokenCount = (s.match(/[A-Za-z가-힣]{2,}/g) || []).length;
+    if (s.length >= 20 && meaningfulTokenCount < 3) return true;
+    return false;
+  }
 
   async function submitPublicTrack(req: any, res: any): Promise<void> {
     if (!req.isAuthenticated?.()) {
@@ -694,8 +622,7 @@ export async function registerRoutes(
       });
       return;
     }
-    // Active-track cap applies to every non-admin submitter (listener pre-approval and creator alike).
-    if (!(await isAdmin(req))) {
+    if (!(await isAdmin(req)) && p.role === "creator") {
       if (!(await assertCreatorCanPublishAnotherTrack(req, res, p.id))) return;
     }
 
@@ -738,7 +665,7 @@ export async function registerRoutes(
       });
       return;
     }
-    if (rejectArtisticIntent(intentTrim, { isAdmin: await isAdmin(req) })) {
+    if (looksLikeGibberish(intentTrim)) {
       res.status(400).json({
         message: apiMsg(
           "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
@@ -788,7 +715,6 @@ export async function registerRoutes(
     const duplicate = await storage.trackUrlExists(normalizedTrackLink);
     if (duplicate) {
       res.status(409).json({
-        code: "DUPLICATE_TRACK_URL",
         message: apiMsg("이 URL로 이미 제출된 트랙이 있습니다", "A track with this URL has already been submitted"),
       });
       return;
@@ -842,10 +768,7 @@ export async function registerRoutes(
     const q = (req.query.q as string) || undefined;
     const ts = await storage.getNewFeedTracks(250, q);
     const trackIds = ts.map((t) => t.id);
-    const [battleStats, commentCounts] = await Promise.all([
-      storage.getBattleStatsForTracks(trackIds),
-      storage.getCommentCountsForTracks(trackIds),
-    ]);
+    const battleStats = await storage.getBattleStatsForTracks(trackIds);
     const formatted = ts.map((t) =>
       sanitizePublicTrack({
         id: t.id,
@@ -860,7 +783,6 @@ export async function registerRoutes(
         coverImageUrl: publicTrackCoverUrl(t),
         playCount: publicTrackPlayCount(t as { playCount?: number; playsCount?: number }),
         likesCount: t.likesCount ?? 0,
-        commentsCount: commentCounts[t.id] ?? 0,
         rankingScore: t.rankingScore,
         trackType: t.trackType,
         status: t.status,
@@ -876,7 +798,6 @@ export async function registerRoutes(
               winRate: battleStats[t.id].winRate,
             }
           : {}),
-        ...publicTrackProvenanceExtras(t),
       } as Record<string, unknown>),
     );
     res.json(formatted);
@@ -893,16 +814,13 @@ export async function registerRoutes(
       playsCount: playCount,
       coverImageUrl: publicTrackCoverUrl(t),
       musicVideoUrl: (t as { mvUrl?: string | null }).mvUrl ?? null,
-      ...publicTrackProvenanceExtras(t as { provenanceStatus?: string | null; claimableByCreators?: boolean }),
     });
-    const commentCounts = await storage.getCommentCountsForTracks([trackId]);
-    const withComments = { ...base, commentsCount: commentCounts[trackId] ?? 0 };
     const uid = req.user ? getUserId(req) : "";
     if (uid) {
       const viewerHasLikedToday = await storage.hasLikedTrackToday(uid, trackId);
-      return res.json({ ...withComments, viewerHasLikedToday });
+      return res.json({ ...base, viewerHasLikedToday });
     }
-    res.json(withComments);
+    res.json(base);
   });
 
   app.post("/api/tracks/:id/claim-request", isAuthenticated, async (req: any, res) => {
@@ -1028,7 +946,7 @@ export async function registerRoutes(
           ),
         });
       }
-      if (rejectArtisticIntent(intentTrim)) {
+      if (looksLikeGibberish(intentTrim)) {
         return res.status(400).json({
           message: apiMsg(
             "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
@@ -1213,6 +1131,14 @@ export async function registerRoutes(
               message: apiMsg(
                 "창작 의도 및 프롬프트가 허용된 최대 길이를 초과했습니다",
                 "Artistic intent & prompt is too long",
+              ),
+            });
+          }
+          if (looksLikeGibberish(intentTrim)) {
+            return res.status(400).json({
+              message: apiMsg(
+                "무의미한 반복/도배 텍스트는 등록할 수 없습니다. 창작 의도를 자연어로 작성해 주세요",
+                "Gibberish or repetitive spam text is not allowed. Please describe your artistic intent in natural language.",
               ),
             });
           }
@@ -1530,17 +1456,7 @@ export async function registerRoutes(
   app.get("/api/tracks/rising", async (_req, res) => {
     const q = (_req.query.q as string) || undefined;
     const rising = await storage.getRisingTracks(q);
-    const trackIds = rising.map((r) => r.id);
-    const commentCounts = await storage.getCommentCountsForTracks(trackIds);
-    res.json(
-      rising.map((row) =>
-        sanitizePublicTrack({
-          ...(row as Record<string, unknown>),
-          commentsCount: commentCounts[row.id] ?? 0,
-          ...publicTrackProvenanceExtras(row as { provenanceStatus?: string | null; claimableByCreators?: boolean }),
-        }),
-      ),
-    );
+    res.json(rising.map((row) => sanitizePublicTrack(row as Record<string, unknown>)));
   });
 
   const AVATAR_MAX_BYTES = 500 * 1024;
@@ -1592,11 +1508,7 @@ export async function registerRoutes(
     }
     try {
       await storage.addComment(getUserId(req), trackId, content);
-      const commentCounts = await storage.getCommentCountsForTracks([trackId]);
-      res.status(201).json({
-        message: apiMsg("댓글이 등록되었습니다", "Comment posted"),
-        commentsCount: commentCounts[trackId] ?? 0,
-      });
+      res.status(201).json({ message: apiMsg("댓글이 등록되었습니다", "Comment posted") });
     } catch (err: any) {
       const msg = err?.message;
       if (msg === "TRACK_NOT_FOUND") return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
@@ -1782,8 +1694,8 @@ export async function registerRoutes(
     if (!battle) {
       return res.status(409).json({
         message: apiMsg(
-          "오늘 이미 들은 곡을 제외하면 매칭할 트랙이 부족합니다. 다른 장르를 시도하거나 내일 다시 시도해 주세요",
-          "Not enough tracks for a new match-up after excluding songs you already heard today. Try another genre or come back tomorrow.",
+          "직전 배틀 곡을 제외하면 매칭할 트랙이 부족합니다. 다른 장르를 시도하거나 내일 다시 시도해 주세요",
+          "Not enough tracks for a new match-up after excluding your previous battle. Try another genre or come back tomorrow.",
         ),
       });
     }
@@ -1913,6 +1825,17 @@ export async function registerRoutes(
   app.get("/api/creators/directory", async (_req, res) => {
     const rows = await storage.getCreatorDirectoryEntries();
     res.json(rows);
+        });
+      if (err?.message === "TRACK_NOT_IN_BATTLE")
+        return res.status(400).json({ message: apiMsg("이 배틀의 곡이 아닙니다", "Track is not in this battle") });
+      throw err;
+    }
+  });
+
+  // GET /api/creators — studio roles plus profiles with at least one chart/NEW-eligible track
+  app.get("/api/creators", async (_req, res) => {
+    const creators = await storage.getCreators();
+    res.json(creators.map((p) => sanitizePublicProfileForDirectory(p)));
   });
 
   // Live stats for today
@@ -1940,16 +1863,7 @@ export async function registerRoutes(
   app.get("/api/admin/submissions", isAuthenticated, async (req: any, res) => {
     if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
 
-    const statuses = [
-      "PENDING",
-      "SUBMITTED",
-      "BATTLE_POOL",
-      "APPROVED",
-      "PUBLISHED",
-      "REJECTED",
-      "CHART",
-      "MV",
-    ];
+    const statuses = ["PENDING", "SUBMITTED", "BATTLE_POOL", "REJECTED", "CHART", "MV"];
     const all: any[] = [];
     for (const status of statuses) {
       const ts = await storage.getTracks({ status });
@@ -1968,50 +1882,32 @@ export async function registerRoutes(
         }))
       );
     }
-    const byId = new Map<number, (typeof all)[number]>();
-    for (const row of all) {
-      if (!byId.has(row.id)) byId.set(row.id, row);
-    }
-    const deduped = [...byId.values()];
-    deduped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    res.json(deduped);
+    // Sort by createdAt desc
+    all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    res.json(all);
   });
 
   app.post(api.admin.review.path, isAuthenticated, async (req: any, res) => {
     if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
 
     const { status } = req.body;
-    const validStatuses = ["BATTLE_POOL", "REJECTED", "PUBLISHED", "MV"];
+    const validStatuses = ["BATTLE_POOL", "REJECTED", "PUBLISHED"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: apiMsg(
-          "유효하지 않은 상태입니다. BATTLE_POOL, REJECTED, PUBLISHED, MV 중 하나여야 합니다",
-          "Invalid status. Must be BATTLE_POOL, REJECTED, PUBLISHED, or MV",
+          "유효하지 않은 상태입니다. BATTLE_POOL, REJECTED, PUBLISHED 중 하나여야 합니다",
+          "Invalid status. Must be BATTLE_POOL, REJECTED, or PUBLISHED",
         ),
       });
     }
 
-    const reviewedTrackId = Number(req.params.id);
     await storage.updateTrackStatus(
-      reviewedTrackId,
+      Number(req.params.id),
       status,
       req.body.aiCraftScore,
     );
-    let notifyResult: Awaited<ReturnType<typeof storage.notifyTrackReviewed>> = {
-      notified: false,
-      email: { sent: false, skipReason: "skipped" },
-    };
-    try {
-      notifyResult = await storage.notifyTrackReviewed(reviewedTrackId, status);
-    } catch (err) {
-      console.error("[admin/review] notifyTrackReviewed failed", reviewedTrackId, err);
-      notifyResult = {
-        notified: false,
-        email: { sent: false, skipReason: "notify_failed" },
-      };
-    }
-    if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
-      const reviewedTrack = await storage.getTrack(reviewedTrackId);
+    if (status === "BATTLE_POOL" || status === "PUBLISHED") {
+      const reviewedTrack = await storage.getTrack(Number(req.params.id));
       const profileId = reviewedTrack?.creatorId;
       if (profileId) {
         const reviewedProfile = await storage.getProfile(profileId);
@@ -2023,32 +1919,7 @@ export async function registerRoutes(
         }
       }
     }
-    res.json({
-      message: apiMsg("검토가 완료되었습니다", "Review completed"),
-      emailSent: notifyResult.email.sent,
-      emailSkipReason: notifyResult.email.skipReason ?? null,
-      emailDetail: notifyResult.email.detail ?? null,
-    });
-  });
-
-  /** Re-send approval/rejection email for an already-reviewed track (admin only). */
-  app.post("/api/admin/tracks/:id/resend-review-email", isAuthenticated, async (req: any, res) => {
-    if (!(await isAdmin(req))) {
-      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
-    }
-    const trackId = Number(req.params.id);
-    const track = await storage.getTrack(trackId);
-    if (!track) {
-      return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
-    }
-    const notifyResult = await storage.notifyTrackReviewed(trackId, track.status);
-    res.json({
-      ok: true,
-      status: track.status,
-      emailSent: notifyResult.email.sent,
-      emailSkipReason: notifyResult.email.skipReason ?? null,
-      emailDetail: notifyResult.email.detail ?? null,
-    });
+    res.json({ message: apiMsg("검토가 완료되었습니다", "Review completed") });
   });
 
   app.get("/api/admin/creator-applications", isAuthenticated, async (req: any, res) => {
@@ -2213,19 +2084,7 @@ export async function registerRoutes(
     if (!updated) {
       return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
     }
-    res.json({
-      ok: true,
-      claimableByCreators: updated.claimableByCreators,
-      provenanceStatus: updated.provenanceStatus,
-    });
-  });
-
-  app.post("/api/admin/tracks/sync-nex-pick-claimable", isAuthenticated, async (req: any, res) => {
-    if (!(await isAdmin(req))) {
-      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
-    }
-    const counts = await storage.syncNexPickClaimableFlags();
-    res.json({ ok: true, ...counts });
+    res.json({ ok: true, claimableByCreators: updated.claimableByCreators });
   });
 
   app.get("/api/admin/export/creator-tracks.csv", isAuthenticated, async (req: any, res) => {
