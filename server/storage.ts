@@ -3582,6 +3582,16 @@ export class DatabaseStorage implements IStorage {
     const day = utcMidnight(snapshotDate);
     const dayIso = day.toISOString().slice(0, 10);
 
+    try {
+      await db.select({ id: dataDailyTrackSnapshots.id }).from(dataDailyTrackSnapshots).limit(1);
+    } catch (err: any) {
+      if (getPostgresSqlState(err) === "42P01") {
+        console.warn("[snapshots] tables missing — run npm run db:migrate-b2b");
+        return { snapshotDate: dayIso, trackRows: 0, platformCaptured: false };
+      }
+      throw err;
+    }
+
     const insights = await this.getAdminInsightsSnapshot();
 
     const allTracks = await db

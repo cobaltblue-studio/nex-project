@@ -20,7 +20,8 @@
     "audit:tracks": "tsx scripts/audit-track-data.ts",
     "approve:tracks:user": "tsx scripts/approve-tracks-for-username.ts",
     "snapshots:capture": "tsx scripts/capture-daily-snapshots.ts",
-    "export:b2b-bundle": "tsx scripts/export-b2b-bundle.ts"
+    "export:b2b-bundle": "tsx scripts/export-b2b-bundle.ts",
+    "db:migrate-b2b": "tsx scripts/migrate-b2b-schema.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
