@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Copy, UserPlus } from "lucide-react";
 import { Link, useSearch } from "wouter";
-import { getGoogleOAuthUrl } from "@/lib/loginRedirect";
+import { getLoginUrl } from "@/lib/loginRedirect";
 import { inAppBrowserLabel, isLikelyInAppBrowser } from "@/lib/inapp-browser";
 
 export default function Auth() {
@@ -11,14 +11,14 @@ export default function Auth() {
   const oauthHref = useMemo(() => {
     const params = new URLSearchParams(search);
     const rt = params.get("returnTo");
-    return getGoogleOAuthUrl(rt ?? undefined);
+    return getLoginUrl(rt ?? undefined);
   }, [search]);
   const inApp = useMemo(() => isLikelyInAppBrowser(), []);
   const appLabel = useMemo(() => inAppBrowserLabel(), [inApp]);
 
   const copyCurrentUrl = async () => {
     try {
-      const fallback = typeof window !== "undefined" ? window.location.href : loginHref;
+      const fallback = typeof window !== "undefined" ? window.location.href : oauthHref;
       await navigator.clipboard.writeText(fallback);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -69,7 +69,7 @@ export default function Auth() {
         </div>
       )}
       <a
-        href={loginHref}
+        href={oauthHref}
         data-testid="button-auth-continue"
         className="inline-flex items-center justify-center gap-2 w-full sm:w-auto min-w-[200px] bg-primary text-black font-bold uppercase tracking-widest text-[11px] px-8 py-4 rounded-sm hover:brightness-110 transition-all"
       >

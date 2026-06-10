@@ -318,7 +318,7 @@ export interface IStorage {
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
   submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; coverImageUrl?: string | null; portfolioLink?: string | null; creatorId: number }): Promise<Track>;
-  checkAndPromoteToChart(trackId: number): Promise<void>;
+  checkAndPromoteToChart(trackId: number): Promise<boolean>;
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
   likeTrack(userId: string, trackId: number): Promise<{ likesCount: number }>;
