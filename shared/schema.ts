@@ -58,11 +58,8 @@ export const tracks = pgTable("tracks", {
   isDeleted: boolean("is_deleted").default(false).notNull(),
   /** Platform-seeded track; creators may request ownership (admin or secret code). */
   claimableByCreators: boolean("claimable_by_creators").default(false).notNull(),
-  /**
-   * Badge / ownership display: verified (creator-submitted or claimed) | nex_pick (NEX curated).
-   * Separate from `status` (approval pipeline: PENDING, APPROVED, CHART, …).
-   */
-  provenanceStatus: text("provenance_status"),
+  /** `verified` = creator-submitted or claim-approved; `nex_pick` = NEX-curated outreach pool. */
+  provenanceStatus: text("provenance_status").default("verified").notNull(),
 });
 
 /** Pending ownership transfers from creators → admin approval */
@@ -152,11 +149,20 @@ export const follows = pgTable("follows", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Tracks play history for spam prevention (once per 10 min per user per track)
+// Tracks play history for spam prevention (once per 10 min per listener per track)
 export const trackPlays = pgTable("track_plays", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  /** Null when recorded via anonymous `sessionKey` (guest listener). */
+  userId: varchar("user_id").references(() => users.id),
   trackId: integer("track_id").references(() => tracks.id).notNull(),
+  /** Stable browser session id for guest plays (localStorage). */
+  sessionKey: text("session_key"),
+  /** Profile country when authenticated; null for guests. */
+  listenerCountry: text("listener_country"),
+  /** mobile | desktop | tablet | unknown */
+  deviceClass: text("device_class"),
+  /** Hostname only from document.referrer (no path/query). */
+  referrerHost: text("referrer_host"),
   completed: boolean("completed").default(false).notNull(),
   playedAt: timestamp("played_at").defaultNow().notNull(),
 });
@@ -185,6 +191,61 @@ export const battles = pgTable("battles", {
   trackAVotes: integer("track_a_votes").default(0).notNull(),
   trackBVotes: integer("track_b_votes").default(0).notNull(),
   winnerId: integer("winner_id").references(() => tracks.id),
+  /** Soft-archive when a participating track is removed from catalog (B2B history preserved). */
+  isArchived: boolean("is_archived").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** Per-track daily metrics snapshot for time-series / B2B exports. */
+export const dataDailyTrackSnapshots = pgTable(
+  "data_daily_track_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    /** UTC calendar date (midnight UTC). */
+    snapshotDate: timestamp("snapshot_date").notNull(),
+    trackId: integer("track_id").references(() => tracks.id).notNull(),
+    title: text("title").notNull(),
+    genre: text("genre").notNull(),
+    aiTool: text("ai_tool").notNull(),
+    trackType: text("track_type").notNull(),
+    status: text("status").notNull(),
+    provenanceStatus: text("provenance_status").default("verified").notNull(),
+    isDeleted: boolean("is_deleted").default(false).notNull(),
+    playsCount: integer("plays_count").default(0).notNull(),
+    likesCount: integer("likes_count").default(0).notNull(),
+    completedPlaysCount: integer("completed_plays_count").default(0).notNull(),
+    uniqueListenersCount: integer("unique_listeners_count").default(0).notNull(),
+    battleWinsCount: integer("battle_wins_count").default(0).notNull(),
+    battleTotalCount: integer("battle_total_count").default(0).notNull(),
+    chartRank: integer("chart_rank"),
+    rankingScore: doublePrecision("ranking_score").default(0).notNull(),
+    listenerVotes: integer("listener_votes").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("data_daily_track_snapshots_date_track_unique").on(t.snapshotDate, t.trackId)],
+);
+
+/** Platform-wide daily rollup (insights history). */
+export const dataDailyPlatformSnapshots = pgTable("data_daily_platform_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshotDate: timestamp("snapshot_date").notNull().unique(),
+  creators: integer("creators").default(0).notNull(),
+  userSignups: integer("user_signups").default(0).notNull(),
+  tracks: integer("tracks").default(0).notNull(),
+  tracksApproved: integer("tracks_approved").default(0).notNull(),
+  tracksPending: integer("tracks_pending").default(0).notNull(),
+  tracksChart: integer("tracks_chart").default(0).notNull(),
+  plays: integer("plays").default(0).notNull(),
+  likes: integer("likes").default(0).notNull(),
+  listenerVotes: integer("listener_votes").default(0).notNull(),
+  battles: integer("battles").default(0).notNull(),
+  battleWins: integer("battle_wins").default(0).notNull(),
+  activeBoosts: integer("active_boosts").default(0).notNull(),
+  trackPlaysToday: integer("track_plays_today").default(0).notNull(),
+  votesToday: integer("votes_today").default(0).notNull(),
+  battlesToday: integer("battles_today").default(0).notNull(),
+  newTracksToday: integer("new_tracks_today").default(0).notNull(),
+  newUserSignupsToday: integer("new_user_signups_today").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -215,19 +276,6 @@ export const comments = pgTable("comments", {
   userId: varchar("user_id").references(() => users.id).notNull(),
   trackId: integer("track_id").references(() => tracks.id).notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-/** In-app alerts for creators (approval, likes, etc.). */
-export const notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  recipientUserId: varchar("recipient_user_id").references(() => users.id).notNull(),
-  type: text("type").notNull(),
-  title: text("title").notNull(),
-  body: text("body").notNull(),
-  trackId: integer("track_id").references(() => tracks.id),
-  href: text("href"),
-  readAt: timestamp("read_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -318,6 +366,7 @@ export const insertTrackSchema = createInsertSchema(tracks).omit({
   archivedAt: true,
   isDeleted: true,
   claimableByCreators: true,
+  provenanceStatus: true,
   aiPromptEditCount: true,
   aiPromptLastEditedAt: true,
 });
@@ -331,7 +380,8 @@ export type TrackPlay = typeof trackPlays.$inferSelect;
 export type Battle = typeof battles.$inferSelect;
 export type BattleVote = typeof battleVotes.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
-export type Notification = typeof notifications.$inferSelect;
 export type BoostTicket = typeof boostTickets.$inferSelect;
 export type BoostUsageLog = typeof boostUsageLogs.$inferSelect;
 export type BoostStatusRow = typeof boostStatus.$inferSelect;
+export type DataDailyTrackSnapshot = typeof dataDailyTrackSnapshots.$inferSelect;
+export type DataDailyPlatformSnapshot = typeof dataDailyPlatformSnapshots.$inferSelect;

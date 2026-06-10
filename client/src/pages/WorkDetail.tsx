@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, Zap } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
-import { useRecordLikeAfterListen } from "@/hooks/use-record-like-after-listen";
+import { recordTrackPlay } from "@/lib/recordPlay";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,20 +16,7 @@ import { api } from "@shared/routes";
 import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
-import { NexPickTrackBanner } from "@/components/NexPickTrackBanner";
-import { TRACK_PROVENANCE_NEX_PICK } from "@shared/constants";
-import { computeSunoAutonextDelayMs, formatSunoAutonextHint } from "@/lib/sunoAutonext";
-
-const SOUNDCLOUD_AUTONEXT_MS = 240_000;
-const OTHER_IFRAME_AUTONEXT_MS = 210_000;
-
-type AutoNextPoolTrack = { id: number; title?: string; creatorName?: string; coverImageUrl?: string | null };
-
-function pickRandomPoolTrack(pool: AutoNextPoolTrack[], excludeId: number): AutoNextPoolTrack | null {
-  const candidates = pool.filter((t) => t?.id != null && t.id !== excludeId);
-  if (candidates.length === 0) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
-}
+import { TrackClaimSection } from "@/components/TrackClaimSection";
 
 export function TrackDetail() {
   const { t } = useTranslation();
@@ -45,6 +32,8 @@ export function TrackDetail() {
   const [isVoting, setIsVoting] = useState(false);
   const playerKey = useRef(0); // forces iframe remount on track change
 
+  useRecordPlayAfterListen(currentTrackId, !!currentTrackId);
+
   // Sync currentTrackId if user navigates directly (e.g. browser back/forward)
   useEffect(() => {
     const newId = Number(params?.id);
@@ -52,9 +41,6 @@ export function TrackDetail() {
       setCurrentTrackId(newId);
     }
   }, [params?.id]);
-
-  useRecordPlayAfterListen(currentTrackId, isAuthenticated);
-  useRecordLikeAfterListen(currentTrackId, isAuthenticated);
 
   const { data: trackData, isLoading: isTrackLoading } = useWork(String(currentTrackId));
 
@@ -75,16 +61,9 @@ export function TrackDetail() {
     return mv || audio || undefined;
   }, [trackData]);
 
-  const {
-    iframeSrc: playableSrc,
-    loading: streamLoading,
-    error: streamError,
-    sunoDurationSeconds,
-  } = usePlayableStreamingSrc(rawForStreaming, { autoplay: true, enableJsApi: true });
-
-  const sunoAutonextDelayMs = useMemo(
-    () => computeSunoAutonextDelayMs(sunoDurationSeconds),
-    [sunoDurationSeconds],
+  const { iframeSrc: playableSrc, loading: streamLoading, error: streamError } = usePlayableStreamingSrc(
+    rawForStreaming,
+    { autoplay: true, enableJsApi: true },
   );
 
   const { data: myProfile } = useQuery({
@@ -98,15 +77,6 @@ export function TrackDetail() {
     retry: false,
   });
   const { data: allTracks, isLoading: areTracksLoading } = useWorks();
-  const { data: newFeedTracks } = useQuery<AutoNextPoolTrack[]>({
-    queryKey: ["/api/tracks/new", "track-detail-autonext"],
-    staleTime: 60_000,
-    queryFn: async () => {
-      const res = await fetch("/api/tracks/new");
-      if (!res.ok) return [];
-      return res.json();
-    },
-  });
   const { data: chartTracks, isLoading: isChartTracksLoading } = useQuery<any[]>({
     queryKey: ["/api/tracks", "chart-rank-audio", "status-CHART", "audio"],
     queryFn: async () => {
@@ -138,13 +108,6 @@ export function TrackDetail() {
     [...(allTracks || [])].sort((a, b) => (b?.votes || 0) - (a?.votes || 0))
   , [allTracks]);
 
-  /** AUTO NEXT draws from the same pool as the NEW page (~97 audio tracks), not only chart vote order. */
-  const autoNextPool = useMemo((): AutoNextPoolTrack[] => {
-    const fromNew = (newFeedTracks ?? []).filter((t) => t?.id != null);
-    if (fromNew.length >= 2) return fromNew;
-    return sortedTracks.filter((t) => t?.id != null);
-  }, [newFeedTracks, sortedTracks]);
-
   const rankIndex = useMemo(() => (track ? sortedTracks.findIndex(st => st.id === track.id) : -1), [sortedTracks, track]);
 
   // Show rank only when this track is truly in CHART status.
@@ -158,10 +121,6 @@ export function TrackDetail() {
     if (sortedTracks.length === 0 || rankIndex === -1) return null;
     return sortedTracks[(rankIndex + 1) % sortedTracks.length];
   }, [sortedTracks, rankIndex]);
-  const randomNextPreview = useMemo(
-    () => pickRandomPoolTrack(autoNextPool, currentTrackId),
-    [autoNextPool, currentTrackId],
-  );
 
   const prevTrack = useMemo(() => {
     if (sortedTracks.length === 0 || rankIndex === -1) return null;
@@ -177,21 +136,6 @@ export function TrackDetail() {
     setLocation(`/track/${nextTrack.id}`, { replace: false });
     setTimeout(() => setIsTransitioning(false), 400);
   }, [nextTrack, isTransitioning, setLocation]);
-  const goToRandomNext = useCallback(() => {
-    if (isTransitioning || autoNextPool.length < 2) return;
-    const picked = pickRandomPoolTrack(autoNextPool, currentTrackId);
-    if (!picked) return;
-    setIsTransitioning(true);
-    playerKey.current += 1;
-    setCurrentTrackId(picked.id);
-    setLocation(`/track/${picked.id}`, { replace: false });
-    setTimeout(() => setIsTransitioning(false), 400);
-  }, [autoNextPool, currentTrackId, isTransitioning, setLocation]);
-
-  const goToRandomNextRef = useRef(goToRandomNext);
-  useEffect(() => {
-    goToRandomNextRef.current = goToRandomNext;
-  }, [goToRandomNext]);
 
   const goToPrev = useCallback(() => {
     if (!prevTrack || isTransitioning) return;
@@ -203,16 +147,16 @@ export function TrackDetail() {
   }, [prevTrack, isTransitioning, setLocation]);
 
   const handleTrackEnded = useCallback(async () => {
-    if (isAuthenticated && currentTrackId) {
+    if (currentTrackId) {
       try {
-        await apiRequest("POST", `/api/tracks/${currentTrackId}/play`, { completed: true });
+        await recordTrackPlay(currentTrackId, true);
         queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       } catch {
         // completion capture is best-effort
       }
     }
-    if (autoPlayNext) goToRandomNext();
-  }, [autoPlayNext, currentTrackId, goToRandomNext, isAuthenticated]);
+    if (autoPlayNext) goToNext();
+  }, [autoPlayNext, currentTrackId, goToNext]);
 
   const handleVote = async () => {
     if (!track || isVoting) return;
@@ -265,10 +209,7 @@ export function TrackDetail() {
   };
 
   const claimable = !!(track as { claimableByCreators?: boolean } | null)?.claimableByCreators;
-  const provenanceStatus = (track as { provenanceStatus?: string } | null)?.provenanceStatus;
   const trackOwnerId = (track as { creatorId?: number } | null)?.creatorId;
-  const artistDisplay =
-    (track as { artistName?: string | null } | null)?.artistName || track?.creatorName || "";
   const isTrackOwner =
     isAuthenticated &&
     myProfile?.id != null &&
@@ -339,8 +280,6 @@ export function TrackDetail() {
     (l) => l.trackId === currentTrackId && l.status === "ACTIVE",
   );
 
-  const boostTicketBalance = boostMe?.ticketBalance ?? 0;
-
   const boostActivateMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/boost/activate", {
@@ -358,57 +297,19 @@ export function TrackDetail() {
     },
   });
 
-  const boostDisabledReason = (() => {
-    if (boostActivateMutation.isPending) return "pending" as const;
-    if (activeBoostForTrack) return "active" as const;
-    if (boostTicketBalance <= 0) return "no_tickets" as const;
-    if (boostCooldownRemainingMs > 0) return "cooldown" as const;
-    if (boostEligibility?.reason === "weekly_limit") return "weekly_limit" as const;
-    if (boostEligibility?.eligible === false) return "ineligible" as const;
-    return null;
-  })();
-
   const mvYtId = extractYoutubeId(track?.mvUrl);
   const audioYtId = extractYoutubeId(track?.audioUrl);
   const ytId = mvYtId || audioYtId;
   const isWidePlayer = !!(mvYtId || (track?.mvUrl?.trim() && !mvYtId));
   const embedKind = classifyStreamingSource(rawForStreaming ?? undefined);
-  useEffect(() => {
-    if (!autoPlayNext) return;
-    if (ytId) return;
-    if (!rawForStreaming) return;
-    if (!playableSrc || streamLoading) return;
-    if (autoNextPool.length < 2) return;
-
-    const kind = classifyStreamingSource(rawForStreaming ?? undefined);
-    const ms =
-      kind === "suno"
-        ? sunoAutonextDelayMs
-        : kind === "soundcloud"
-          ? SOUNDCLOUD_AUTONEXT_MS
-          : OTHER_IFRAME_AUTONEXT_MS;
-    const id = window.setTimeout(() => {
-      goToRandomNextRef.current();
-    }, ms);
-    return () => window.clearTimeout(id);
-  }, [
-    autoPlayNext,
-    ytId,
-    rawForStreaming,
-    playableSrc,
-    streamLoading,
-    currentTrackId,
-    autoNextPool.length,
-    sunoAutonextDelayMs,
-  ]);
   const iframeFrameClass =
     embedKind === "soundcloud"
-      ? "min-h-[180px] h-[180px] sm:min-h-[200px] sm:h-[200px] w-full"
+      ? "min-h-[166px] h-[166px] sm:min-h-[180px] sm:h-[180px]"
       : embedKind === "suno"
-        ? "min-h-[300px] h-[340px] sm:min-h-[380px] sm:h-[420px] md:h-[480px] w-full"
+        ? "min-h-[280px] h-[320px] sm:h-[360px]"
         : isWidePlayer
-          ? "aspect-video w-full max-h-[min(72vh,720px)]"
-          : "aspect-square w-full max-w-md mx-auto";
+          ? "aspect-video"
+          : "aspect-square";
 
   const adminTrack = {
     id: track?.id ?? currentTrackId,
@@ -424,7 +325,6 @@ export function TrackDetail() {
     aiPromptEditCount: (track as { aiPromptEditCount?: number } | null)?.aiPromptEditCount ?? 0,
     aiPromptLastEditedAt: (track as { aiPromptLastEditedAt?: string | null } | null)?.aiPromptLastEditedAt ?? null,
     likesCount: (track as { likesCount?: number } | null)?.likesCount ?? 0,
-    commentsCount: (track as { commentsCount?: number } | null)?.commentsCount ?? 0,
     viewerHasLikedToday: !!(track as { viewerHasLikedToday?: boolean } | null)?.viewerHasLikedToday,
   };
 
@@ -459,7 +359,7 @@ export function TrackDetail() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto space-y-8 sm:space-y-10 pb-16 sm:pb-20 px-3 sm:px-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-12 pb-20">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Link href="/music" className="inline-flex items-center gap-2 text-zinc-500 hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-[0.2em]">
           <ArrowLeft className="w-4 h-4" /> Back to Music
@@ -468,103 +368,70 @@ export function TrackDetail() {
       </div>
 
       {currentTrackId && trackOwnerId != null ? (
-        <NexPickTrackBanner
+        <TrackClaimSection
           trackId={currentTrackId}
-          provenanceStatus={provenanceStatus}
           claimableByCreators={claimable}
           trackOwnerProfileId={trackOwnerId}
-          artistName={
-            provenanceStatus !== TRACK_PROVENANCE_NEX_PICK ? artistDisplay : undefined
-          }
         />
       ) : null}
 
       {isTrackOwner ? (
-        <div
-          className="rounded-sm border border-amber-500/25 bg-amber-500/5 p-4 sm:p-5 space-y-3"
-          role="region"
-          aria-label={t("trackBoost.title")}
-        >
+        <div className="rounded-sm border border-amber-500/25 bg-amber-500/5 p-4 sm:p-5 space-y-3">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/90 flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5" /> {t("trackBoost.title")}
+            <Zap className="w-3.5 h-3.5" /> Battle boost (your track)
           </p>
           {activeBoostForTrack ? (
             <p className="text-[11px] text-zinc-300">
-              {t("trackBoost.active", {
-                current: activeBoostForTrack.currentImpressions,
-                target: activeBoostForTrack.targetImpressions,
-              })}
+              Active: {activeBoostForTrack.currentImpressions} / {activeBoostForTrack.targetImpressions} impressions.
+              When complete, a 48h cooldown applies before you can boost this track again.
             </p>
           ) : boostEligibility?.reason === "cooldown_active" && boostCooldownRemainingMs > 0 ? (
             <p className="text-[11px] text-zinc-300">
-              {t("trackBoost.cooldown", { time: formatBoostRemaining(boostCooldownRemainingMs) })}
+              Cooldown: <span className="font-mono text-amber-300">{formatBoostRemaining(boostCooldownRemainingMs)}</span>{" "}
+              remaining (global 48h after last run).
             </p>
           ) : boostEligibility?.reason === "weekly_limit" ? (
             <p className="text-[11px] text-zinc-400">
-              {t("trackBoost.weeklyLimit", {
-                used: boostEligibility.weeklyStartsUsed,
-                max: boostEligibility.weeklyStartsMax,
-              })}
+              Weekly boost starts used: {boostEligibility.weeklyStartsUsed} / {boostEligibility.weeklyStartsMax}. Try again
+              after older runs fall outside the rolling 7-day window.
             </p>
           ) : (
-            <p className="text-[11px] text-zinc-400">{t("trackBoost.desc")}</p>
+            <p className="text-[11px] text-zinc-400">
+              Spend one boost ticket to increase this track&apos;s chance of appearing in battles until the impression goal
+              is reached. One active boost per track; 48h cooldown after completion.
+            </p>
           )}
           <div className="flex flex-wrap items-center gap-3 text-[10px] text-zinc-500 uppercase tracking-widest">
-            <span>
-              {t("trackBoost.tickets")}:{" "}
-              <span className={boostTicketBalance <= 0 ? "text-amber-300/90" : "text-zinc-300"}>
-                {boostTicketBalance}
-              </span>
-            </span>
+            <span>Tickets: {boostMe?.ticketBalance ?? "—"}</span>
             {boostEligibility ? (
               <span>
-                {t("trackBoost.weekly")}: {boostEligibility.weeklyStartsUsed}/{boostEligibility.weeklyStartsMax}
+                This week (this track): {boostEligibility.weeklyStartsUsed}/{boostEligibility.weeklyStartsMax}
               </span>
             ) : null}
           </div>
-          {boostDisabledReason === "no_tickets" ? (
-            <p className="text-[11px] text-amber-200/80 leading-relaxed">{t("trackBoost.noTickets")}</p>
-          ) : null}
-          {boostTicketBalance <= 0 ? (
-            <p className="text-[10px] text-zinc-500 leading-relaxed">{t("trackBoost.earnTickets")}</p>
-          ) : null}
           <button
             type="button"
-            disabled={boostDisabledReason != null}
-            onClick={() => boostActivateMutation.mutate()}
-            title={
-              boostDisabledReason === "no_tickets"
-                ? t("trackBoost.noTickets")
-                : boostDisabledReason === "cooldown"
-                  ? t("trackBoost.cooldown", { time: formatBoostRemaining(boostCooldownRemainingMs) })
-                  : undefined
+            disabled={
+              boostActivateMutation.isPending ||
+              !!activeBoostForTrack ||
+              (boostMe?.ticketBalance ?? 0) <= 0 ||
+              boostCooldownRemainingMs > 0 ||
+              boostEligibility?.reason === "weekly_limit" ||
+              boostEligibility?.eligible === false
             }
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-amber-500/90 text-black hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+            onClick={() => boostActivateMutation.mutate()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-amber-500/90 text-black hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
           >
-            {boostDisabledReason === "pending"
-              ? t("trackBoost.btnStarting")
-              : boostDisabledReason === "active"
-                ? t("trackBoost.btnRunning")
-                : boostDisabledReason === "no_tickets"
-                  ? t("trackBoost.btnNoTickets")
-                  : boostDisabledReason === "cooldown"
-                    ? t("trackBoost.btnCooldown")
-                    : boostDisabledReason === "weekly_limit"
-                      ? t("trackBoost.btnWeeklyLimit")
-                      : t("trackBoost.btnStart")}
+            {boostActivateMutation.isPending ? "Starting…" : activeBoostForTrack ? "Boost running" : "Use 1 ticket — start boost"}
           </button>
         </div>
       ) : null}
 
-      <div className="bg-[#050505] border border-white/5 p-4 sm:p-8 md:p-10 rounded-sm relative overflow-hidden">
-        <div className="flex flex-col items-center space-y-6 sm:space-y-8 relative z-10 w-full">
+      <div className="bg-[#050505] border border-white/5 p-8 md:p-16 rounded-sm relative overflow-hidden">
+        <div className="flex flex-col items-center space-y-10 relative z-10">
 
           {/* PLAYER + CONTROLS */}
-          <div
-            className={`w-full flex flex-col items-center gap-3 ${
-              isWidePlayer ? "max-w-full lg:max-w-5xl" : "max-w-full sm:max-w-xl md:max-w-2xl"
-            }`}
-          >
+          <div className={`w-full flex flex-col items-center gap-3 ${isWidePlayer ? "max-w-2xl" : "max-w-md"}`}>
 
             {/* Player */}
             <AnimatePresence mode="wait">
@@ -574,32 +441,26 @@ export function TrackDetail() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.25 }}
-                className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${
-                  ytId || (playableSrc && isWidePlayer)
-                    ? "aspect-video w-full max-h-[min(72vh,720px)]"
-                    : iframeFrameClass
-                }`}
+                className={`w-full bg-zinc-900 border border-white/10 rounded-sm relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.08)] ${ytId ? "" : iframeFrameClass}`}
               >
                 {ytId ? (
                   <YoutubePlayer
                     videoId={ytId}
                     autoplay={true}
-                    fillParent
                     onEnded={handleTrackEnded}
                   />
                 ) : streamLoading && !playableSrc ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-zinc-500">
+                  <div className="w-full min-h-[280px] flex flex-col items-center justify-center gap-3 text-zinc-500">
                     <Loader2 className="w-12 h-12 animate-spin text-primary/60" />
                     <p className="text-[9px] font-bold uppercase tracking-widest">{t("suno.resolving")}</p>
                   </div>
                 ) : playableSrc ? (
-                  <div className="absolute inset-0 w-full h-full">
+                  <>
                     <iframe
-                      key={`${currentTrackId}-${playerKey.current}-${playableSrc}`}
+                      key={playableSrc}
                       src={playableSrc}
                       width="100%"
                       height="100%"
-                      className="w-full h-full"
                       style={{ border: "none" }}
                       allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
                       allowFullScreen
@@ -609,9 +470,9 @@ export function TrackDetail() {
                         : {})}
                     />
                     {embedKind === "suno" ? <SunoEmbedOutboundShield /> : null}
-                  </div>
+                  </>
                 ) : streamError ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
+                  <div className="w-full min-h-[200px] flex flex-col items-center justify-center gap-2 px-6 text-center">
                     <Music className="w-16 h-16 text-zinc-800" />
                     <p className="text-[11px] text-zinc-400 leading-relaxed">{streamError}</p>
                   </div>
@@ -629,17 +490,11 @@ export function TrackDetail() {
               <button
                 onClick={() => setAutoPlayNext(v => !v)}
                 data-testid="button-autoplay-toggle"
-                title={
-                  autoPlayNext
-                    ? embedKind === "suno"
-                      ? `AUTO NEXT ON — random from NEW (${formatSunoAutonextHint(sunoDurationSeconds)})`
-                      : "AUTO NEXT ON — random from NEW (YouTube: on end; Suno/SoundCloud: timed)"
-                    : "Auto next OFF"
-                }
+                title={autoPlayNext ? "Auto-play ON" : "Auto-play OFF"}
                 className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest transition-all ${autoPlayNext ? "text-primary" : "text-zinc-700 hover:text-zinc-500"}`}
               >
                 <Infinity className="w-3.5 h-3.5" />
-                <span className="hidden sm:block">{autoPlayNext ? "AUTO NEXT" : "MANUAL"}</span>
+                <span className="hidden sm:block">{autoPlayNext ? "AUTO" : "MANUAL"}</span>
               </button>
 
               {/* Prev / Next triangle buttons */}
@@ -658,10 +513,8 @@ export function TrackDetail() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={autoPlayNext ? goToRandomNext : goToNext}
-                  disabled={
-                    (autoPlayNext ? autoNextPool.length < 2 : !nextTrack) || isTransitioning
-                  }
+                  onClick={goToNext}
+                  disabled={!nextTrack || isTransitioning}
                   data-testid="button-next-track"
                   className="text-zinc-400 hover:text-primary transition-all disabled:opacity-30 text-base leading-none"
                   style={nextTrack ? { textShadow: "0 0 8px rgba(0,240,255,0.7)" } : undefined}
@@ -673,7 +526,7 @@ export function TrackDetail() {
           </div>
 
           {/* TRACK INFO */}
-          <div className="text-center space-y-4 sm:space-y-6 w-full max-w-3xl mx-auto px-1">
+          <div className="text-center space-y-6 w-full">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`info-${currentTrackId}`}
@@ -681,16 +534,13 @@ export function TrackDetail() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-2 sm:space-y-3"
+                className="space-y-2"
               >
-                <h1
-                  className="text-lg sm:text-xl md:text-2xl lg:text-[1.75rem] font-display font-bold text-white tracking-tight uppercase leading-snug break-words hyphens-auto px-1 neon-text-strong neon-text-green"
-                  data-testid="text-track-detail-title"
-                >
+                <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none neon-text-strong neon-text-green">
                   {track.title}
                 </h1>
                 <Link href={`/profile/${encodeURIComponent(creatorProfileSlug)}`}>
-                  <p className="text-primary/90 font-bold uppercase tracking-[0.25em] sm:tracking-[0.35em] cursor-pointer hover:text-white transition-colors text-[10px] sm:text-[11px]">
+                  <p className="text-primary font-bold uppercase tracking-[0.4em] cursor-pointer hover:text-white transition-colors mt-4" style={{ fontSize: "10px" }}>
                     BY {track.creatorName}
                   </p>
                 </Link>
@@ -698,7 +548,7 @@ export function TrackDetail() {
             </AnimatePresence>
 
             {/* TRACK INFORMATION BLOCK */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 py-5 sm:py-8 border-y border-white/5 text-[9px] sm:text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest w-full">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
               <div className="space-y-1">
                 <div className="text-zinc-600">RANK</div>
                 <div className="text-white text-xs">
@@ -724,21 +574,19 @@ export function TrackDetail() {
                   data-testid="button-vote"
                 >
                   <ChevronUp className={`w-4 h-4 ${isVoting ? "animate-bounce text-primary" : "text-primary group-hover:text-white"} transition-colors`} />
-                  <span className="text-white text-xs">
-                    {(track.votes ?? 0) > 0 ? track.votes : "—"}
-                  </span>
+                  <span className="text-white text-xs">{track.votes}</span>
                 </motion.button>
               </div>
             </div>
 
             {/* UP NEXT SECTION */}
-            {(autoPlayNext ? randomNextPreview : nextTrack) && (
+            {nextTrack && (
               <div className="pt-6 space-y-3">
                 <div className="flex items-center gap-3 justify-center">
                   <div className="h-px flex-1 bg-white/5" />
                   <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-600">
                     {autoPlayNext && <Infinity className="w-3 h-3 text-primary/60" />}
-                    {autoPlayNext ? "RANDOM NEXT (NEW)" : "UP NEXT"}
+                    UP NEXT
                   </span>
                   <div className="h-px flex-1 bg-white/5" />
                 </div>
@@ -746,28 +594,20 @@ export function TrackDetail() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={autoPlayNext ? goToRandomNext : goToNext}
+                  onClick={goToNext}
                   data-testid="button-up-next-card"
                   className="flex items-center gap-4 bg-white/[0.03] p-4 rounded-sm border border-white/5 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group max-w-sm mx-auto w-full"
                 >
                   <div className="w-12 h-12 bg-zinc-900 rounded-sm flex-shrink-0 flex items-center justify-center border border-white/10 group-hover:border-primary/20 overflow-hidden">
-                    {(autoPlayNext ? randomNextPreview : nextTrack)?.coverImageUrl ? (
-                      <img
-                        src={(autoPlayNext ? randomNextPreview : nextTrack)!.coverImageUrl!}
-                        alt={(autoPlayNext ? randomNextPreview : nextTrack)!.title}
-                        className="w-full h-full object-cover"
-                      />
+                    {nextTrack.coverImageUrl ? (
+                      <img src={nextTrack.coverImageUrl} alt={nextTrack.title} className="w-full h-full object-cover" />
                     ) : (
                       <Music className="w-5 h-5 text-zinc-700 group-hover:text-primary transition-colors" />
                     )}
                   </div>
                   <div className="text-left min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white uppercase truncate group-hover:text-primary transition-colors">
-                      {(autoPlayNext ? randomNextPreview : nextTrack)!.title}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest truncate">
-                      by {(autoPlayNext ? randomNextPreview : nextTrack)!.creatorName}
-                    </p>
+                    <p className="text-sm font-bold text-white uppercase truncate group-hover:text-primary transition-colors">{nextTrack.title}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest truncate">by {nextTrack.creatorName}</p>
                   </div>
                   <SkipForward className="w-4 h-4 text-zinc-700 group-hover:text-primary transition-colors flex-shrink-0" />
                 </motion.button>
@@ -775,13 +615,13 @@ export function TrackDetail() {
             )}
 
             {/* LYRICS SECTION */}
-            <div className="pt-8 sm:pt-12 w-full max-w-2xl mx-auto">
-              <div className="flex items-center gap-3 justify-center mb-4 sm:mb-6 text-zinc-500">
+            <div className="pt-12 w-full max-w-2xl mx-auto">
+              <div className="flex items-center gap-3 justify-center mb-6 text-zinc-500">
                 <div className="h-[1px] flex-1 bg-white/5" />
                 <span className="text-[10px] font-bold uppercase tracking-widest">LYRICS</span>
                 <div className="h-[1px] flex-1 bg-white/5" />
               </div>
-              <div className="space-y-4 sm:space-y-6 text-base sm:text-lg md:text-xl font-bold text-zinc-400 text-center leading-relaxed">
+              <div className="space-y-6 text-xl md:text-2xl font-bold text-zinc-400 text-center leading-relaxed">
                 {track.lyrics ? (
                   track.lyrics.split("\n").map((line: string, i: number) => (
                     <motion.p

@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 import { isCreatorStudioRole } from "@shared/constants";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { NotificationBell } from "@/components/NotificationBell";
-import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 import { useTranslation } from "react-i18next";
 
 interface LayoutProps {
@@ -59,6 +58,20 @@ const UI_BRANCH_TABLE: Record<UiBranchKey, UiBranchRule> = {
   },
 };
 
+/** Top nav is always English (brand / wayfinding), regardless of UI language. */
+const HEADER_NAV = {
+  home: "HOME",
+  new: "NEW",
+  music: "MUSIC",
+  musicVideo: "MUSIC VIDEO",
+  battle: "BATTLE",
+  rising: "RISING",
+  creators: "CREATORS",
+  radio: "RADIO",
+  submitTrack: "SUBMIT TRACK",
+  adminPanel: "ADMIN PANEL",
+} as const;
+
 export function Layout({ children }: LayoutProps) {
   const { t } = useTranslation();
   const [location] = useLocation();
@@ -101,24 +114,24 @@ export function Layout({ children }: LayoutProps) {
 
   const navItems = useMemo(() => {
     const core = [
-      { path: "/", icon: Home, label: t("layout.nav.home") },
-      { path: "/new", icon: Sparkles, label: t("layout.nav.new") },
-      { path: "/music", icon: Music, label: t("layout.nav.music") },
-      { path: "/music-video", icon: Video, label: t("layout.nav.musicVideo") },
-      { path: "/battle", icon: Swords, label: t("layout.nav.battle") },
-      { path: "/rising", icon: TrendingUp, label: t("layout.nav.rising") },
-      { path: "/creators", icon: Users, label: t("layout.nav.creators") },
-      { path: "/radio", icon: Radio, label: t("layout.nav.radio") },
+      { path: "/", icon: Home, label: HEADER_NAV.home },
+      { path: "/new", icon: Sparkles, label: HEADER_NAV.new },
+      { path: "/music", icon: Music, label: HEADER_NAV.music },
+      { path: "/music-video", icon: Video, label: HEADER_NAV.musicVideo },
+      { path: "/battle", icon: Swords, label: HEADER_NAV.battle },
+      { path: "/rising", icon: TrendingUp, label: HEADER_NAV.rising },
+      { path: "/creators", icon: Users, label: HEADER_NAV.creators },
+      { path: "/radio", icon: Radio, label: HEADER_NAV.radio },
     ];
     const tail: { path: string; icon: typeof Home; label: string }[] = [];
     if (ui.showSubmitTrackNav) {
-      tail.push({ path: "/submit-track", icon: Send, label: t("layout.nav.submitTrack") });
+      tail.push({ path: "/submit-track", icon: Send, label: HEADER_NAV.submitTrack });
     }
     if (ui.showAdminPanelNav) {
-      tail.push({ path: "/admin", icon: ShieldCheck, label: t("layout.nav.adminPanel") });
+      tail.push({ path: "/admin", icon: ShieldCheck, label: HEADER_NAV.adminPanel });
     }
     return [...core, ...tail];
-  }, [ui, t]);
+  }, [ui]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col relative overflow-x-hidden font-sans">
@@ -160,7 +173,6 @@ export function Layout({ children }: LayoutProps) {
           <div className="block">
             <LanguageSwitcher />
           </div>
-          {!isLoading && ui.showUserMenu ? <NotificationBell /> : null}
           {isLoading ? (
             <div
               className="h-9 min-w-[5.5rem] rounded-sm bg-white/[0.06] animate-pulse"
@@ -300,8 +312,6 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <InAppBrowserBanner />
-
       <main className="flex-1 w-full relative z-10 pt-28 px-6 md:px-12">
         <div className="max-w-7xl mx-auto">
           {children}
@@ -318,6 +328,7 @@ export function Layout({ children }: LayoutProps) {
           <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             {[
               { href: "/about", label: t("layout.footerAbout") },
+              { href: "/data-policy", label: t("layout.footerDataPolicy") },
               { href: "/chart-methodology", label: t("layout.footerMethodology") },
               ...(ui.showSubmitTrackNav ? [{ href: "/submit-track", label: t("layout.footerSubmit") }] as const : []),
               { href: "mailto:d9ckoblack@gmail.com", label: t("layout.footerContact") },

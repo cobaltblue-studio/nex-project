@@ -51,9 +51,8 @@ export function TrackPlayModal({
   const { isAuthenticated } = useAuth();
   const mediaShellRef = useRef<HTMLDivElement>(null);
 
-  const playerActive = open && isAuthenticated;
-  useRecordPlayAfterListen(trackId, playerActive);
-  useRecordLikeAfterListen(trackId, playerActive);
+  useRecordPlayAfterListen(trackId, open);
+  useRecordLikeAfterListen(trackId, open && isAuthenticated);
   const isVideo = trackType === "video";
   const primaryMedia = isVideo ? mvUrl || audioUrl : audioUrl || mvUrl;
   const ytIdFromMv = extractYoutubeId(mvUrl || undefined);

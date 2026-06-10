@@ -61,7 +61,6 @@ export function YoutubePlayer({
   videoId,
   autoplay = false,
   battleMode = false,
-  fillParent = false,
   onEnded,
   className,
 }: Props) {
@@ -185,16 +184,11 @@ export function YoutubePlayer({
 
   return (
     <div
-      className={fillParent ? "absolute inset-0 w-full h-full" : undefined}
-      style={
-        fillParent
-          ? undefined
-          : {
-              position: "relative",
-              width: "100%",
-              paddingTop: battleMode ? "42%" : "56.25%",
-            }
-      }
+      style={{
+        position: "relative",
+        width: "100%",
+        paddingTop: battleMode ? "42%" : "56.25%",
+      }}
     >
       <div
         ref={wrapperRef}

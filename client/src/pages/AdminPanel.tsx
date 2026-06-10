@@ -6,12 +6,12 @@ import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
-  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3, AlertTriangle, Download,
+  Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3, AlertTriangle,
+  Download, Database, FileJson,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { isBattleEligibleAudioTrack } from "@shared/constants";
 
 type Submission = {
   id: number;
@@ -20,7 +20,6 @@ type Submission = {
   genre: string;
   trackLink: string;
   portfolioLink?: string | null;
-  trackType?: "audio" | "video";
   status: "PENDING" | "SUBMITTED" | "BATTLE_POOL" | "REJECTED" | "CHART" | "MV";
   createdAt: string;
 };
@@ -86,7 +85,6 @@ const STATUS_COLORS: Record<string, string> = {
   BATTLE_POOL: "text-primary   bg-primary/10   border-primary/30",
   REJECTED:    "text-red-400   bg-red-400/10   border-red-400/30",
   CHART:       "text-purple-400 bg-purple-400/10 border-purple-400/30",
-  MV:          "text-cyan-300 bg-cyan-300/10 border-cyan-300/30",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -112,9 +110,103 @@ export default function AdminPanel() {
   const { t } = useTranslation();
   const [claimableTrackId, setClaimableTrackId] = useState("");
   const [deactivateUsername, setDeactivateUsername] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [exportBusy, setExportBusy] = useState<string | null>(null);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
 
   const isAdmin = user?.role === "admin";
+
+  async function downloadAdminCsv(path: string, key: string) {
+    setExportBusy(key);
+    try {
+      const res = await fetch(path, { credentials: "include" });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      const dispo = res.headers.get("Content-Disposition") ?? "";
+      const match = /filename="([^"]+)"/.exec(dispo);
+      const filename = match?.[1] ?? `nex-export-${key}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: t("adminPanel.exportOk"), description: filename });
+    } catch (e) {
+      toast({
+        title: t("adminPanel.exportFail"),
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setExportBusy(null);
+    }
+  }
+
+  async function downloadDataDictionary() {
+    setExportBusy("dictionary");
+    try {
+      const res = await fetch("/api/admin/export/data-dictionary.json", { credentials: "include" });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const json = await res.json();
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nex-data-dictionary-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: t("adminPanel.exportOk"), description: "data-dictionary.json" });
+    } catch (e) {
+      toast({
+        title: t("adminPanel.exportFail"),
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setExportBusy(null);
+    }
+  }
+
+  async function pushB2bWebhook() {
+    setExportBusy("webhook");
+    try {
+      const res = await apiRequest("POST", "/api/admin/export/b2b/push-webhook", {});
+      const out = (await res.json()) as { ok?: boolean; status?: number; counts?: Record<string, number> };
+      toast({
+        title: out.ok ? t("adminPanel.webhookOk") : t("adminPanel.webhookFail"),
+        description: out.counts ? `plays ${out.counts.plays ?? 0}` : String(out.status ?? ""),
+      });
+    } catch (e) {
+      toast({
+        title: t("adminPanel.webhookFail"),
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setExportBusy(null);
+    }
+  }
+
+  async function captureSnapshotNow() {
+    setSnapshotBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/snapshots/capture", {});
+      const out = (await res.json()) as { trackRows?: number; snapshotDate?: string };
+      toast({
+        title: t("adminPanel.snapshotOk"),
+        description: `${out.snapshotDate ?? "—"} · ${out.trackRows ?? 0} tracks`,
+      });
+      void refetchSnapshotStatus();
+    } catch (e) {
+      toast({
+        title: t("adminPanel.snapshotFail"),
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setSnapshotBusy(false);
+    }
+  }
 
   // Redirect guests and non-admin roles away from /admin
   useEffect(() => {
@@ -125,6 +217,19 @@ export default function AdminPanel() {
   }, [isAuthenticated, authLoading, user, setLocation]);
 
   // --- Step 2: load submissions only when confirmed admin ---
+  const {
+    data: snapshotStatus,
+    refetch: refetchSnapshotStatus,
+  } = useQuery<{
+    lastTrackSnapshotDate: string | null;
+    lastPlatformSnapshotDate: string | null;
+    trackSnapshotDays: number;
+  }>({
+    queryKey: ["/api/admin/snapshots/status"],
+    enabled: isAdmin,
+    retry: false,
+  });
+
   const {
     data: insights,
     isLoading: insightsLoading,
@@ -268,53 +373,6 @@ export default function AdminPanel() {
       toast({ title: "Update failed", description: e.message, variant: "destructive" }),
   });
 
-  const downloadCreatorExport = async () => {
-    setExporting(true);
-    try {
-      const res = await fetch("/api/admin/export/creator-tracks.csv", { credentials: "include" });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { message?: string }).message || `Export failed (${res.status})`);
-      }
-      const blob = await res.blob();
-      const disp = res.headers.get("Content-Disposition") ?? "";
-      const nameMatch = /filename="([^"]+)"/.exec(disp);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = nameMatch?.[1] ?? `nex-creator-tracks-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast({ title: t("adminPanel.exportDoneTitle"), description: t("adminPanel.exportDoneDesc") });
-    } catch (e) {
-      toast({
-        title: t("adminPanel.exportFailTitle"),
-        description: e instanceof Error ? e.message : t("adminPanel.exportFailDesc"),
-        variant: "destructive",
-      });
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const syncNexPickMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/admin/tracks/sync-nex-pick-claimable", {}),
-    onSuccess: async (res) => {
-      const data = (await res.json()) as { nexPickClaimable: number; verifiedNotClaimable: number };
-      toast({
-        title: "Sync complete",
-        description: t("adminPanel.syncNexPickDone", {
-          nexPick: data.nexPickClaimable,
-          verified: data.verifiedNotClaimable,
-        }),
-      });
-    },
-    onError: (e: Error) =>
-      toast({ title: "Sync failed", description: e.message, variant: "destructive" }),
-  });
-
   const isAwaitingReview = (s: Submission) => s.status === "PENDING" || s.status === "SUBMITTED";
   const pending   = submissions?.filter(isAwaitingReview)   ?? [];
   const processed = submissions?.filter((s) => !isAwaitingReview(s))   ?? [];
@@ -369,33 +427,20 @@ export default function AdminPanel() {
             Track submission review · Creator applications
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void downloadCreatorExport()}
-            disabled={exporting}
-            data-testid="button-export-creator-tracks"
-            className="flex items-center gap-2 px-3 py-2 border border-primary/30 rounded-sm text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 disabled:opacity-40 transition-all"
-            title={t("adminPanel.exportCta")}
-          >
-            {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            {t("adminPanel.exportCta")}
-          </button>
-          <button
-            onClick={() => {
-              void refetchInsights();
-              void refetch();
-              void refetchCreatorApps();
-              void refetchClaimReq();
-              void refetchEditReq();
-            }}
-            data-testid="button-refresh"
-            className="p-2 border border-white/10 rounded-sm text-zinc-500 hover:text-primary hover:border-primary/30 transition-all"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            void refetchInsights();
+            void refetch();
+            void refetchCreatorApps();
+            void refetchClaimReq();
+            void refetchEditReq();
+          }}
+          data-testid="button-refresh"
+          className="p-2 border border-white/10 rounded-sm text-zinc-500 hover:text-primary hover:border-primary/30 transition-all"
+          title="Refresh"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </div>
 
       <div className="mb-10">
@@ -435,6 +480,100 @@ export default function AdminPanel() {
                 </div>
               </>
             )}
+        </div>
+      </div>
+
+      <div className="mb-10 border border-cyan-400/20 rounded-sm bg-cyan-400/[0.04] p-4">
+        <div className="flex items-start justify-between gap-4 mb-4 flex-col sm:flex-row">
+          <div className="flex items-start gap-3">
+            <Database className="w-5 h-5 text-cyan-300 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-300">
+                {t("adminPanel.b2bTitle")}
+              </p>
+              <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed max-w-2xl">
+                {t("adminPanel.b2bBody")}
+              </p>
+              {snapshotStatus && (
+                <p className="text-[9px] text-zinc-600 uppercase tracking-widest mt-2">
+                  {t("adminPanel.snapshotMeta", {
+                    last: snapshotStatus.lastPlatformSnapshotDate ?? "—",
+                    days: snapshotStatus.trackSnapshotDays,
+                  })}
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void captureSnapshotNow()}
+            disabled={snapshotBusy}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest border border-cyan-400/30 text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-50 shrink-0"
+          >
+            {snapshotBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            {t("adminPanel.snapshotCapture")}
+          </button>
+        </div>
+
+        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-2">
+          {t("adminPanel.internalExport")}
+        </p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => void downloadAdminCsv("/api/admin/export/creator-tracks.csv", "creator-tracks")}
+            disabled={exportBusy === "creator-tracks"}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-[10px] font-bold uppercase tracking-widest border border-yellow-400/25 text-yellow-200/90 hover:bg-yellow-400/10 disabled:opacity-50"
+          >
+            {exportBusy === "creator-tracks" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            {t("adminPanel.creatorTracksCsv")}
+          </button>
+        </div>
+
+        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-2">
+          {t("adminPanel.b2bExports")}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["plays", "/api/admin/export/b2b/plays.csv"],
+              ["battles", "/api/admin/export/b2b/battles.csv"],
+              ["battle-votes", "/api/admin/export/b2b/battle-votes.csv"],
+              ["catalog", "/api/admin/export/b2b/catalog.csv"],
+              ["ai-insights", "/api/admin/export/b2b/ai-insights.csv"],
+              ["daily-tracks", "/api/admin/export/b2b/daily-track-snapshots.csv"],
+              ["daily-platform", "/api/admin/export/b2b/daily-platform-snapshots.csv"],
+            ] as const
+          ).map(([key, path]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => void downloadAdminCsv(path, key)}
+              disabled={exportBusy === key}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-[10px] font-bold uppercase tracking-widest border border-white/10 text-zinc-300 hover:border-cyan-400/30 hover:text-cyan-100 disabled:opacity-50"
+            >
+              {exportBusy === key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              {t(`adminPanel.export_${key}`)}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => void downloadDataDictionary()}
+            disabled={exportBusy === "dictionary"}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-[10px] font-bold uppercase tracking-widest border border-white/10 text-zinc-300 hover:border-cyan-400/30 hover:text-cyan-100 disabled:opacity-50"
+          >
+            {exportBusy === "dictionary" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileJson className="w-3.5 h-3.5" />}
+            {t("adminPanel.dataDictionary")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void pushB2bWebhook()}
+            disabled={exportBusy === "webhook"}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-[10px] font-bold uppercase tracking-widest border border-emerald-400/25 text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-50"
+          >
+            {exportBusy === "webhook" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+            {t("adminPanel.webhookPush")}
+          </button>
         </div>
       </div>
 
@@ -589,25 +728,7 @@ export default function AdminPanel() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-[9px] text-zinc-700 hidden sm:block">{fmt(track.createdAt)}</span>
-                    {isBattleEligibleAudioTrack(track) ? (
-                      <span
-                        className="text-[8px] font-bold uppercase tracking-widest text-emerald-400/90 border border-emerald-500/25 px-1.5 py-0.5 rounded-sm"
-                        title="Included in Battle + NEW + Radio (audio pool)"
-                      >
-                        Battle
-                      </span>
-                    ) : null}
                     <StatusBadge status={track.status} />
-                    {track.trackType === "video" && track.status !== "MV" && (
-                      <button
-                        onClick={() => reviewMutation.mutate({ id: track.id, status: "MV" })}
-                        disabled={reviewMutation.isPending}
-                        title="Move to MV chart"
-                        className="text-[9px] font-black uppercase tracking-widest text-primary border border-primary/30 bg-primary/10 hover:bg-primary/25 px-2 py-1 rounded-sm transition-all disabled:opacity-40"
-                      >
-                        → MV
-                      </button>
-                    )}
                     <a href={track.trackLink} target="_blank" rel="noopener noreferrer" className="text-zinc-600 hover:text-primary transition-colors">
                       <ExternalLink className="w-3 h-3" />
                     </a>
@@ -685,7 +806,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
                     >
                       <CheckCircle className="w-3 h-3" />
-                      {t("adminPanel.approveCreator")}
+                      Approve creator
                     </button>
                     <button
                       type="button"
@@ -694,7 +815,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
                     >
                       <XCircle className="w-3 h-3" />
-                      {t("adminPanel.rejectCreator")}
+                      Reject
                     </button>
                   </div>
                 </motion.div>
@@ -708,11 +829,9 @@ export default function AdminPanel() {
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-300">
-              {t("adminPanel.creatorCleanupTitle")}
-            </p>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-300">Creator Cleanup (Danger)</p>
             <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-              {t("adminPanel.creatorCleanupBody")}
+              Deactivate one creator by username. This hides all of their owned tracks (archives them) and removes the profile from public creator listings.
             </p>
           </div>
         </div>
@@ -729,7 +848,7 @@ export default function AdminPanel() {
             onClick={() => deactivateCreatorMutation.mutate(deactivateUsername.trim())}
             className="px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-300 hover:bg-red-500/10 disabled:opacity-40"
           >
-            {deactivateCreatorMutation.isPending ? "…" : t("adminPanel.deactivate")}
+            {deactivateCreatorMutation.isPending ? "Processing..." : "Deactivate creator"}
           </button>
         </div>
       </div>
@@ -739,7 +858,7 @@ export default function AdminPanel() {
         <div className="flex items-center gap-3 mb-4">
           <Handshake className="w-4 h-4 text-amber-400" />
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400">
-            {t("adminPanel.trackOwnershipTitle")}
+            Track ownership requests
           </p>
           {(trackClaimRequests?.length ?? 0) > 0 && (
             <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-sm">
@@ -753,9 +872,7 @@ export default function AdminPanel() {
           </div>
         ) : !trackClaimRequests?.length ? (
           <div className="border border-white/5 rounded-sm p-6 text-center bg-black/10">
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-              {t("adminPanel.trackOwnershipEmpty")}
-            </p>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending ownership requests</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -783,7 +900,7 @@ export default function AdminPanel() {
                       rel="noreferrer"
                       className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-primary"
                     >
-                      <ExternalLink className="w-3 h-3" /> {t("adminPanel.open")}
+                      <ExternalLink className="w-3 h-3" /> Open
                     </a>
                     <button
                       type="button"
@@ -792,7 +909,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-primary border border-primary/40 bg-primary/10 hover:bg-primary/25 rounded-sm transition-all disabled:opacity-40"
                     >
                       <CheckCircle className="w-3 h-3" />
-                      {t("adminPanel.transfer")}
+                      Transfer
                     </button>
                     <button
                       type="button"
@@ -801,7 +918,7 @@ export default function AdminPanel() {
                       className="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-400/30 bg-red-400/5 hover:bg-red-400/15 rounded-sm transition-all disabled:opacity-40"
                     >
                       <XCircle className="w-3 h-3" />
-                      {t("adminPanel.deny")}
+                      Deny
                     </button>
                   </div>
                 </motion.div>
@@ -812,20 +929,11 @@ export default function AdminPanel() {
 
         <div className="mt-6 border border-white/5 rounded-sm p-4 bg-black/20 space-y-3">
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-            {t("adminPanel.allowClaimsTitle")}
+            Allow creator claims (seed track)
           </p>
           <p className="text-[11px] text-zinc-600 leading-relaxed">
-            {t("adminPanel.allowClaimsBody")}
+            Enter a track ID to mark it as claimable. The artist will see “Claim this track” on the track page and can request approval or use the instant code.
           </p>
-          <button
-            type="button"
-            disabled={syncNexPickMutation.isPending}
-            onClick={() => syncNexPickMutation.mutate()}
-            className="w-full sm:w-auto px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-40 flex items-center justify-center gap-2"
-          >
-            <RefreshCw className={`w-3 h-3 ${syncNexPickMutation.isPending ? "animate-spin" : ""}`} />
-            {t("adminPanel.syncNexPickCta")}
-          </button>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             <input
               type="number"
@@ -845,7 +953,7 @@ export default function AdminPanel() {
               }}
               className="px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-40"
             >
-              {t("adminPanel.markClaimable")}
+              Mark claimable
             </button>
           </div>
         </div>
@@ -856,7 +964,7 @@ export default function AdminPanel() {
         <div className="flex items-center gap-3 mb-4">
           <Handshake className="w-4 h-4 text-emerald-400" />
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">
-            {t("adminPanel.trackEditTitle")}
+            Track edit requests
           </p>
           {(trackEditRequests?.length ?? 0) > 0 && (
             <span className="text-[9px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-sm">
@@ -870,9 +978,7 @@ export default function AdminPanel() {
           </div>
         ) : !trackEditRequests?.length ? (
           <div className="border border-white/5 rounded-sm p-6 text-center bg-black/10">
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-              {t("adminPanel.trackEditEmpty")}
-            </p>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">No pending edit requests</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -939,9 +1045,9 @@ export default function AdminPanel() {
         <p className="text-zinc-500 font-bold mb-2">System flow</p>
         <p className="text-zinc-500">
           Submit → <span className="text-yellow-400">PENDING</span>{" "}
-          → Approve audio → <span className="text-primary">BATTLE_POOL</span>{" "}
-          (NEW + Radio + Battle pool) · Approve video → <span className="text-cyan-300">MV</span> (no battles){" "}
-          → Battle × 10 · Win Rate ≥ 55% → <span className="text-purple-400">CHART</span> (still in Battle pool)
+          → Approve → <span className="text-primary">BATTLE_POOL</span>{" "}
+          (appears in Music Chart + Battles){" "}
+          → Battle × 10 · Win Rate ≥ 55% → <span className="text-purple-400">CHART</span>
         </p>
         <p className="mt-1">
           Reject → <span className="text-red-400">REJECTED</span> (excluded from chart and battles)

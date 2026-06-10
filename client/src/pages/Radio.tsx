@@ -16,6 +16,8 @@ import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { publicAudioChartSearchParams } from "@shared/constants";
+import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
+import { useRecordLikeAfterListen } from "@/hooks/use-record-like-after-listen";
 
 type Track = {
   id: number;
@@ -89,7 +91,8 @@ export default function NexRadio() {
   }, [tracks, radioStarted]);
 
   const currentTrack = playlist[currentIndex] ?? null;
-
+  useRecordPlayAfterListen(currentTrack?.id ?? null, radioStarted && !!currentTrack);
+  useRecordLikeAfterListen(currentTrack?.id ?? null, radioStarted && isAuthenticated && !!currentTrack);
   const musicChartRank = currentTrack
     ? tracks.findIndex((t) => t.id === currentTrack.id) + 1
     : null;
@@ -158,7 +161,6 @@ export default function NexRadio() {
         return next;
       });
       toast({ title: t("likes.savedTitle"), description: t("likes.savedDesc") });
-      void queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
     },
     onError: (err: Error, id: number) => {
       if (String(err?.message ?? "").startsWith("401")) {
@@ -188,7 +190,9 @@ export default function NexRadio() {
       });
       return;
     }
-    likeMutation.mutate(currentTrack.id);
+    if (!liked.has(currentTrack.id)) {
+      likeMutation.mutate(currentTrack.id);
+    }
   };
 
   return (
@@ -199,22 +203,22 @@ export default function NexRadio() {
               <Radio className="w-7 h-7 text-primary" strokeWidth={1.5} />
             </div>
             <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-2">
-              {t("radio.platform")}
+              NEX Platform
             </p>
             <h2 className="text-sm md:text-xl font-black uppercase tracking-[0.15em] text-white mb-2 neon-text-green">
-              {t("radio.title")}
+              NEX TOP 100 RADIO
             </h2>
             <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-8 max-w-xs">
-              {t("radio.subtitle")}
+              Continuous AI stream from the global chart. Click to start the vibe.
             </p>
             <button
               onClick={startRadio}
               data-testid="button-start-radio"
               className="flex items-center gap-3 px-8 py-3 border border-primary/40 text-primary bg-primary/10 hover:bg-primary/25 rounded-sm text-[11px] font-black uppercase tracking-[0.3em] transition-all mt-2"
-              aria-label={t("radio.start")}
+              aria-label="Start Radio"
             >
               <Play className="w-4 h-4" />
-              {t("radio.start")}
+              Start Radio
             </button>
             <button
               onClick={startRadio}
@@ -223,31 +227,33 @@ export default function NexRadio() {
               aria-label="Start Radio"
             />
             <p className="text-[8px] text-zinc-700 uppercase tracking-widest mt-4">
-              {isLoading ? t("radio.loadingTracks") : t("radio.tracksAvailable", { count: tracks.length })}
+              {isLoading ? "Loading tracks..." : `${tracks.length} tracks available`}
             </p>
         </div>
       ) : (
         <div className="flex flex-col flex-1 overflow-hidden gap-2">
           <div className="text-center shrink-0" style={{ minHeight: "10vh" }}>
-            <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">{t("radio.platform")}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 mb-1">NEX Platform</p>
             <h1 data-testid="heading-radio" className="text-xl md:text-4xl font-black uppercase tracking-[0.15em] text-white neon-text-green">
               <Radio className="w-6 h-6 text-primary inline mr-3" />
-              {t("radio.title")}
+              NEX TOP 100 RADIO
             </h1>
-            <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-2">{t("radio.subtitle")}</p>
+            <p className="text-[11px] text-zinc-500 uppercase tracking-widest mt-2">
+              Continuous AI stream from the global chart. Click to start the vibe.
+            </p>
           </div>
 
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-widest text-primary animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  {t("radio.onAir")}
+                  On Air
                 </span>
-                <span className="text-[8px] text-zinc-700 uppercase tracking-widest">{t("musicChart.title")}</span>
+                <span className="text-[8px] text-zinc-700 uppercase tracking-widest">NEX TOP 100</span>
               </div>
               <div className="flex items-center gap-1 text-[8px] text-zinc-700 uppercase tracking-widest">
                 <Shuffle className="w-3 h-3" />
-                {t("radio.shuffled")}
+                Shuffled
               </div>
             </div>
 
@@ -302,12 +308,12 @@ export default function NexRadio() {
                     {iframeError
                       ? iframeError
                       : playlist.length === 0
-                        ? t("radio.noTracks")
-                        : t("radio.noPlayableLink")}
+                        ? "No tracks available"
+                        : "No playable link for this track"}
                   </p>
                   {playlist.length > 0 && !iframeError && (
                     <button onClick={handleNext} className="text-[9px] text-primary/70 hover:text-primary uppercase tracking-widest transition-colors">
-                      {t("radio.tryNext")}
+                      Try next track →
                     </button>
                   )}
                 </div>

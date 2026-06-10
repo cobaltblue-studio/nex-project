@@ -199,6 +199,9 @@ app.use((req, res, next) => {
     .recalculateAllRankingScores()
     .then(() => console.log("[boot] ranking scores recalculated"))
     .catch((err) => console.error("[boot] recalculateAllRankingScores failed:", err));
+
+  const { startDailySnapshotScheduler } = await import("./dailySnapshot");
+  startDailySnapshotScheduler(storage);
 })().catch((err) => {
   console.error("[boot] fatal:", err);
   process.exit(1);

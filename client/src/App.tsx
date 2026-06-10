@@ -31,6 +31,7 @@ import AdminPanel from "@/pages/AdminPanel";
 import AdminLogin from "@/pages/AdminLogin";
 import NexRadio from "@/pages/Radio";
 import About from "@/pages/About";
+import DataPolicy from "@/pages/DataPolicy";
 import ChartMethodology from "@/pages/ChartMethodology";
 import Auth from "@/pages/Auth";
 
@@ -59,6 +60,7 @@ function Router() {
         <Route path="/admin" component={AdminPanel} />
         <Route path="/admin-login" component={AdminLogin} />
         <Route path="/about" component={About} />
+        <Route path="/data-policy" component={DataPolicy} />
         <Route path="/chart-methodology" component={ChartMethodology} />
         <Route path="/track/:id" component={TrackDetail} />
         <Route path="/mv/:id" component={MVDetail} />

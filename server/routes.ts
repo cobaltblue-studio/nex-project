@@ -32,6 +32,18 @@ import { apiMsg } from "./api-i18n";
 import { publicTrackProvenanceExtras } from "./trackProvenance";
 import { adminCreatorTrackExportCsv, adminCreatorTrackExportFilename } from "./adminExport";
 import {
+  b2bAiInsightsCsv,
+  b2bBattleVotesCsv,
+  b2bBattlesCsv,
+  b2bCatalogCsv,
+  b2bDailyPlatformSnapshotsCsv,
+  b2bDailyTrackSnapshotsCsv,
+  b2bExportFilename,
+  b2bPlaysCsv,
+} from "./b2bExport";
+import { NEX_DATA_DICTIONARY } from "./dataDictionary";
+import { playContextFromBody } from "./playContext";
+import {
   fetchSunoSongDurationSeconds,
   resolveSunoShareToSongUuid,
 } from "./suno-resolve";
@@ -1429,19 +1441,48 @@ export async function registerRoutes(
     }
   });
 
-  // Record a play (requires 60s listen time enforced client-side; 10-min spam window enforced server-side)
-  app.post("/api/tracks/:id/play", isAuthenticated, async (req: any, res) => {
-    const userId = await persistSessionUser(req);
-    if (!userId) {
-      return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
-    }
+  // Record a play (60s client timer; 10-min spam window server-side). Logged-in or guest (sessionKey).
+  app.post("/api/tracks/:id/play", async (req: any, res) => {
     const trackId = Number(req.params.id);
     const completed = req.body?.completed === true;
+    const sessionKey =
+      typeof req.body?.sessionKey === "string"
+        ? req.body.sessionKey.trim()
+        : typeof req.headers["x-nex-session"] === "string"
+          ? req.headers["x-nex-session"].trim()
+          : "";
+
+    let userId = "";
+    if (req.isAuthenticated?.() || req.user) {
+      userId = await persistSessionUser(req);
+    }
+
+    const playCtx = playContextFromBody(req.body);
+
     try {
-      const result = await storage.recordPlay(userId, trackId, { completed });
+      let listenerCountry: string | null = null;
+      if (userId) {
+        const profile = await storage.getProfileByUserId(userId);
+        listenerCountry = profile?.country?.trim() || null;
+      }
+
+      const result = userId
+        ? await storage.recordPlay(userId, trackId, { completed, listenerCountry, ...playCtx })
+        : await storage.recordGuestPlay(sessionKey, trackId, { completed, ...playCtx });
+
+      if (!userId && !sessionKey) {
+        return res.status(400).json({
+          message: apiMsg(
+            "로그인하거나 sessionKey가 필요합니다",
+            "Sign in or provide sessionKey for guest play tracking",
+          ),
+        });
+      }
+
       res.json({
         counted: result.counted,
         completionUpdated: result.completionUpdated,
+        listenerType: userId ? "authenticated" : "guest",
         message: result.counted
           ? apiMsg("재생이 기록되었습니다", "Play recorded")
           : result.completionUpdated
@@ -1450,7 +1491,7 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       console.error("[play] failed", {
-        userId,
+        userId: userId || "(guest)",
         trackId: req.params.id,
         code: err?.code,
         message: err?.message,
@@ -2237,6 +2278,132 @@ export async function registerRoutes(
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${adminCreatorTrackExportFilename(rows.length)}"`);
     res.send("\uFEFF" + csv);
+  });
+
+  function sendAdminCsv(res: any, csv: string, filename: string) {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send("\uFEFF" + csv);
+  }
+
+  app.get("/api/admin/export/data-dictionary.json", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    res.json({ ...NEX_DATA_DICTIONARY, generatedAt: new Date().toISOString() });
+  });
+
+  app.get("/api/admin/snapshots/status", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const status = await storage.getSnapshotStatus();
+    res.json(status);
+  });
+
+  app.post("/api/admin/snapshots/capture", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const out = await storage.captureDailySnapshots();
+    res.json({ ok: true, ...out });
+  });
+
+  app.get("/api/admin/export/b2b/plays.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const since = typeof req.query.since === "string" ? new Date(req.query.since) : undefined;
+    const rows = await storage.getB2bPlayExportRows({ since: since && !Number.isNaN(since.getTime()) ? since : undefined });
+    sendAdminCsv(res, b2bPlaysCsv(rows), b2bExportFilename("plays", rows.length));
+  });
+
+  app.get("/api/admin/export/b2b/battles.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const rows = await storage.getB2bBattleExportRows();
+    sendAdminCsv(res, b2bBattlesCsv(rows), b2bExportFilename("battles", rows.length));
+  });
+
+  app.get("/api/admin/export/b2b/battle-votes.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const since = typeof req.query.since === "string" ? new Date(req.query.since) : undefined;
+    const rows = await storage.getB2bBattleVoteExportRows({ since: since && !Number.isNaN(since.getTime()) ? since : undefined });
+    sendAdminCsv(res, b2bBattleVotesCsv(rows), b2bExportFilename("battle-votes", rows.length));
+  });
+
+  app.get("/api/admin/export/b2b/daily-track-snapshots.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const since = typeof req.query.since === "string" ? new Date(req.query.since) : undefined;
+    const rows = await storage.getB2bDailyTrackSnapshotExportRows({ since: since && !Number.isNaN(since.getTime()) ? since : undefined });
+    sendAdminCsv(res, b2bDailyTrackSnapshotsCsv(rows), b2bExportFilename("daily-track-snapshots", rows.length));
+  });
+
+  app.get("/api/admin/export/b2b/daily-platform-snapshots.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const since = typeof req.query.since === "string" ? new Date(req.query.since) : undefined;
+    const rows = await storage.getB2bDailyPlatformSnapshotExportRows({ since: since && !Number.isNaN(since.getTime()) ? since : undefined });
+    sendAdminCsv(res, b2bDailyPlatformSnapshotsCsv(rows), b2bExportFilename("daily-platform-snapshots", rows.length));
+  });
+
+  app.get("/api/admin/export/b2b/catalog.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const rows = await storage.getB2bCatalogExportRows();
+    sendAdminCsv(res, b2bCatalogCsv(rows), b2bExportFilename("catalog", rows.length));
+  });
+
+  app.get("/api/admin/export/b2b/ai-insights.csv", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    const rows = await storage.getB2bAiInsightExportRows();
+    sendAdminCsv(res, b2bAiInsightsCsv(rows), b2bExportFilename("ai-insights", rows.length));
+  });
+
+  app.post("/api/admin/export/b2b/push-webhook", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const webhook = process.env.B2B_EXPORT_WEBHOOK_URL?.trim();
+    if (!webhook) {
+      return res.status(400).json({
+        message: apiMsg("B2B_EXPORT_WEBHOOK_URL이 설정되지 않았습니다", "B2B_EXPORT_WEBHOOK_URL is not configured"),
+      });
+    }
+    await storage.captureDailySnapshots();
+    const [plays, battles, battleVotes, catalog, aiInsights, dailyTracks, dailyPlatform] = await Promise.all([
+      storage.getB2bPlayExportRows(),
+      storage.getB2bBattleExportRows(),
+      storage.getB2bBattleVoteExportRows(),
+      storage.getB2bCatalogExportRows(),
+      storage.getB2bAiInsightExportRows(),
+      storage.getB2bDailyTrackSnapshotExportRows(),
+      storage.getB2bDailyPlatformSnapshotExportRows(),
+    ]);
+    const payload = {
+      source: "nex-b2b-webhook",
+      generatedAt: new Date().toISOString(),
+      counts: {
+        plays: plays.length,
+        battles: battles.length,
+        battleVotes: battleVotes.length,
+        catalog: catalog.length,
+        aiInsights: aiInsights.length,
+        dailyTracks: dailyTracks.length,
+        dailyPlatform: dailyPlatform.length,
+      },
+      csv: {
+        plays: b2bPlaysCsv(plays),
+        battles: b2bBattlesCsv(battles),
+        battleVotes: b2bBattleVotesCsv(battleVotes),
+        catalog: b2bCatalogCsv(catalog),
+        aiInsights: b2bAiInsightsCsv(aiInsights),
+        dailyTrackSnapshots: b2bDailyTrackSnapshotsCsv(dailyTracks),
+        dailyPlatformSnapshots: b2bDailyPlatformSnapshotsCsv(dailyPlatform),
+      },
+      dictionary: { ...NEX_DATA_DICTIONARY, generatedAt: new Date().toISOString() },
+    };
+    const whRes = await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    res.json({ ok: whRes.ok, status: whRes.status, counts: payload.counts });
   });
 
   return httpServer;

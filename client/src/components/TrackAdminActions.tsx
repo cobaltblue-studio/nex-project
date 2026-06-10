@@ -40,7 +40,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { hasPublicCount } from "@/lib/displayStats";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MAX_CREATOR_AI_PROMPT_EDITS,
@@ -140,8 +139,6 @@ export type TrackAdminListItem = {
   aiPromptLastEditedAt?: string | null;
   /** From track_metrics when available (list APIs). */
   likesCount?: number | null;
-  /** Public comment count (excludes edit-request tickets). */
-  commentsCount?: number | null;
   /** When logged in: server says you already liked this track today (UTC day). */
   viewerHasLikedToday?: boolean;
 };
@@ -174,14 +171,12 @@ function TrackSocialActions({
   trackId,
   compact,
   likesCount,
-  commentsCount,
   viewerHasLikedToday,
   onCommentClick,
 }: {
   trackId: number;
   compact?: boolean;
   likesCount?: number | null;
-  commentsCount?: number | null;
   /** From GET /api/tracks/:id when logged in */
   viewerHasLikedToday?: boolean;
   onCommentClick?: () => void;
@@ -192,77 +187,34 @@ function TrackSocialActions({
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [guestCheerOpen, setGuestCheerOpen] = useState(false);
-  const [displayLikes, setDisplayLikes] = useState(likesCount ?? 0);
-  const [displayComments, setDisplayComments] = useState(commentsCount ?? 0);
-  const [likedToday, setLikedToday] = useState(!!viewerHasLikedToday);
-
-  useEffect(() => {
-    setDisplayLikes(likesCount ?? 0);
-  }, [likesCount, trackId]);
-
-  useEffect(() => {
-    setDisplayComments(commentsCount ?? 0);
-  }, [commentsCount, trackId]);
-
-  useEffect(() => {
-    setLikedToday(!!viewerHasLikedToday);
-  }, [viewerHasLikedToday, trackId]);
 
   const likeMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/tracks/${trackId}/like`, {});
-      return (await res.json()) as { likesCount?: number; viewerHasLikedToday?: boolean };
-    },
-    onMutate: () => {
-      if (likedToday) return;
-      setDisplayLikes((c) => c + 1);
-      setLikedToday(true);
-    },
-    onSuccess: (data) => {
-      if (typeof data?.likesCount === "number") setDisplayLikes(data.likesCount);
-      if (data?.viewerHasLikedToday) setLikedToday(true);
+    mutationFn: () => apiRequest("POST", `/api/tracks/${trackId}/like`, {}),
+    onSuccess: () => {
       invalidateTrackQueries(trackId);
       void queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/creators"] });
       toast({ title: t("likes.savedTitle"), description: t("likes.savedDesc") });
     },
     onError: (err: Error) => {
-      const msg = String(err?.message ?? "");
-      if (msg.startsWith("401")) {
-        setDisplayLikes(likesCount ?? 0);
-        setLikedToday(!!viewerHasLikedToday);
+      if (String(err?.message ?? "").startsWith("401")) {
         void queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       }
-      if (msg.startsWith("409")) {
-        setDisplayLikes(likesCount ?? 0);
-        setLikedToday(true);
+      if (String(err?.message ?? "").startsWith("409")) {
         toast({ title: t("likes.alreadyTodayTitle"), description: t("likes.alreadyTodayDesc") });
-        invalidateTrackQueries(trackId);
         return;
       }
-      setDisplayLikes(likesCount ?? 0);
-      setLikedToday(!!viewerHasLikedToday);
       const { title, description } = apiMutationErrorToast(err);
       toast({ title, description, variant: "destructive" });
     },
   });
 
   const commentMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/tracks/${trackId}/comments`, { content: commentText });
-      return (await res.json()) as { commentsCount?: number };
-    },
-    onSuccess: (data) => {
+    mutationFn: () => apiRequest("POST", `/api/tracks/${trackId}/comments`, { content: commentText }),
+    onSuccess: () => {
       setCommentOpen(false);
       setCommentText("");
-      if (typeof data?.commentsCount === "number") {
-        setDisplayComments(data.commentsCount);
-      } else {
-        setDisplayComments((c) => c + 1);
-      }
-      invalidateTrackQueries(trackId);
-      void queryClient.invalidateQueries({ queryKey: ["/api/tracks", trackId, "comments"] });
-      toast({ title: t("common.commentPosted") });
+      toast({ title: "Comment posted" });
     },
     onError: (err: Error) => {
       if (String(err?.message ?? "").startsWith("401")) {
@@ -278,9 +230,8 @@ function TrackSocialActions({
   const size = compact
     ? `${iconBtn} text-[8px] px-2 py-1 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/30`
     : `${iconBtn} text-[9px] px-3 py-2 border-white/15 text-zinc-400 hover:text-primary hover:border-primary/40 bg-black/20`;
-  const likeCount = displayLikes;
-  const commentCount = displayComments;
-  const heartTitle = likedToday
+  const likeCount = likesCount ?? 0;
+  const heartTitle = viewerHasLikedToday
     ? t("likes.heartTitleYoursToday")
     : t("likes.heartTitle", { count: likeCount });
 
@@ -289,7 +240,6 @@ function TrackSocialActions({
       setGuestCheerOpen(true);
       return;
     }
-    if (likedToday || likeMutation.isPending) return;
     likeMutation.mutate();
   };
 
@@ -312,42 +262,37 @@ function TrackSocialActions({
         <button
           type="button"
           onClick={onLike}
-          disabled={likeMutation.isPending || likedToday}
+          disabled={likeMutation.isPending}
           className={size}
           title={heartTitle}
           data-testid={`button-track-like-${trackId}`}
         >
           <Heart
-            className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} ${likedToday ? "fill-primary text-primary" : ""}`}
+            className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} ${viewerHasLikedToday ? "fill-primary text-primary" : ""}`}
           />
-          {(hasPublicCount(likeCount) || likedToday) && (
-            <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{likeCount}</span>
-          )}
+          <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{likeCount}</span>
         </button>
         <button
           type="button"
           onClick={openComment}
           className={size}
-          title={hasPublicCount(commentCount) ? t("common.commentsTitle", { count: commentCount }) : t("common.comment")}
+          title="COMMENT"
           data-testid={`button-track-comment-${trackId}`}
         >
           <MessageCircle className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
-          {hasPublicCount(commentCount) && (
-            <span className="tabular-nums text-zinc-300 min-w-[1.25rem] text-right">{commentCount}</span>
-          )}
-          <span className={hasPublicCount(commentCount) ? "hidden md:inline" : "hidden sm:inline"}>{t("common.comment")}</span>
+          <span className="hidden sm:inline">Comment</span>
         </button>
       </div>
 
       <Dialog open={commentOpen} onOpenChange={setCommentOpen}>
         <DialogContent className="max-w-md bg-[#0a0a0a] border-white/10 text-white">
           <DialogHeader>
-            <DialogTitle className="text-sm font-display uppercase tracking-[0.2em] text-primary">{t("common.commentDialogTitle")}</DialogTitle>
+            <DialogTitle className="text-sm font-display uppercase tracking-[0.2em] text-primary">Comment</DialogTitle>
           </DialogHeader>
           <Textarea
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
-            placeholder={t("common.writeComment")}
+            placeholder="Write a comment…"
             className="min-h-[100px] bg-black/40 border-white/10 text-sm text-white"
             data-testid={`textarea-track-comment-${trackId}`}
           />
@@ -357,7 +302,7 @@ function TrackSocialActions({
               onClick={() => setCommentOpen(false)}
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-4 py-2 border border-white/10 rounded-sm hover:bg-white/5"
             >
-              {t("common.cancel")}
+              Cancel
             </button>
             <button
               type="button"
@@ -366,7 +311,7 @@ function TrackSocialActions({
               className="text-[10px] font-bold uppercase tracking-widest bg-primary/15 border border-primary/40 text-primary px-4 py-2 rounded-sm hover:bg-primary/25 disabled:opacity-40"
               data-testid={`submit-track-comment-${trackId}`}
             >
-              {commentMutation.isPending ? t("common.sending") : t("common.post")}
+              {commentMutation.isPending ? "Sending…" : "Post"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -563,7 +508,6 @@ export function TrackAdminActions({ track, compact, deleteRedirectTo = null, onC
           trackId={track.id}
           compact={compact}
           likesCount={track.likesCount}
-          commentsCount={track.commentsCount}
           viewerHasLikedToday={track.viewerHasLikedToday === true}
           onCommentClick={onCommentClick}
         />

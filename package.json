@@ -9,19 +9,18 @@
     "dev:server": "npm run server",
     "server": "PORT=5001 tsx server/index.ts",
     "server:api": "PORT=5002 tsx server/index.ts",
-    "favicons:generate": "node scripts/generate-favicons.mjs",
-    "build": "node scripts/write-favicon-png.mjs && node scripts/verify-favicon.mjs && vite build && node scripts/strip-legacy-favicons.mjs",
+    "build": "vite build",
     "start": "NODE_ENV=production tsx server/index.ts",
     "preview": "vite preview",
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "db:dedupe-likes": "tsx scripts/dedupe-duplicate-likes.ts",
-    "db:reconcile-chart": "tsx scripts/reconcile-chart-promotions.ts",
     "reset:test-stats": "tsx scripts/reset-test-stats.ts",
     "db:reset-chart": "tsx scripts/reset-test-stats.ts",
     "audit:tracks": "tsx scripts/audit-track-data.ts",
     "approve:tracks:user": "tsx scripts/approve-tracks-for-username.ts",
-    "brand:favicon": "node scripts/brand-favicon-from-asset.mjs"
+    "snapshots:capture": "tsx scripts/capture-daily-snapshots.ts",
+    "export:b2b-bundle": "tsx scripts/export-b2b-bundle.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
