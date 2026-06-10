@@ -38,6 +38,17 @@ const statements = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS data_daily_track_snapshots_date_track_unique
     ON data_daily_track_snapshots (snapshot_date, track_id)`,
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id serial PRIMARY KEY,
+    recipient_user_id varchar NOT NULL REFERENCES users(id),
+    type text NOT NULL,
+    title text NOT NULL,
+    body text NOT NULL,
+    track_id integer REFERENCES tracks(id),
+    href text,
+    read_at timestamp,
+    created_at timestamp NOT NULL DEFAULT now()
+  )`,
   `CREATE TABLE IF NOT EXISTS data_daily_platform_snapshots (
     id serial PRIMARY KEY,
     snapshot_date timestamp NOT NULL UNIQUE,
