@@ -136,7 +136,7 @@ function BattleBlindCard({
         opacity: isVoted && !isWinner ? 0.3 : 1,
         scale: isVoted && isWinner ? 1.02 : 1,
       }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      transition={{ duration: isVoted ? 0.12 : 0.25, ease: "easeOut" }}
     >
       <div className="flex items-center gap-2">
         <div
@@ -386,7 +386,6 @@ export function Battle() {
   /** Bump to remount preview players if server sync fails so the user can retry. */
   const [listenReplayA, setListenReplayA] = useState(0);
   const [listenReplayB, setListenReplayB] = useState(0);
-  const [showFlash, setShowFlash] = useState(false);
   const [votedId, setVotedId] = useState<number | null>(null);
   const [isVoted, setIsVoted] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -400,8 +399,6 @@ export function Battle() {
     }
   });
   const [showSharePopup, setShowSharePopup] = useState(false);
-  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const resultPhaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countedImpressionsRef = useRef<Set<string>>(new Set());
 
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
@@ -487,28 +484,19 @@ export function Battle() {
       setVoteResult(data);
       setIsVoted(true);
       setIsRevealed(true);
-      setVotedId(data.winnerId);
+      setShowSharePopup(true);
+      setPhase("result");
 
-      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = setTimeout(() => {
-        setShowSharePopup(true);
-      }, 1000);
-
-      if (resultPhaseTimerRef.current) clearTimeout(resultPhaseTimerRef.current);
-      resultPhaseTimerRef.current = setTimeout(() => {
-        setShowSharePopup(false);
-        setPhase("result");
-        setVotedId(null);
-      }, 3200);
-
-      queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
     },
     onError: (err: any) => {
       setVotedId(null);
       setIsVoted(false);
-      setIsRevealed(false);
+      setIsRevealed(!blindMode);
       setShowSharePopup(false);
+      setVoteResult(null);
+      setPhase("vote");
       if (err?.message?.includes("409") || err?.status === 409) {
         toast({
           title: "Already voted",
@@ -621,14 +609,6 @@ export function Battle() {
     setIsVoted(false);
     setIsRevealed(false);
     setShowSharePopup(false);
-    if (revealTimerRef.current) {
-      clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = null;
-    }
-    if (resultPhaseTimerRef.current) {
-      clearTimeout(resultPhaseTimerRef.current);
-      resultPhaseTimerRef.current = null;
-    }
     if (limitReachedRef.current) {
       setPhase("genre-select");
       return;
@@ -686,17 +666,6 @@ export function Battle() {
     };
   }, [battle?.id]);
 
-  useEffect(() => {
-    return () => {
-      if (revealTimerRef.current) {
-        clearTimeout(revealTimerRef.current);
-      }
-      if (resultPhaseTimerRef.current) {
-        clearTimeout(resultPhaseTimerRef.current);
-      }
-    };
-  }, []);
-
   const castVote = useCallback(
     (trackId: number) => {
       if (!isAuthenticated) {
@@ -707,13 +676,26 @@ export function Battle() {
         });
         return;
       }
-      if (!battle) return;
+      if (!battle || voteMutation.isPending) return;
+
+      const pickedA = trackId === battle.trackAId;
+      const trackAVotes = battle.trackAVotes + (pickedA ? 1 : 0);
+      const trackBVotes = battle.trackBVotes + (pickedA ? 0 : 1);
+
+      setVoteResult({
+        trackAVotes,
+        trackBVotes,
+        winnerId: trackId,
+        trackAWinStreak: 0,
+        trackBWinStreak: 0,
+      });
       setVotedId(trackId);
-      setShowFlash(true);
+      setIsVoted(true);
+      setIsRevealed(true);
+      setShowSharePopup(true);
+      setPhase("result");
+
       voteMutation.mutate({ battleId: battle.id, trackId });
-      setTimeout(() => {
-        setShowFlash(false);
-      }, 300);
     },
     [isAuthenticated, battle, voteMutation],
   );
@@ -777,19 +759,6 @@ export function Battle() {
         </p>
       </div>
       <div className="battle-page-container">
-        <AnimatePresence>
-        {showFlash && (
-          <motion.div
-            key="vote-flash"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.15 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="fixed inset-0 z-50 pointer-events-none bg-white"
-            data-testid="vote-flash-overlay"
-          />
-        )}
-      </AnimatePresence>
       <div className={`mb-2 text-center ${phase === "vote" ? "pt-0" : "pt-1"}`}>
         <p
           className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-[4px] md:mt-0"
@@ -832,7 +801,7 @@ export function Battle() {
       </div>
       )}
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {phase === "genre-select" && (
           <motion.div
             key="genre-select"
@@ -964,10 +933,10 @@ export function Battle() {
         {phase === "vote" && battle && (
           <motion.div
             key="vote"
-            initial={{ opacity: 0, scale: 0.97 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.97 }}
-            transition={{ duration: 0.3 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.08 }}
             className="battle-vote-stage"
           >
             <div className="flex items-center gap-3 mb-3">
@@ -1014,7 +983,7 @@ export function Battle() {
                 badge="A"
                 accentClass="bg-primary/10 border-primary/30 text-primary"
                 canVote={listenedA && listenedB}
-                disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
+                disabled={voteMutation.isPending || !voteReady || isVoted}
                 isVoted={isVoted}
                 isWinner={voteResult?.winnerId === battle.trackAId}
                 isRevealed={isRevealed || !blindMode}
@@ -1028,7 +997,7 @@ export function Battle() {
                 badge="B"
                 accentClass="bg-blue-500/10 border-blue-500/30 text-blue-400"
                 canVote={listenedA && listenedB}
-                disabled={voteMutation.isPending || showFlash || !voteReady || isVoted}
+                disabled={voteMutation.isPending || !voteReady || isVoted}
                 isVoted={isVoted}
                 isWinner={voteResult?.winnerId === battle.trackBId}
                 isRevealed={isRevealed || !blindMode}
@@ -1037,20 +1006,6 @@ export function Battle() {
                 dataTestIdPrefix="vote-track-b"
               />
             </div>
-            <AnimatePresence>
-              {showSharePopup && winnerTrack && (
-                <motion.div
-                  initial={{ opacity: 0, y: 14, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
-                  className="battle-share-popup"
-                  data-testid="battle-share-popup"
-                >
-                  You can't fool my ears! I found {winnerTrack.creatorName}!
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         )}
 
@@ -1061,10 +1016,10 @@ export function Battle() {
           return (
           <motion.div
             key="result"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.06 }}
             className="text-center space-y-3"
           >
             <div className="flex items-center justify-center gap-2">
@@ -1115,7 +1070,7 @@ export function Battle() {
                     className="h-full bg-primary rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${pctA}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
                     data-testid="bar-result-a"
                     style={{ boxShadow: "2px 0 8px hsla(189, 100%, 50%, 0.6)" }}
                   />
@@ -1140,7 +1095,7 @@ export function Battle() {
                     className="h-full bg-blue-500 rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${pctB}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
                     data-testid="bar-result-b"
                     style={{ boxShadow: "2px 0 8px hsla(220, 100%, 60%, 0.6)" }}
                   />
@@ -1151,6 +1106,30 @@ export function Battle() {
             <p className="text-[10px] uppercase tracking-widest text-zinc-500" data-testid="text-total-votes">
               Total Votes: {totalVotes}
             </p>
+
+            {showSharePopup && winnerTrack && (
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-[11px] text-primary/90 font-medium"
+                data-testid="battle-share-popup"
+              >
+                {t("battle.shareResultText", {
+                  creator: winnerTrack.creatorName,
+                  title: winnerTrack.title,
+                })}
+              </motion.p>
+            )}
+
+            {winnerTrack && (
+              <ShareButtons
+                url={trackShareUrl(winnerTrack.id)}
+                text={t("battle.shareResultText", {
+                  creator: winnerTrack.creatorName,
+                  title: winnerTrack.title,
+                })}
+              />
+            )}
 
             <div className="space-y-2">
               <button
