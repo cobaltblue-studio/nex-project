@@ -366,6 +366,7 @@ function BattleTrackPlayer({
 }
 
 export function Battle() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
@@ -608,6 +609,7 @@ export function Battle() {
     setListenReplayB(0);
     setIsVoted(false);
     setIsRevealed(false);
+    setVotedId(null);
     setShowSharePopup(false);
     if (limitReachedRef.current) {
       setPhase("genre-select");
