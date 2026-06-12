@@ -245,10 +245,8 @@ export function buildStreamingIframeSrc(
   if (sunoSrc) return sunoSrc;
   if (urlLooksLikeSunoShare(url)) return null;
 
-  if (/soundcloud\.com/i.test(url) && !/w\.soundcloud\.com/i.test(url)) {
-    const ap = autoplay ? "1" : "0";
-    const timedUrl = seekSec > 0 ? withDeepLinkTime(url, seekSec) : url;
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(timedUrl)}&color=%2300f0ff&auto_play=${ap}&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=true`;
+  if (urlLooksLikeSoundCloudShare(url)) {
+    return buildSoundCloudPlayerSrc(url, { autoplay, embedSeekSeconds: seekSec });
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);

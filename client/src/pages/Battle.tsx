@@ -261,7 +261,11 @@ function BattleTrackPlayer({
     setIframeGuessSeek(Math.floor(45 + Math.random() * 135));
   }, [autoplay, rawUrl, ytId, isDirectAudio, track.id]);
 
-  const { iframeSrc: battleIframeSrc, loading: battleStreamLoading } = usePlayableStreamingSrc(
+  const {
+    iframeSrc: battleIframeSrc,
+    loading: battleStreamLoading,
+    error: battleStreamError,
+  } = usePlayableStreamingSrc(
     rawUrl && !ytId && !isDirectAudio ? rawUrl : undefined,
     {
       autoplay,
@@ -337,6 +341,10 @@ function BattleTrackPlayer({
                 />
                 {iframeKind === "suno" ? <SunoEmbedOutboundShield /> : null}
               </div>
+            ) : battleStreamError ? (
+              <p className="text-[10px] text-zinc-500 text-center px-4 leading-relaxed max-w-md">
+                {battleStreamError}
+              </p>
             ) : (
               <Music2 className="w-8 h-8 text-zinc-600" />
             )}
