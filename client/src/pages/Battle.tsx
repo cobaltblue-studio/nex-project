@@ -81,11 +81,12 @@ function isDirectAudioUrl(rawUrl: string, ytId: string | null): boolean {
 
 function BattleBlindCard({
   track,
+  trackId,
   badge,
   accentClass,
   canVote,
   disabled,
-  isVoted,
+  pickedTrackId,
   isWinner,
   isRevealed,
   voteReady,
@@ -93,11 +94,12 @@ function BattleBlindCard({
   dataTestIdPrefix,
 }: {
   track: BattleTrack;
+  trackId: number;
   badge: string;
   accentClass: string;
   canVote: boolean;
   disabled: boolean;
-  isVoted: boolean;
+  pickedTrackId: number | null;
   isWinner: boolean;
   isRevealed: boolean;
   voteReady: boolean;
@@ -105,11 +107,15 @@ function BattleBlindCard({
   dataTestIdPrefix: string;
 }) {
   const maskedLabel = "[HIDDEN] · UNLOCK AFTER VOTE";
-  const selectStateLabel = isVoted
-    ? `VOTED TRACK ${badge}`
-    : voteReady
-      ? `TAP TO VOTE TRACK ${badge}`
-      : "LISTEN FIRST";
+  const isPicked = pickedTrackId === trackId;
+  const voteLocked = pickedTrackId != null;
+  const selectStateLabel = isPicked
+    ? `YOUR PICK · TRACK ${badge}`
+    : voteLocked
+      ? `TRACK ${badge}`
+      : voteReady
+        ? `TAP TO VOTE TRACK ${badge}`
+        : "LISTEN FIRST";
 
   const onSelect = () => {
     if (!disabled) onVote();
@@ -119,8 +125,8 @@ function BattleBlindCard({
       className={[
         "premium-card p-4 flex flex-col gap-3 transition-premium battle-blind-card",
         canVote ? "cursor-pointer" : "opacity-60",
-        isVoted && isWinner ? "battle-winner-focus" : "",
-        isVoted && !isWinner ? "battle-loser-dimmed" : "",
+        isPicked && isWinner ? "battle-winner-focus" : "",
+        voteLocked && !isPicked ? "battle-loser-dimmed" : "",
       ].join(" ")}
       onClick={onSelect}
       role="button"
@@ -133,10 +139,10 @@ function BattleBlindCard({
         }
       }}
       animate={{
-        opacity: isVoted && !isWinner ? 0.3 : 1,
-        scale: isVoted && isWinner ? 1.02 : 1,
+        opacity: voteLocked && !isPicked ? 0.3 : 1,
+        scale: isPicked && isWinner ? 1.02 : 1,
       }}
-      transition={{ duration: isVoted ? 0.12 : 0.25, ease: "easeOut" }}
+      transition={{ duration: voteLocked ? 0.12 : 0.25, ease: "easeOut" }}
     >
       <div className="flex items-center gap-2">
         <div
@@ -193,7 +199,7 @@ function BattleBlindCard({
       </div>
       <div
         data-testid={`button-vote-${dataTestIdPrefix.replace("vote-", "")}`}
-        className={`w-full py-2 text-center rounded-xl border uppercase tracking-[0.18em] text-[10px] font-bold transition-premium ${voteReady && !isVoted ? "battle-vote-ready-glow border-primary/50 text-primary" : "border-white/15 text-zinc-500"}`}
+        className={`w-full py-2 text-center rounded-xl border uppercase tracking-[0.18em] text-[10px] font-bold transition-premium ${voteReady && !voteLocked ? "battle-vote-ready-glow border-primary/50 text-primary" : "border-white/15 text-zinc-500"}`}
       >
         {selectStateLabel}
       </div>
@@ -396,8 +402,8 @@ export function Battle() {
   const [listenReplayA, setListenReplayA] = useState(0);
   const [listenReplayB, setListenReplayB] = useState(0);
   const [votedId, setVotedId] = useState<number | null>(null);
-  const [isVoted, setIsVoted] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
+  const activeBattleIdRef = useRef<number | null>(null);
   const [blindMode, setBlindMode] = useState(() => {
     try {
       const saved = window.localStorage.getItem("nex.battle.blindMode");
@@ -445,8 +451,12 @@ export function Battle() {
     onSuccess: async (res: any) => {
       const data = await res.json();
       setBattle(data);
+      setVoteResult(null);
+      setVotedId(null);
       setListenReplayA(0);
       setListenReplayB(0);
+      setIsRevealed(false);
+      setShowSharePopup(false);
       setPhase("track-a");
     },
     onError: (err: Error) => {
@@ -488,10 +498,10 @@ export function Battle() {
       battleId: number;
       trackId: number;
     }) => apiRequest("POST", `/api/battles/${battleId}/vote`, { trackId }),
-    onSuccess: async (res: any) => {
+    onSuccess: async (res: any, variables) => {
+      if (variables.battleId !== activeBattleIdRef.current) return;
       const data = await res.json();
       setVoteResult(data);
-      setIsVoted(true);
       setIsRevealed(true);
       setShowSharePopup(true);
       setPhase("result");
@@ -499,9 +509,9 @@ export function Battle() {
       void queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
     },
-    onError: (err: any) => {
+    onError: (err: any, _variables, _ctx) => {
+      if (_variables.battleId !== activeBattleIdRef.current) return;
       setVotedId(null);
-      setIsVoted(false);
       setIsRevealed(!blindMode);
       setShowSharePopup(false);
       setVoteResult(null);
@@ -600,7 +610,8 @@ export function Battle() {
       setListenedB(false);
       setListenReplayA(0);
       setListenReplayB(0);
-      setIsVoted(false);
+      setVotedId(null);
+      setVoteResult(null);
       setIsRevealed(false);
       setShowSharePopup(false);
       createBattleMutation.mutate(genre);
@@ -615,7 +626,6 @@ export function Battle() {
     setListenedB(false);
     setListenReplayA(0);
     setListenReplayB(0);
-    setIsVoted(false);
     setIsRevealed(false);
     setVotedId(null);
     setShowSharePopup(false);
@@ -632,8 +642,16 @@ export function Battle() {
   }, []);
 
   useEffect(() => {
+    activeBattleIdRef.current = battle?.id ?? null;
     countedImpressionsRef.current.clear();
   }, [battle?.id]);
+
+  /** Recover if pick state was set but result phase did not mount (stale mutation, etc.). */
+  useEffect(() => {
+    if (phase === "vote" && votedId != null && voteResult) {
+      setPhase("result");
+    }
+  }, [phase, votedId, voteResult]);
 
   useEffect(() => {
     if (!battle) return;
@@ -700,7 +718,6 @@ export function Battle() {
         trackBWinStreak: 0,
       });
       setVotedId(trackId);
-      setIsVoted(true);
       setIsRevealed(true);
       setShowSharePopup(true);
       setPhase("result");
@@ -978,7 +995,7 @@ export function Battle() {
                 Listen to both tracks before voting
               </p>
             )}
-            {voteReady && !isVoted && (
+            {voteReady && votedId == null && (
               <p className="text-[10px] text-primary uppercase tracking-widest text-center mb-2 animate-pulse">
                 Voting unlocked. Choose your winner.
               </p>
@@ -990,11 +1007,12 @@ export function Battle() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 battle-vote-grid">
               <BattleBlindCard
                 track={battle.trackA}
+                trackId={battle.trackAId}
                 badge="A"
                 accentClass="bg-primary/10 border-primary/30 text-primary"
                 canVote={listenedA && listenedB}
-                disabled={voteMutation.isPending || !voteReady || isVoted}
-                isVoted={isVoted}
+                disabled={voteMutation.isPending || !voteReady || votedId != null}
+                pickedTrackId={votedId}
                 isWinner={voteResult?.winnerId === battle.trackAId}
                 isRevealed={isRevealed || !blindMode}
                 voteReady={voteReady}
@@ -1004,11 +1022,12 @@ export function Battle() {
 
               <BattleBlindCard
                 track={battle.trackB}
+                trackId={battle.trackBId}
                 badge="B"
                 accentClass="bg-blue-500/10 border-blue-500/30 text-blue-400"
                 canVote={listenedA && listenedB}
-                disabled={voteMutation.isPending || !voteReady || isVoted}
-                isVoted={isVoted}
+                disabled={voteMutation.isPending || !voteReady || votedId != null}
+                pickedTrackId={votedId}
                 isWinner={voteResult?.winnerId === battle.trackBId}
                 isRevealed={isRevealed || !blindMode}
                 voteReady={voteReady}
