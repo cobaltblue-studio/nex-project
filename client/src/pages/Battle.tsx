@@ -568,6 +568,8 @@ export function Battle() {
     const trackId = battle.trackBId;
     // Optimistic step transition for snappier UX; rollback only if sync fails.
     setListenedB(true);
+    setVotedId(null);
+    setVoteResult(null);
     setPhase("vote");
     void (async () => {
       try {

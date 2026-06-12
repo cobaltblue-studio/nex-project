@@ -22,13 +22,14 @@ export function publicTrackPageUrl(trackId: number): string {
   return `${origin.replace(/\/+$/, "")}/track/${trackId}`;
 }
 
-/** Pull @handle from youtube.com/@… if present on the track link. */
+/** Pull @handle from youtube.com/@… if present on track links or portfolio/description text. */
 export function extractYoutubeHandle(
   audioUrl?: string | null,
   mvUrl?: string | null,
   profileUsername?: string | null,
+  extraUrls?: (string | null | undefined)[],
 ): string {
-  for (const raw of [audioUrl, mvUrl]) {
+  for (const raw of [audioUrl, mvUrl, ...(extraUrls ?? [])]) {
     const u = String(raw ?? "").trim();
     if (!u) continue;
     const at = u.match(/youtube\.com\/@([^/?#]+)/i);

@@ -2629,6 +2629,9 @@ export class DatabaseStorage implements IStorage {
       });
       const likes = r.metrics?.likesCount ?? 0;
       const creatorName = String(t.artistName ?? "").trim() || r.profile.username;
+      const adminSubmittedForArtist =
+        r.profile.role === "admin" &&
+        creatorName.toLowerCase() !== String(r.profile.username ?? "").trim().toLowerCase();
       const chartRank =
         t.status === "CHART" && t.trackType === "audio"
           ? (audioChartRank.get(t.id) ?? null)
@@ -2639,7 +2642,10 @@ export class DatabaseStorage implements IStorage {
       return {
         trackId: t.id,
         creatorName,
-        ytHandle: extractYoutubeHandle(t.audioUrl, t.mvUrl, r.profile.username),
+        ytHandle: extractYoutubeHandle(t.audioUrl, t.mvUrl, r.profile.username, [
+          t.description,
+          t.aiPrompt,
+        ]),
         trackName: String(t.title ?? "").trim(),
         provenanceStatus: t.provenanceStatus ?? "verified",
         claimableByCreators: !!t.claimableByCreators,
@@ -2648,7 +2654,9 @@ export class DatabaseStorage implements IStorage {
         battleWins,
         chartRank,
         trackUrl: publicTrackPageUrl(t.id),
-        registrationEmail: isExportableRegistrationEmail(r.email),
+        registrationEmail: adminSubmittedForArtist
+          ? ""
+          : isExportableRegistrationEmail(r.email),
       };
     });
 
