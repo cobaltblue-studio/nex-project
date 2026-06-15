@@ -2246,14 +2246,52 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  private async syncBattleTalliesFromVotes(battle: Battle): Promise<Battle> {
+    const votes = await db
+      .select({ trackId: battleVotes.trackId })
+      .from(battleVotes)
+      .where(eq(battleVotes.battleId, battle.id));
+
+    let trackAVotes = 0;
+    let trackBVotes = 0;
+    for (const vote of votes) {
+      if (vote.trackId === battle.trackAId) trackAVotes += 1;
+      else if (vote.trackId === battle.trackBId) trackBVotes += 1;
+    }
+
+    const winnerId =
+      trackAVotes === 0 && trackBVotes === 0
+        ? null
+        : trackAVotes >= trackBVotes
+          ? battle.trackAId
+          : battle.trackBId;
+
+    if (
+      battle.trackAVotes === trackAVotes &&
+      battle.trackBVotes === trackBVotes &&
+      battle.winnerId === winnerId
+    ) {
+      return battle;
+    }
+
+    const [updated] = await db
+      .update(battles)
+      .set({ trackAVotes, trackBVotes, winnerId })
+      .where(eq(battles.id, battle.id))
+      .returning();
+    return updated ?? { ...battle, trackAVotes, trackBVotes, winnerId };
+  }
+
   async recordBattleVote(
     battleId: number,
     userId: string,
     trackId: number,
     opts?: { skipListenCheck?: boolean },
   ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }> {
-    const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
+    let [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
     if (!battle) throw new Error("BATTLE_NOT_FOUND");
+
+    battle = await this.syncBattleTalliesFromVotes(battle);
 
     if (!opts?.skipListenCheck) {
       await this.assertBothBattleTracksListened(battle, userId);
@@ -2304,7 +2342,7 @@ export class DatabaseStorage implements IStorage {
         battleWinsCount: sql`${trackMetrics.battleWinsCount} + 1`,
         updatedAt: new Date(),
       }).where(eq(trackMetrics.trackId, winnerId));
-      void this.notifyBattleWin(winnerId).catch(() => {});
+      await this.notifyBattleWin(winnerId, battleId);
     }
 
     // Recompute ranking scores from updated battle outcomes (debounced).
@@ -3543,15 +3581,33 @@ export class DatabaseStorage implements IStorage {
     return empty;
   }
 
-  async notifyBattleWin(winnerTrackId: number): Promise<void> {
+  async notifyBattleWin(
+    winnerTrackId: number,
+    battleId: number,
+  ): Promise<{ sent: boolean; skipReason?: string; detail?: string }> {
     const track = await this.getTrack(winnerTrackId);
     const recipientUserId = track?.creator?.userId;
-    if (!recipientUserId) return;
+    if (!recipientUserId) {
+      console.warn("[notify] battle win — missing creator userId", { battleId, winnerTrackId });
+      return { sent: false, skipReason: "no_creator_user" };
+    }
 
     const title = track.title ?? "Your track";
-    void this.emailCreator(recipientUserId, (to) =>
+    const email = await this.emailCreator(recipientUserId, (to) =>
       sendBattleWinEmail({ to, trackTitle: title, trackId: winnerTrackId }),
     );
+    if (!email.sent) {
+      console.warn("[notify] battle win email not sent", {
+        battleId,
+        winnerTrackId,
+        recipientUserId,
+        skipReason: email.skipReason,
+        detail: email.detail,
+      });
+    } else {
+      console.info("[notify] battle win email sent", { battleId, winnerTrackId, recipientUserId });
+    }
+    return email;
   }
 
   async notifyTrackLiked(trackId: number, likerUserId: string): Promise<void> {

@@ -711,11 +711,12 @@ export function Battle() {
       const pickedA = trackId === battle.trackAId;
       const trackAVotes = battle.trackAVotes + (pickedA ? 1 : 0);
       const trackBVotes = battle.trackBVotes + (pickedA ? 0 : 1);
+      const winnerId = trackAVotes >= trackBVotes ? battle.trackAId : battle.trackBId;
 
       setVoteResult({
         trackAVotes,
         trackBVotes,
-        winnerId: trackId,
+        winnerId,
         trackAWinStreak: 0,
         trackBWinStreak: 0,
       });
