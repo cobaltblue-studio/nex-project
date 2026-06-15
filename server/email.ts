@@ -163,3 +163,22 @@ export async function sendTrackLikedEmail(opts: {
   });
   return sendEmail({ to: opts.to, subject, html, text });
 }
+
+export async function sendBattleWinEmail(opts: {
+  to: string;
+  trackTitle: string;
+  trackId: number;
+}): Promise<EmailSendResult> {
+  const title = escapeHtml(opts.trackTitle);
+  const href = `${siteOrigin()}/track/${opts.trackId}`;
+  const subject = `[NEX] 배틀 승리 — ${opts.trackTitle}`;
+  const text = `당신이 올린 "${opts.trackTitle}"이(가) 배틀에서 승리했어요. 확인해보세요.\n${href}`;
+  const html = emailLayout({
+    headline: "배틀에서 승리했어요 🏆",
+    bodyHtml: `<p style="margin:0;">당신이 올린 <strong style="color:#fff;">${title}</strong>이(가) 배틀에서 승리했어요.</p>
+      <p style="margin:12px 0 0;">지금 NEX에서 결과를 확인해보세요.</p>`,
+    ctaLabel: "트랙 보기",
+    ctaHref: href,
+  });
+  return sendEmail({ to: opts.to, subject, html, text });
+}

@@ -48,6 +48,7 @@ import { utcMidnight } from "./dailySnapshot";
 import { db } from "./db";
 import {
   isEmailEnabled,
+  sendBattleWinEmail,
   sendTrackApprovedEmail,
   sendTrackLikedEmail,
   sendTrackRejectedEmail,
@@ -2303,6 +2304,7 @@ export class DatabaseStorage implements IStorage {
         battleWinsCount: sql`${trackMetrics.battleWinsCount} + 1`,
         updatedAt: new Date(),
       }).where(eq(trackMetrics.trackId, winnerId));
+      void this.notifyBattleWin(winnerId).catch(() => {});
     }
 
     // Recompute ranking scores from updated battle outcomes (debounced).
@@ -3539,6 +3541,17 @@ export class DatabaseStorage implements IStorage {
     }
 
     return empty;
+  }
+
+  async notifyBattleWin(winnerTrackId: number): Promise<void> {
+    const track = await this.getTrack(winnerTrackId);
+    const recipientUserId = track?.creator?.userId;
+    if (!recipientUserId) return;
+
+    const title = track.title ?? "Your track";
+    void this.emailCreator(recipientUserId, (to) =>
+      sendBattleWinEmail({ to, trackTitle: title, trackId: winnerTrackId }),
+    );
   }
 
   async notifyTrackLiked(trackId: number, likerUserId: string): Promise<void> {
