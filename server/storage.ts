@@ -10,6 +10,7 @@ import {
   battles,
   battleVotes,
   battleListenCompletions,
+  battleWinEmails,
   comments,
   notifications,
   userActivityStats,
@@ -382,7 +383,14 @@ export interface IStorage {
     userId: string,
     trackId: number,
     opts?: { skipListenCheck?: boolean },
-  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }>;
+  ): Promise<{
+    trackAVotes: number;
+    trackBVotes: number;
+    winnerId: number;
+    trackAWinStreak: number;
+    trackBWinStreak: number;
+    battleWinEmail?: { sent: boolean; skipReason?: string; detail?: string };
+  }>;
   getRisingTracks(q?: string): Promise<any[]>;
   addComment(userId: string, trackId: number, content: string): Promise<void>;
   listTrackComments(
@@ -2466,7 +2474,14 @@ export class DatabaseStorage implements IStorage {
     userId: string,
     trackId: number,
     opts?: { skipListenCheck?: boolean },
-  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }> {
+  ): Promise<{
+    trackAVotes: number;
+    trackBVotes: number;
+    winnerId: number;
+    trackAWinStreak: number;
+    trackBWinStreak: number;
+    battleWinEmail?: { sent: boolean; skipReason?: string; detail?: string };
+  }> {
     let [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
     if (!battle) throw new Error("BATTLE_NOT_FOUND");
 
@@ -2522,7 +2537,11 @@ export class DatabaseStorage implements IStorage {
         battleWinsCount: sql`${trackMetrics.battleWinsCount} + 1`,
         updatedAt: new Date(),
       }).where(eq(trackMetrics.trackId, winnerId));
-      await this.notifyBattleWin(winnerId, battleId);
+    }
+
+    let battleWinEmail: { sent: boolean; skipReason?: string; detail?: string } | undefined;
+    if (trackId === winnerId) {
+      battleWinEmail = await this.maybeNotifyBattleWin(winnerId, battleId);
     }
 
     // Recompute ranking scores from updated battle outcomes (debounced).
@@ -2544,7 +2563,14 @@ export class DatabaseStorage implements IStorage {
     await this.checkAndPromoteToChart(battle.trackAId);
     await this.checkAndPromoteToChart(battle.trackBId);
 
-    return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId, trackAWinStreak, trackBWinStreak };
+    return {
+      trackAVotes: newAVotes,
+      trackBVotes: newBVotes,
+      winnerId,
+      trackAWinStreak,
+      trackBWinStreak,
+      battleWinEmail,
+    };
   }
 
   async checkAndPromoteToChart(trackId: number): Promise<boolean> {
@@ -3761,10 +3787,26 @@ export class DatabaseStorage implements IStorage {
     return empty;
   }
 
-  async notifyBattleWin(
+  async maybeNotifyBattleWin(
     winnerTrackId: number,
     battleId: number,
   ): Promise<{ sent: boolean; skipReason?: string; detail?: string }> {
+    try {
+      const [already] = await db
+        .select({ id: battleWinEmails.id })
+        .from(battleWinEmails)
+        .where(and(eq(battleWinEmails.battleId, battleId), eq(battleWinEmails.winnerTrackId, winnerTrackId)))
+        .limit(1);
+      if (already) {
+        return { sent: false, skipReason: "already_sent" };
+      }
+    } catch (err) {
+      if (isMissingRelationError(err)) {
+        return { sent: false, skipReason: "table_missing" };
+      }
+      throw err;
+    }
+
     const track = await this.getTrack(winnerTrackId);
     const recipientUserId = track?.creator?.userId;
     if (!recipientUserId) {
@@ -3773,10 +3815,30 @@ export class DatabaseStorage implements IStorage {
     }
 
     const title = track.title ?? "Your track";
+    await this.createNotification({
+      recipientUserId,
+      type: "battle_win",
+      title: "Battle win!",
+      body: `"${title}" won battle #${battleId} on NEX.`,
+      trackId: winnerTrackId,
+      href: `/track/${winnerTrackId}`,
+    });
+
     const email = await this.emailCreator(recipientUserId, (to) =>
       sendBattleWinEmail({ to, trackTitle: title, trackId: winnerTrackId }),
     );
-    if (!email.sent) {
+
+    if (email.sent) {
+      try {
+        await db
+          .insert(battleWinEmails)
+          .values({ battleId, winnerTrackId })
+          .onConflictDoNothing();
+      } catch (err) {
+        if (!isMissingRelationError(err)) throw err;
+      }
+      console.info("[notify] battle win email sent", { battleId, winnerTrackId, recipientUserId });
+    } else {
       console.warn("[notify] battle win email not sent", {
         battleId,
         winnerTrackId,
@@ -3784,9 +3846,8 @@ export class DatabaseStorage implements IStorage {
         skipReason: email.skipReason,
         detail: email.detail,
       });
-    } else {
-      console.info("[notify] battle win email sent", { battleId, winnerTrackId, recipientUserId });
     }
+
     return email;
   }
 

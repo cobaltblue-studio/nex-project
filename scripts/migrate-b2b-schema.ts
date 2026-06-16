@@ -81,6 +81,14 @@ const statements = [
     battle_vote_count integer NOT NULL DEFAULT 0,
     updated_at timestamp NOT NULL DEFAULT now()
   )`,
+  `CREATE TABLE IF NOT EXISTS battle_win_emails (
+    id serial PRIMARY KEY,
+    battle_id integer NOT NULL REFERENCES battles(id),
+    winner_track_id integer NOT NULL REFERENCES tracks(id),
+    sent_at timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS battle_win_emails_battle_track_unique
+    ON battle_win_emails (battle_id, winner_track_id)`,
 ];
 
 for (const stmt of statements) {

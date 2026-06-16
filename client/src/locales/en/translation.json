@@ -523,6 +523,8 @@
     "trackApprovedBody": "\"{{title}}\" is live on NEX ({{dest}}).",
     "trackRejectedTitle": "Track not approved",
     "trackRejectedBody": "\"{{title}}\" was not approved this time. You can submit an updated version.",
+    "battleWinTitle": "Battle win!",
+    "battleWinBody": "Your track \"{{title}}\" won a battle on NEX.",
     "destMv": "Music Video chart",
     "destChart": "Music chart",
     "destBattle": "Battle pool",

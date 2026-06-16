@@ -39,6 +39,11 @@ export function localizedNotificationCopy(
         title: t("notifications.trackRejectedTitle"),
         body: t("notifications.trackRejectedBody", { title }),
       };
+    case "battle_win":
+      return {
+        title: t("notifications.battleWinTitle"),
+        body: t("notifications.battleWinBody", { title }),
+      };
     default:
       return { title: n.title, body: n.body };
   }

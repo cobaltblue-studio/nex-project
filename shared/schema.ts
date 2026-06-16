@@ -295,6 +295,18 @@ export const userActivityStats = pgTable("user_activity_stats", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/** One battle-win email per (battle, winning track) — prevents duplicate sends. */
+export const battleWinEmails = pgTable(
+  "battle_win_emails",
+  {
+    id: serial("id").primaryKey(),
+    battleId: integer("battle_id").references(() => battles.id).notNull(),
+    winnerTrackId: integer("winner_track_id").references(() => tracks.id).notNull(),
+    sentAt: timestamp("sent_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("battle_win_emails_battle_track_unique").on(t.battleId, t.winnerTrackId)],
+);
+
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -406,6 +418,7 @@ export type BattleVote = typeof battleVotes.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type UserActivityStats = typeof userActivityStats.$inferSelect;
+export type BattleWinEmail = typeof battleWinEmails.$inferSelect;
 export type BoostTicket = typeof boostTickets.$inferSelect;
 export type BoostUsageLog = typeof boostUsageLogs.$inferSelect;
 export type BoostStatusRow = typeof boostStatus.$inferSelect;
