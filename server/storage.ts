@@ -389,7 +389,6 @@ export interface IStorage {
     winnerId: number;
     trackAWinStreak: number;
     trackBWinStreak: number;
-    battleWinEmail?: { sent: boolean; skipReason?: string; detail?: string };
   }>;
   getRisingTracks(q?: string): Promise<any[]>;
   addComment(userId: string, trackId: number, content: string): Promise<void>;
@@ -2480,7 +2479,6 @@ export class DatabaseStorage implements IStorage {
     winnerId: number;
     trackAWinStreak: number;
     trackBWinStreak: number;
-    battleWinEmail?: { sent: boolean; skipReason?: string; detail?: string };
   }> {
     let [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
     if (!battle) throw new Error("BATTLE_NOT_FOUND");
@@ -2539,11 +2537,6 @@ export class DatabaseStorage implements IStorage {
       }).where(eq(trackMetrics.trackId, winnerId));
     }
 
-    let battleWinEmail: { sent: boolean; skipReason?: string; detail?: string } | undefined;
-    if (trackId === winnerId) {
-      battleWinEmail = await this.maybeNotifyBattleWin(winnerId, battleId);
-    }
-
     // Recompute ranking scores from updated battle outcomes (debounced).
     this.scheduleRecomputeTrackRankingScore(battle.trackAId);
     this.scheduleRecomputeTrackRankingScore(battle.trackBId);
@@ -2552,16 +2545,18 @@ export class DatabaseStorage implements IStorage {
     await db.update(tracks).set({ winStreak: sql`${tracks.winStreak} + 1` }).where(eq(tracks.id, winnerId));
     await db.update(tracks).set({ winStreak: 0 }).where(eq(tracks.id, loserId));
 
-    // Fetch updated streak values
     const [winnerTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, winnerId));
     const [loserTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, loserId));
 
     const trackAWinStreak = winnerId === battle.trackAId ? (winnerTrack?.winStreak ?? 0) : (loserTrack?.winStreak ?? 0);
     const trackBWinStreak = winnerId === battle.trackBId ? (winnerTrack?.winStreak ?? 0) : (loserTrack?.winStreak ?? 0);
 
-    // Check if either battle track should be promoted to CHART
-    await this.checkAndPromoteToChart(battle.trackAId);
-    await this.checkAndPromoteToChart(battle.trackBId);
+    // Non-blocking: email + chart promotion must not delay the vote response.
+    if (trackId === winnerId) {
+      void this.maybeNotifyBattleWin(winnerId, battleId).catch(() => {});
+    }
+    void this.checkAndPromoteToChart(battle.trackAId).catch(() => {});
+    void this.checkAndPromoteToChart(battle.trackBId).catch(() => {});
 
     return {
       trackAVotes: newAVotes,
@@ -2569,7 +2564,6 @@ export class DatabaseStorage implements IStorage {
       winnerId,
       trackAWinStreak,
       trackBWinStreak,
-      battleWinEmail,
     };
   }
 

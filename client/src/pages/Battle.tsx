@@ -51,6 +51,7 @@ interface BattleTrack {
   musicVideoUrl?: string;
   coverImageUrl?: string | null;
   rankingScore: number;
+  winStreak?: number;
 }
 
 interface BattleData {
@@ -502,16 +503,6 @@ export function Battle() {
       if (variables.battleId !== activeBattleIdRef.current) return;
       const data = await res.json();
       setVoteResult(data);
-      setIsRevealed(true);
-      setShowSharePopup(true);
-      setPhase("result");
-
-      if (data.battleWinEmail && !data.battleWinEmail.sent && data.battleWinEmail.skipReason === "email_disabled") {
-        toast({
-          title: "Battle win saved",
-          description: "Win email is not configured on the server yet.",
-        });
-      }
 
       void queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/battles/daily-count"] });
@@ -716,7 +707,26 @@ export function Battle() {
       }
       if (!battle || voteMutation.isPending) return;
 
+      const isA = trackId === battle.trackAId;
+      const optimisticAVotes = battle.trackAVotes + (isA ? 1 : 0);
+      const optimisticBVotes = battle.trackBVotes + (isA ? 0 : 1);
+      const optimisticWinner =
+        optimisticAVotes >= optimisticBVotes ? battle.trackAId : battle.trackBId;
+
       setVotedId(trackId);
+      setVoteResult({
+        trackAVotes: optimisticAVotes,
+        trackBVotes: optimisticBVotes,
+        winnerId: optimisticWinner,
+        trackAWinStreak:
+          optimisticWinner === battle.trackAId ? (battle.trackA.winStreak ?? 0) + 1 : 0,
+        trackBWinStreak:
+          optimisticWinner === battle.trackBId ? (battle.trackB.winStreak ?? 0) + 1 : 0,
+      });
+      setIsRevealed(true);
+      setShowSharePopup(true);
+      setPhase("result");
+
       voteMutation.mutate({ battleId: battle.id, trackId });
     },
     [isAuthenticated, battle, voteMutation, toast],
