@@ -71,6 +71,16 @@ const statements = [
     new_user_signups_today integer NOT NULL DEFAULT 0,
     created_at timestamp NOT NULL DEFAULT now()
   )`,
+  `CREATE TABLE IF NOT EXISTS user_activity_stats (
+    id serial PRIMARY KEY,
+    user_id varchar NOT NULL UNIQUE REFERENCES users(id),
+    last_login_at timestamp,
+    last_visit_at timestamp,
+    visit_count integer NOT NULL DEFAULT 0,
+    tracks_played_count integer NOT NULL DEFAULT 0,
+    battle_vote_count integer NOT NULL DEFAULT 0,
+    updated_at timestamp NOT NULL DEFAULT now()
+  )`,
 ];
 
 for (const stmt of statements) {

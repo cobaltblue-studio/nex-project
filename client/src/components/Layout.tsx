@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Home, Music, Disc3, LogOut, ChevronDown, Send, Swords, ShieldCheck, Users, CircleUserRound, Sparkles, Video, TrendingUp, Radio, BarChart3 } from "lucide-react";
@@ -88,6 +88,18 @@ export function Layout({ children }: LayoutProps) {
     retry: false,
     staleTime: 60_000,
   });
+
+  useEffect(() => {
+    if (!isUserAuthenticated) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const key = "nex_visit_ping";
+    if (sessionStorage.getItem(key) === today) return;
+    void fetch("/api/activity/visit", { method: "POST", credentials: "include" })
+      .then((res) => {
+        if (res.ok) sessionStorage.setItem(key, today);
+      })
+      .catch(() => {});
+  }, [isUserAuthenticated]);
 
   const isAdmin = user?.role === "admin";
   /** Admin 계정도 크리에이터 인사이트(본인 스냅샷) 경로를 쓸 수 있게 노출 */

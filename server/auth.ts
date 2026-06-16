@@ -133,6 +133,7 @@ async function directLoginForLocalDev(
       lastName,
       profileImageUrl: null,
     });
+    void storage.recordUserLogin(uid).catch(() => {});
     const profile = await ensureDevProfile(uid, role);
     const persistedUser = await storage.getUserById(uid);
     if (!persistedUser) {
@@ -458,6 +459,7 @@ export function registerAuthRoutes(app: Express) {
             lastName: user.lastName,
             profileImageUrl: user.profileImageUrl,
           });
+          void storage.recordUserLogin(user.id).catch(() => {});
 
           // Session fixation: regenerate once, then req.login + persist session before redirect.
           req.session.regenerate((sessionErr) => {

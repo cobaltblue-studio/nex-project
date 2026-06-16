@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
   Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3, AlertTriangle,
-  Download, Database, FileJson,
+  Download, Database, FileJson, Users,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -77,6 +77,20 @@ type AdminInsights = {
     votes: number;
     battles: number;
   };
+};
+
+type UserActivityRow = {
+  userId: string;
+  email: string | null;
+  username: string | null;
+  role: string | null;
+  lastLoginAt: string | null;
+  lastVisitAt: string | null;
+  visitCount: number;
+  tracksPlayedCount: number;
+  battleVoteCount: number;
+  signedUpAt: string | null;
+  activityStatus: "active" | "inactive";
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -236,6 +250,17 @@ export default function AdminPanel() {
     refetch: refetchInsights,
   } = useQuery<AdminInsights>({
     queryKey: ["/api/admin/insights"],
+    enabled: isAdmin,
+    retry: false,
+    staleTime: 0,
+  });
+
+  const {
+    data: userActivity,
+    isLoading: userActivityLoading,
+    refetch: refetchUserActivity,
+  } = useQuery<UserActivityRow[]>({
+    queryKey: ["/api/admin/user-activity"],
     enabled: isAdmin,
     retry: false,
     staleTime: 0,
@@ -430,6 +455,7 @@ export default function AdminPanel() {
         <button
           onClick={() => {
             void refetchInsights();
+            void refetchUserActivity();
             void refetch();
             void refetchCreatorApps();
             void refetchClaimReq();
@@ -481,6 +507,77 @@ export default function AdminPanel() {
               </>
             )}
         </div>
+      </div>
+
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-4">
+          <Users className="w-4 h-4 text-violet-300" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-300">
+            User Activity
+          </p>
+        </div>
+        <p className="text-[11px] text-zinc-500 mb-3 leading-relaxed">
+          Per-user engagement summary. <span className="text-emerald-400">active</span> = visited within the last 7 days (UTC).
+        </p>
+        {userActivityLoading || !userActivity ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : userActivity.length === 0 ? (
+          <p className="text-[11px] text-zinc-600 uppercase tracking-widest">No users yet</p>
+        ) : (
+          <div className="border border-white/5 rounded-sm overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead>
+                <tr className="border-b border-white/10 text-[9px] uppercase tracking-widest text-zinc-500">
+                  <th className="px-3 py-2 font-bold">User</th>
+                  <th className="px-3 py-2 font-bold">Role</th>
+                  <th className="px-3 py-2 font-bold">Status</th>
+                  <th className="px-3 py-2 font-bold">Last login</th>
+                  <th className="px-3 py-2 font-bold">Last visit</th>
+                  <th className="px-3 py-2 font-bold text-right">Visits</th>
+                  <th className="px-3 py-2 font-bold text-right">Unique plays</th>
+                  <th className="px-3 py-2 font-bold text-right">Battle votes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userActivity.map((row) => (
+                  <tr
+                    key={row.userId}
+                    className="border-b border-white/5 hover:bg-white/[0.02]"
+                    data-testid={`row-user-activity-${row.userId}`}
+                  >
+                    <td className="px-3 py-2.5">
+                      <p className="text-white font-semibold">{row.username ?? "—"}</p>
+                      <p className="text-[10px] text-zinc-600 truncate max-w-[180px]">{row.email ?? row.userId}</p>
+                    </td>
+                    <td className="px-3 py-2.5 text-zinc-400 uppercase text-[10px]">{row.role ?? "—"}</td>
+                    <td className="px-3 py-2.5">
+                      <span
+                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm border ${
+                          row.activityStatus === "active"
+                            ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/30"
+                            : "text-zinc-500 bg-zinc-500/10 border-zinc-500/30"
+                        }`}
+                      >
+                        {row.activityStatus}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-zinc-400 whitespace-nowrap">
+                      {row.lastLoginAt ? fmt(row.lastLoginAt) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-zinc-400 whitespace-nowrap">
+                      {row.lastVisitAt ? fmt(row.lastVisitAt) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-white font-mono">{row.visitCount}</td>
+                    <td className="px-3 py-2.5 text-right text-white font-mono">{row.tracksPlayedCount}</td>
+                    <td className="px-3 py-2.5 text-right text-white font-mono">{row.battleVoteCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="mb-10 border border-cyan-400/20 rounded-sm bg-cyan-400/[0.04] p-4">

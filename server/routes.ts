@@ -269,6 +269,13 @@ export async function registerRoutes(
     res.json({ ...pub, followerCount });
   });
 
+  app.post("/api/activity/visit", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    await storage.recordUserVisit(userId);
+    res.json({ ok: true });
+  });
+
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
@@ -1975,6 +1982,14 @@ export async function registerRoutes(
     }
     const out = await storage.getAdminInsightsSnapshot();
     res.json(out);
+  });
+
+  app.get("/api/admin/user-activity", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const rows = await storage.listAdminUserActivitySummary();
+    res.json(rows);
   });
 
   // Admin: get all submitted tracks across all pipeline statuses

@@ -12,6 +12,7 @@ import {
   battleListenCompletions,
   comments,
   notifications,
+  userActivityStats,
   trackClaimRequests,
   boostTickets,
   boostUsageLogs,
@@ -512,6 +513,23 @@ export interface IStorage {
       battles: number;
     };
   }>;
+  recordUserLogin(userId: string): Promise<void>;
+  recordUserVisit(userId: string): Promise<void>;
+  listAdminUserActivitySummary(): Promise<
+    {
+      userId: string;
+      email: string | null;
+      username: string | null;
+      role: string | null;
+      lastLoginAt: string | null;
+      lastVisitAt: string | null;
+      visitCount: number;
+      tracksPlayedCount: number;
+      battleVoteCount: number;
+      signedUpAt: string | null;
+      activityStatus: "active" | "inactive";
+    }[]
+  >;
   checkBoostEligibility(params: {
     ownerProfileId: number;
     trackId: number;
@@ -1305,6 +1323,166 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  private utcDayStart(d: Date): Date {
+    const x = new Date(d);
+    x.setUTCHours(0, 0, 0, 0);
+    return x;
+  }
+
+  private async ensureUserActivityStatsRow(userId: string): Promise<void> {
+    const id = String(userId ?? "").trim();
+    if (!id) return;
+    try {
+      await db.insert(userActivityStats).values({ userId: id }).onConflictDoNothing();
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  async recordUserVisit(userId: string): Promise<void> {
+    const id = String(userId ?? "").trim();
+    if (!id) return;
+    await this.ensureUserActivityStatsRow(id);
+    try {
+      const now = new Date();
+      const todayStart = this.utcDayStart(now);
+      const [row] = await db.select().from(userActivityStats).where(eq(userActivityStats.userId, id));
+      if (!row) return;
+      const lastVisitDay = row.lastVisitAt ? this.utcDayStart(row.lastVisitAt) : null;
+      const isNewDay = !lastVisitDay || lastVisitDay.getTime() < todayStart.getTime();
+      await db
+        .update(userActivityStats)
+        .set({
+          lastVisitAt: now,
+          visitCount: isNewDay ? sql`${userActivityStats.visitCount} + 1` : row.visitCount,
+          updatedAt: now,
+        })
+        .where(eq(userActivityStats.userId, id));
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  async recordUserLogin(userId: string): Promise<void> {
+    const id = String(userId ?? "").trim();
+    if (!id) return;
+    await this.ensureUserActivityStatsRow(id);
+    try {
+      const now = new Date();
+      await db
+        .update(userActivityStats)
+        .set({ lastLoginAt: now, updatedAt: now })
+        .where(eq(userActivityStats.userId, id));
+      await this.recordUserVisit(id);
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  private async incrementUserTracksPlayed(userId: string): Promise<void> {
+    const id = String(userId ?? "").trim();
+    if (!id) return;
+    await this.ensureUserActivityStatsRow(id);
+    try {
+      await db
+        .update(userActivityStats)
+        .set({
+          tracksPlayedCount: sql`${userActivityStats.tracksPlayedCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(userActivityStats.userId, id));
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  private async incrementUserBattleVotes(userId: string): Promise<void> {
+    const id = String(userId ?? "").trim();
+    if (!id) return;
+    await this.ensureUserActivityStatsRow(id);
+    try {
+      await db
+        .update(userActivityStats)
+        .set({
+          battleVoteCount: sql`${userActivityStats.battleVoteCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(userActivityStats.userId, id));
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  private async backfillUserActivityCounters(): Promise<void> {
+    try {
+      await db.execute(sql`
+        INSERT INTO user_activity_stats (user_id, tracks_played_count, battle_vote_count, updated_at)
+        SELECT u.id,
+          COALESCE((SELECT count(DISTINCT tp.track_id)::int FROM track_plays tp WHERE tp.user_id = u.id), 0),
+          COALESCE((SELECT count(*)::int FROM battle_votes bv WHERE bv.user_id = u.id), 0),
+          now()
+        FROM users u
+        ON CONFLICT (user_id) DO UPDATE SET
+          tracks_played_count = GREATEST(user_activity_stats.tracks_played_count, EXCLUDED.tracks_played_count),
+          battle_vote_count = GREATEST(user_activity_stats.battle_vote_count, EXCLUDED.battle_vote_count),
+          updated_at = now()
+      `);
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
+  async listAdminUserActivitySummary() {
+    await this.backfillUserActivityCounters();
+    const activeSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    try {
+      const rows = await db
+        .select({
+          userId: users.id,
+          email: users.email,
+          username: profiles.username,
+          role: profiles.role,
+          lastLoginAt: userActivityStats.lastLoginAt,
+          lastVisitAt: userActivityStats.lastVisitAt,
+          visitCount: userActivityStats.visitCount,
+          tracksPlayedCount: userActivityStats.tracksPlayedCount,
+          battleVoteCount: userActivityStats.battleVoteCount,
+          signedUpAt: users.createdAt,
+        })
+        .from(users)
+        .leftJoin(profiles, eq(profiles.userId, users.id))
+        .leftJoin(userActivityStats, eq(userActivityStats.userId, users.id))
+        .orderBy(desc(sql`coalesce(${userActivityStats.lastVisitAt}, ${users.createdAt})`));
+
+      return rows.map((r) => {
+        const lastVisitAt = r.lastVisitAt ?? null;
+        return {
+          userId: r.userId,
+          email: r.email ?? null,
+          username: r.username ?? null,
+          role: r.role ?? null,
+          lastLoginAt: r.lastLoginAt?.toISOString() ?? null,
+          lastVisitAt: lastVisitAt?.toISOString() ?? null,
+          visitCount: Number(r.visitCount ?? 0),
+          tracksPlayedCount: Number(r.tracksPlayedCount ?? 0),
+          battleVoteCount: Number(r.battleVoteCount ?? 0),
+          signedUpAt: r.signedUpAt?.toISOString() ?? null,
+          activityStatus:
+            lastVisitAt && lastVisitAt >= activeSince ? ("active" as const) : ("inactive" as const),
+        };
+      });
+    } catch (err) {
+      if (isMissingRelationError(err)) return [];
+      throw err;
+    }
+  }
+
   async createTrack(t: any): Promise<Track> {
     const now = new Date();
     const isVideo = t.trackType === "video";
@@ -1663,6 +1841,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     await this.bumpPlayMetricsSafe(trackId, !!hadAny, completed);
+    if (!hadAny) void this.incrementUserTracksPlayed(userId).catch(() => {});
     return { counted: true, completionUpdated: false };
   }
 
@@ -2307,6 +2486,7 @@ export class DatabaseStorage implements IStorage {
 
     // Record vote
     await db.insert(battleVotes).values({ battleId, userId, trackId });
+    void this.incrementUserBattleVotes(userId).catch(() => {});
 
     // Increment vote count for the chosen track
     const isA = trackId === battle.trackAId;

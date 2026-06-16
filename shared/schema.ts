@@ -283,6 +283,18 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** Per-user engagement counters for admin activity reporting. */
+export const userActivityStats = pgTable("user_activity_stats", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  lastLoginAt: timestamp("last_login_at"),
+  lastVisitAt: timestamp("last_visit_at"),
+  visitCount: integer("visit_count").default(0).notNull(),
+  tracksPlayedCount: integer("tracks_played_count").default(0).notNull(),
+  battleVoteCount: integer("battle_vote_count").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -393,6 +405,7 @@ export type Battle = typeof battles.$inferSelect;
 export type BattleVote = typeof battleVotes.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type UserActivityStats = typeof userActivityStats.$inferSelect;
 export type BoostTicket = typeof boostTickets.$inferSelect;
 export type BoostUsageLog = typeof boostUsageLogs.$inferSelect;
 export type BoostStatusRow = typeof boostStatus.$inferSelect;
