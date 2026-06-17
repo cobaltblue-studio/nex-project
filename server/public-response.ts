@@ -8,9 +8,15 @@ export function sanitizePublicTrack<T extends Record<string, unknown>>(t: T): T 
     const n = normalizeStoredTrackLink(out.audioUrl);
     if (n) out.audioUrl = n;
   }
+  if (typeof out.mvUrl === "string") {
+    const n = normalizeStoredTrackLink(out.mvUrl);
+    if (n) out.mvUrl = n;
+  }
   if (typeof out.musicVideoUrl === "string") {
     const n = normalizeStoredTrackLink(out.musicVideoUrl);
     if (n) out.musicVideoUrl = n;
+  } else if (typeof out.mvUrl === "string" && out.mvUrl) {
+    out.musicVideoUrl = out.mvUrl;
   }
   return out as T;
 }

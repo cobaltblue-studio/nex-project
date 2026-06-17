@@ -1,3 +1,5 @@
+import { extractYoutubeId } from "./youtubeId";
+
 /** Shared SoundCloud / Suno / Vimeo / YouTube embed URL building for track players. */
 
 export type StreamingSourceKind = "youtube" | "soundcloud" | "suno" | "vimeo" | "udio" | "other";
@@ -210,35 +212,41 @@ function withDeepLinkTime(url: string, seconds: number): string {
 
 export function buildStreamingIframeSrc(
   rawUrl: string | undefined | null,
-  opts: { autoplay?: boolean; enableJsApi?: boolean; embedSeekSeconds?: number } = {},
+  opts: {
+    autoplay?: boolean;
+    enableJsApi?: boolean;
+    embedSeekSeconds?: number;
+    battleMode?: boolean;
+  } = {},
 ): string | null {
   if (!rawUrl?.trim()) return null;
   const url = normalizeStreamingUrl(rawUrl);
   const autoplay = !!opts.autoplay;
   const enableJsApi = !!opts.enableJsApi;
+  const battleMode = !!opts.battleMode;
   const seekSec =
     typeof opts.embedSeekSeconds === "number" && opts.embedSeekSeconds > 0
       ? opts.embedSeekSeconds
       : 0;
 
-  const ytMatch = url.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/,
-  );
-  if (ytMatch) {
+  const ytId = extractYoutubeId(url);
+  if (ytId) {
     const params = new URLSearchParams({
       autoplay: autoplay ? "1" : "0",
       rel: "0",
       modestbranding: "1",
-      controls: "1",
+      controls: battleMode ? "0" : "1",
       showinfo: "0",
-      disablekb: enableJsApi ? "1" : "0",
-      fs: "1",
+      disablekb: battleMode || enableJsApi ? "1" : "0",
+      fs: battleMode ? "0" : "1",
+      playsinline: "1",
     });
+    if (seekSec > 0) params.set("start", String(Math.floor(seekSec)));
     if (enableJsApi && typeof window !== "undefined") {
       params.set("enablejsapi", "1");
       params.set("origin", window.location.origin);
     }
-    return `https://www.youtube.com/embed/${ytMatch[1]}?${params.toString()}`;
+    return `https://www.youtube.com/embed/${ytId}?${params.toString()}`;
   }
 
   const sunoSrc = buildSunoEmbedIframeSrc(url, autoplay);

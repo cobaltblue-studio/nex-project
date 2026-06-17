@@ -26,8 +26,9 @@ import {
   warmYoutubeIframeApi,
   randomMiddlePreviewStart,
 } from "@/components/YoutubePlayer";
-import { classifyStreamingSource } from "@/lib/streamingEmbed";
+import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
+import { prefetchPlayableStreamingEmbed } from "@/lib/prefetchStreamingEmbed";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
@@ -48,10 +49,15 @@ interface BattleTrack {
   creatorName: string;
   genre: string;
   audioUrl: string;
-  musicVideoUrl?: string;
+  mvUrl?: string | null;
+  musicVideoUrl?: string | null;
   coverImageUrl?: string | null;
   rankingScore: number;
   winStreak?: number;
+}
+
+function battleTrackStreamUrl(track: BattleTrack): string {
+  return (track.musicVideoUrl || track.mvUrl || track.audioUrl || "").trim();
 }
 
 interface BattleData {
@@ -239,34 +245,46 @@ function BattleTrackPlayer({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [iframeGuessSeek, setIframeGuessSeek] = useState(0);
+  const [embedStopped, setEmbedStopped] = useState(false);
 
   useEffect(() => {
     if (!autoplay) return;
 
+    setEmbedStopped(false);
     timerRef.current = setTimeout(() => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
+      setEmbedStopped(true);
       if (onEnded) onEnded();
     }, PREVIEW_DURATION * 1000);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [autoplay, onEnded]);
+  }, [autoplay, onEnded, track.id]);
 
-  const rawUrl = track.musicVideoUrl || track.audioUrl;
+  const rawUrl = battleTrackStreamUrl(track);
   const ytId = extractYoutubeId(rawUrl);
   const isDirectAudio = isDirectAudioUrl(rawUrl, ytId);
   const iframeKind = rawUrl && !ytId ? classifyStreamingSource(rawUrl) : "other";
 
   useEffect(() => {
-    if (!autoplay || ytId || isDirectAudio || !rawUrl) {
+    if (!autoplay || !ytId || isDirectAudio || !rawUrl) {
       setIframeGuessSeek(0);
       return;
     }
     setIframeGuessSeek(Math.floor(45 + Math.random() * 135));
   }, [autoplay, rawUrl, ytId, isDirectAudio, track.id]);
+
+  const battleYtEmbedSrc =
+    ytId && autoplay && !embedStopped
+      ? buildStreamingIframeSrc(rawUrl, {
+          autoplay: true,
+          battleMode: true,
+          embedSeekSeconds: iframeGuessSeek > 0 ? iframeGuessSeek : undefined,
+        })
+      : null;
 
   const {
     iframeSrc: battleIframeSrc,
@@ -302,7 +320,18 @@ function BattleTrackPlayer({
         (20S PREVIEW)
       </span>
       <div className={`relative border border-white/10 rounded-2xl overflow-hidden bg-black/40 transition-premium battle-player-container ${autoplay ? "animate-neon-pulse ring-1 ring-primary/30" : ""}`} style={{ maxHeight: "32vh" }}>
-        {ytId ? (
+        {battleYtEmbedSrc ? (
+          <div className="aspect-[21/9] w-full" style={{ maxHeight: "32vh" }}>
+            <iframe
+              key={battleYtEmbedSrc}
+              src={battleYtEmbedSrc}
+              className="w-full h-full min-h-[120px] pointer-events-none"
+              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+              allowFullScreen
+              title={track.title}
+            />
+          </div>
+        ) : ytId ? (
           <div className="w-full h-full pointer-events-none select-none">
             <YoutubePlayer
               videoId={ytId}
@@ -674,9 +703,15 @@ export function Battle() {
 
   useEffect(() => {
     if (!battle) return;
+    prefetchPlayableStreamingEmbed(battleTrackStreamUrl(battle.trackA));
+    prefetchPlayableStreamingEmbed(battleTrackStreamUrl(battle.trackB));
+  }, [battle?.id]);
+
+  useEffect(() => {
+    if (!battle) return;
     const urls: string[] = [];
     for (const t of [battle.trackA, battle.trackB]) {
-      const raw = t.musicVideoUrl || t.audioUrl;
+      const raw = battleTrackStreamUrl(t);
       const yid = extractYoutubeId(raw);
       if (raw && isDirectAudioUrl(raw, yid)) urls.push(raw);
     }
@@ -897,7 +932,7 @@ export function Battle() {
             transition={{ duration: 0.35 }}
           >
             {(() => {
-              const prefetchId = extractYoutubeId(battle.trackB.musicVideoUrl || battle.trackB.audioUrl);
+              const prefetchId = extractYoutubeId(battleTrackStreamUrl(battle.trackB));
               return prefetchId ? (
                 <div
                   className="battle-yt-prefetch"
