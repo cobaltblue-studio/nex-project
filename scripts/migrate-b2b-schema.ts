@@ -71,16 +71,19 @@ const statements = [
     new_user_signups_today integer NOT NULL DEFAULT 0,
     created_at timestamp NOT NULL DEFAULT now()
   )`,
-  `CREATE TABLE IF NOT EXISTS user_activity_stats (
+  `CREATE TABLE IF NOT EXISTS analytics_events (
     id serial PRIMARY KEY,
-    user_id varchar NOT NULL UNIQUE REFERENCES users(id),
-    last_login_at timestamp,
-    last_visit_at timestamp,
-    visit_count integer NOT NULL DEFAULT 0,
-    tracks_played_count integer NOT NULL DEFAULT 0,
-    battle_vote_count integer NOT NULL DEFAULT 0,
-    updated_at timestamp NOT NULL DEFAULT now()
+    event_name text NOT NULL,
+    occurred_at timestamp NOT NULL DEFAULT now(),
+    user_id varchar REFERENCES users(id),
+    session_id text NOT NULL,
+    page_path text,
+    properties jsonb NOT NULL DEFAULT '{}',
+    created_at timestamp NOT NULL DEFAULT now()
   )`,
+  `CREATE INDEX IF NOT EXISTS analytics_events_name_time_idx ON analytics_events (event_name, occurred_at)`,
+  `CREATE INDEX IF NOT EXISTS analytics_events_session_time_idx ON analytics_events (session_id, occurred_at)`,
+  `CREATE INDEX IF NOT EXISTS analytics_events_user_time_idx ON analytics_events (user_id, occurred_at) WHERE user_id IS NOT NULL`,
   `CREATE TABLE IF NOT EXISTS battle_win_emails (
     id serial PRIMARY KEY,
     battle_id integer NOT NULL REFERENCES battles(id),
@@ -89,6 +92,15 @@ const statements = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS battle_win_emails_battle_track_unique
     ON battle_win_emails (battle_id, winner_track_id)`,
+  `CREATE TABLE IF NOT EXISTS creator_engagement_emails (
+    id serial PRIMARY KEY,
+    kind text NOT NULL,
+    dedupe_key text NOT NULL,
+    recipient_user_id varchar NOT NULL REFERENCES users(id),
+    sent_at timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS creator_engagement_emails_kind_dedupe_unique
+    ON creator_engagement_emails (kind, dedupe_key)`,
 ];
 
 for (const stmt of statements) {

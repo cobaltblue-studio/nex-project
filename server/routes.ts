@@ -48,6 +48,8 @@ import {
   resolveSunoShareToSongUuid,
 } from "./suno-resolve";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
+import { recordAnalyticsEvents, type AnalyticsEventInput } from "./analytics";
+import { isEmailEnabled } from "./email";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
@@ -269,11 +271,42 @@ export async function registerRoutes(
     res.json({ ...pub, followerCount });
   });
 
-  app.post("/api/activity/visit", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
-    await storage.recordUserVisit(userId);
-    res.json({ ok: true });
+  app.post("/api/analytics/event", async (req: any, res) => {
+    const headerSession =
+      typeof req.headers["x-nex-session"] === "string" ? req.headers["x-nex-session"].trim() : "";
+    const bodySession = typeof req.body?.sessionId === "string" ? req.body.sessionId.trim() : "";
+    const sessionId = headerSession || bodySession;
+    if (!sessionId || sessionId.length < 8) {
+      return res.status(400).json({ message: apiMsg("sessionId가 필요합니다", "sessionId is required") });
+    }
+
+    let userId: string | null = null;
+    if (req.isAuthenticated?.() && req.user?.id) {
+      userId = String(req.user.id);
+    } else if (req.user?.id) {
+      userId = String(req.user.id);
+    }
+
+    const rawEvents = req.body?.events ?? req.body;
+    const list = Array.isArray(rawEvents) ? rawEvents : [rawEvents];
+    const events: AnalyticsEventInput[] = [];
+    for (const item of list) {
+      if (!item || typeof item !== "object") continue;
+      const eventName = typeof item.eventName === "string" ? item.eventName.trim() : "";
+      if (!eventName) continue;
+      events.push({
+        eventName,
+        pagePath: typeof item.pagePath === "string" ? item.pagePath : undefined,
+        properties:
+          item.properties && typeof item.properties === "object" && !Array.isArray(item.properties)
+            ? (item.properties as Record<string, unknown>)
+            : undefined,
+        occurredAt: typeof item.occurredAt === "string" ? item.occurredAt : undefined,
+      });
+    }
+
+    const result = await recordAnalyticsEvents(sessionId, userId, events);
+    res.json({ ok: true, recorded: result.recorded });
   });
 
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
@@ -1976,20 +2009,22 @@ export async function registerRoutes(
     res.json({ isAdmin: true });
   });
 
+  app.get("/api/admin/email-status", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    res.json({
+      enabled: isEmailEnabled(),
+      fromConfigured: Boolean(process.env.NEX_EMAIL_FROM?.trim()),
+    });
+  });
+
   app.get("/api/admin/insights", isAuthenticated, async (req: any, res) => {
     if (!(await isAdmin(req))) {
       return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
     }
     const out = await storage.getAdminInsightsSnapshot();
     res.json(out);
-  });
-
-  app.get("/api/admin/user-activity", isAuthenticated, async (req: any, res) => {
-    if (!(await isAdmin(req))) {
-      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
-    }
-    const rows = await storage.listAdminUserActivitySummary();
-    res.json(rows);
   });
 
   // Admin: get all submitted tracks across all pipeline statuses

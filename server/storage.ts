@@ -10,17 +10,16 @@ import {
   battles,
   battleVotes,
   battleListenCompletions,
-  battleWinEmails,
   comments,
   notifications,
-  userActivityStats,
+  battleWinEmails,
+  creatorEngagementEmails,
+  analyticsEvents,
   trackClaimRequests,
   boostTickets,
   boostUsageLogs,
   boostImpressionEvents,
   boostStatus,
-  dataDailyTrackSnapshots,
-  dataDailyPlatformSnapshots,
   type Profile,
   type Track,
   type Follow,
@@ -36,25 +35,17 @@ import {
   isExportableRegistrationEmail,
   publicTrackPageUrl,
 } from "./adminExport";
-import {
-  type B2bAiInsightRow,
-  type B2bBattleExportRow,
-  type B2bBattleVoteExportRow,
-  type B2bCatalogExportRow,
-  type B2bDailyPlatformSnapshotRow,
-  type B2bDailyTrackSnapshotRow,
-  type B2bPlayExportRow,
-  exportListenerId,
-} from "./b2bExport";
-import { utcMidnight } from "./dailySnapshot";
 import { db } from "./db";
 import {
   isEmailEnabled,
-  sendBattleWinEmail,
   sendTrackApprovedEmail,
   sendTrackLikedEmail,
   sendTrackRejectedEmail,
+  sendBattleWinEmail,
+  sendCreatorFollowedEmail,
+  sendTrackPlayedEmail,
 } from "./email";
+import { recordServerAnalyticsEvent } from "./analytics";
 import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull, isNull } from "drizzle-orm";
 
 const RANKING_WEIGHT_BATTLE = 0.5;
@@ -321,31 +312,13 @@ export interface IStorage {
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
   submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; coverImageUrl?: string | null; portfolioLink?: string | null; creatorId: number }): Promise<Track>;
-  checkAndPromoteToChart(trackId: number): Promise<boolean>;
+  checkAndPromoteToChart(trackId: number): Promise<void>;
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
   likeTrack(userId: string, trackId: number): Promise<{ likesCount: number }>;
   /** True if this user already has a like for this track for the current UTC calendar day. */
   hasLikedTrackToday(userId: string, trackId: number): Promise<boolean>;
-  recordPlay(
-    userId: string,
-    trackId: number,
-    opts?: { completed?: boolean; listenerCountry?: string | null; deviceClass?: string | null; referrerHost?: string | null },
-  ): Promise<{ counted: boolean; completionUpdated: boolean }>;
-  recordGuestPlay(
-    sessionKey: string,
-    trackId: number,
-    opts?: { completed?: boolean; deviceClass?: string | null; referrerHost?: string | null },
-  ): Promise<{ counted: boolean; completionUpdated: boolean }>;
-  captureDailySnapshots(snapshotDate?: Date): Promise<{ snapshotDate: string; trackRows: number; platformCaptured: boolean }>;
-  getSnapshotStatus(): Promise<{ lastTrackSnapshotDate: string | null; lastPlatformSnapshotDate: string | null; trackSnapshotDays: number }>;
-  getB2bPlayExportRows(opts?: { since?: Date; limit?: number }): Promise<B2bPlayExportRow[]>;
-  getB2bBattleExportRows(): Promise<B2bBattleExportRow[]>;
-  getB2bBattleVoteExportRows(opts?: { since?: Date; limit?: number }): Promise<B2bBattleVoteExportRow[]>;
-  getB2bDailyTrackSnapshotExportRows(opts?: { since?: Date }): Promise<B2bDailyTrackSnapshotRow[]>;
-  getB2bDailyPlatformSnapshotExportRows(opts?: { since?: Date }): Promise<B2bDailyPlatformSnapshotRow[]>;
-  getB2bCatalogExportRows(): Promise<B2bCatalogExportRow[]>;
-  getB2bAiInsightExportRows(): Promise<B2bAiInsightRow[]>;
+  recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }>;
   updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void>;
   updateTrackMetadata(
     id: number,
@@ -383,13 +356,7 @@ export interface IStorage {
     userId: string,
     trackId: number,
     opts?: { skipListenCheck?: boolean },
-  ): Promise<{
-    trackAVotes: number;
-    trackBVotes: number;
-    winnerId: number;
-    trackAWinStreak: number;
-    trackBWinStreak: number;
-  }>;
+  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }>;
   getRisingTracks(q?: string): Promise<any[]>;
   addComment(userId: string, trackId: number, content: string): Promise<void>;
   listTrackComments(
@@ -520,23 +487,6 @@ export interface IStorage {
       battles: number;
     };
   }>;
-  recordUserLogin(userId: string): Promise<void>;
-  recordUserVisit(userId: string): Promise<void>;
-  listAdminUserActivitySummary(): Promise<
-    {
-      userId: string;
-      email: string | null;
-      username: string | null;
-      role: string | null;
-      lastLoginAt: string | null;
-      lastVisitAt: string | null;
-      visitCount: number;
-      tracksPlayedCount: number;
-      battleVoteCount: number;
-      signedUpAt: string | null;
-      activityStatus: "active" | "inactive";
-    }[]
-  >;
   checkBoostEligibility(params: {
     ownerProfileId: number;
     trackId: number;
@@ -691,9 +641,7 @@ export class DatabaseStorage implements IStorage {
     const completedPlaysCount = completedResult?.count || 0;
 
     const [uniqueResult] = await db
-      .select({
-        count: sql<number>`count(distinct coalesce(${trackPlays.userId}, ${trackPlays.sessionKey}))`,
-      })
+      .select({ count: sql<number>`count(distinct ${trackPlays.userId})` })
       .from(trackPlays)
       .where(eq(trackPlays.trackId, trackId));
     const uniqueListenersCount = Number(uniqueResult?.count || 0);
@@ -1330,166 +1278,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  private utcDayStart(d: Date): Date {
-    const x = new Date(d);
-    x.setUTCHours(0, 0, 0, 0);
-    return x;
-  }
-
-  private async ensureUserActivityStatsRow(userId: string): Promise<void> {
-    const id = String(userId ?? "").trim();
-    if (!id) return;
-    try {
-      await db.insert(userActivityStats).values({ userId: id }).onConflictDoNothing();
-    } catch (err) {
-      if (isMissingRelationError(err)) return;
-      throw err;
-    }
-  }
-
-  async recordUserVisit(userId: string): Promise<void> {
-    const id = String(userId ?? "").trim();
-    if (!id) return;
-    await this.ensureUserActivityStatsRow(id);
-    try {
-      const now = new Date();
-      const todayStart = this.utcDayStart(now);
-      const [row] = await db.select().from(userActivityStats).where(eq(userActivityStats.userId, id));
-      if (!row) return;
-      const lastVisitDay = row.lastVisitAt ? this.utcDayStart(row.lastVisitAt) : null;
-      const isNewDay = !lastVisitDay || lastVisitDay.getTime() < todayStart.getTime();
-      await db
-        .update(userActivityStats)
-        .set({
-          lastVisitAt: now,
-          visitCount: isNewDay ? sql`${userActivityStats.visitCount} + 1` : row.visitCount,
-          updatedAt: now,
-        })
-        .where(eq(userActivityStats.userId, id));
-    } catch (err) {
-      if (isMissingRelationError(err)) return;
-      throw err;
-    }
-  }
-
-  async recordUserLogin(userId: string): Promise<void> {
-    const id = String(userId ?? "").trim();
-    if (!id) return;
-    await this.ensureUserActivityStatsRow(id);
-    try {
-      const now = new Date();
-      await db
-        .update(userActivityStats)
-        .set({ lastLoginAt: now, updatedAt: now })
-        .where(eq(userActivityStats.userId, id));
-      await this.recordUserVisit(id);
-    } catch (err) {
-      if (isMissingRelationError(err)) return;
-      throw err;
-    }
-  }
-
-  private async incrementUserTracksPlayed(userId: string): Promise<void> {
-    const id = String(userId ?? "").trim();
-    if (!id) return;
-    await this.ensureUserActivityStatsRow(id);
-    try {
-      await db
-        .update(userActivityStats)
-        .set({
-          tracksPlayedCount: sql`${userActivityStats.tracksPlayedCount} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(userActivityStats.userId, id));
-    } catch (err) {
-      if (isMissingRelationError(err)) return;
-      throw err;
-    }
-  }
-
-  private async incrementUserBattleVotes(userId: string): Promise<void> {
-    const id = String(userId ?? "").trim();
-    if (!id) return;
-    await this.ensureUserActivityStatsRow(id);
-    try {
-      await db
-        .update(userActivityStats)
-        .set({
-          battleVoteCount: sql`${userActivityStats.battleVoteCount} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(userActivityStats.userId, id));
-    } catch (err) {
-      if (isMissingRelationError(err)) return;
-      throw err;
-    }
-  }
-
-  private async backfillUserActivityCounters(): Promise<void> {
-    try {
-      await db.execute(sql`
-        INSERT INTO user_activity_stats (user_id, tracks_played_count, battle_vote_count, updated_at)
-        SELECT u.id,
-          COALESCE((SELECT count(DISTINCT tp.track_id)::int FROM track_plays tp WHERE tp.user_id = u.id), 0),
-          COALESCE((SELECT count(*)::int FROM battle_votes bv WHERE bv.user_id = u.id), 0),
-          now()
-        FROM users u
-        ON CONFLICT (user_id) DO UPDATE SET
-          tracks_played_count = GREATEST(user_activity_stats.tracks_played_count, EXCLUDED.tracks_played_count),
-          battle_vote_count = GREATEST(user_activity_stats.battle_vote_count, EXCLUDED.battle_vote_count),
-          updated_at = now()
-      `);
-    } catch (err) {
-      if (isMissingRelationError(err)) return;
-      throw err;
-    }
-  }
-
-  async listAdminUserActivitySummary() {
-    await this.backfillUserActivityCounters();
-    const activeSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    try {
-      const rows = await db
-        .select({
-          userId: users.id,
-          email: users.email,
-          username: profiles.username,
-          role: profiles.role,
-          lastLoginAt: userActivityStats.lastLoginAt,
-          lastVisitAt: userActivityStats.lastVisitAt,
-          visitCount: userActivityStats.visitCount,
-          tracksPlayedCount: userActivityStats.tracksPlayedCount,
-          battleVoteCount: userActivityStats.battleVoteCount,
-          signedUpAt: users.createdAt,
-        })
-        .from(users)
-        .leftJoin(profiles, eq(profiles.userId, users.id))
-        .leftJoin(userActivityStats, eq(userActivityStats.userId, users.id))
-        .orderBy(desc(sql`coalesce(${userActivityStats.lastVisitAt}, ${users.createdAt})`));
-
-      return rows.map((r) => {
-        const lastVisitAt = r.lastVisitAt ?? null;
-        return {
-          userId: r.userId,
-          email: r.email ?? null,
-          username: r.username ?? null,
-          role: r.role ?? null,
-          lastLoginAt: r.lastLoginAt?.toISOString() ?? null,
-          lastVisitAt: lastVisitAt?.toISOString() ?? null,
-          visitCount: Number(r.visitCount ?? 0),
-          tracksPlayedCount: Number(r.tracksPlayedCount ?? 0),
-          battleVoteCount: Number(r.battleVoteCount ?? 0),
-          signedUpAt: r.signedUpAt?.toISOString() ?? null,
-          activityStatus:
-            lastVisitAt && lastVisitAt >= activeSince ? ("active" as const) : ("inactive" as const),
-        };
-      });
-    } catch (err) {
-      if (isMissingRelationError(err)) return [];
-      throw err;
-    }
-  }
-
   async createTrack(t: any): Promise<Track> {
     const now = new Date();
     const isVideo = t.trackType === "video";
@@ -1772,23 +1560,7 @@ export class DatabaseStorage implements IStorage {
     return { likesCount: await this.readTrackLikesCount(trackId) };
   }
 
-  private playContextFields(opts?: {
-    listenerCountry?: string | null;
-    deviceClass?: string | null;
-    referrerHost?: string | null;
-  }) {
-    return {
-      listenerCountry: opts?.listenerCountry ?? null,
-      deviceClass: opts?.deviceClass ?? null,
-      referrerHost: opts?.referrerHost ?? null,
-    };
-  }
-
-  async recordPlay(
-    userId: string,
-    trackId: number,
-    opts?: { completed?: boolean; listenerCountry?: string | null; deviceClass?: string | null; referrerHost?: string | null },
-  ): Promise<{ counted: boolean; completionUpdated: boolean }> {
+  async recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }> {
     if (!String(userId ?? "").trim()) {
       return { counted: false, completionUpdated: false };
     }
@@ -1835,76 +1607,21 @@ export class DatabaseStorage implements IStorage {
       return { counted: false, completionUpdated: false };
     }
 
-    const ctx = this.playContextFields(opts);
     try {
-      await db.insert(trackPlays).values({ userId, trackId, completed, ...ctx });
+      await db.insert(trackPlays).values({ userId, trackId, completed });
     } catch (e: any) {
       if (isPostgresFkViolation(e)) {
         await this.createUser({ id: userId });
-        await db.insert(trackPlays).values({ userId, trackId, completed, ...ctx });
+        await db.insert(trackPlays).values({ userId, trackId, completed });
       } else {
         throw e;
       }
     }
 
     await this.bumpPlayMetricsSafe(trackId, !!hadAny, completed);
-    if (!hadAny) void this.incrementUserTracksPlayed(userId).catch(() => {});
-    return { counted: true, completionUpdated: false };
-  }
-
-  async recordGuestPlay(
-    sessionKey: string,
-    trackId: number,
-    opts?: { completed?: boolean; deviceClass?: string | null; referrerHost?: string | null },
-  ): Promise<{ counted: boolean; completionUpdated: boolean }> {
-    const key = String(sessionKey ?? "").trim();
-    if (!key || key.length < 8) {
-      return { counted: false, completionUpdated: false };
+    if (!hadAny) {
+      void this.notifyTrackPlayed(trackId, userId).catch(() => {});
     }
-    if (!Number.isFinite(trackId) || trackId <= 0) {
-      return { counted: false, completionUpdated: false };
-    }
-
-    const completed = !!opts?.completed;
-    const [hadAny] = await db
-      .select({ id: trackPlays.id })
-      .from(trackPlays)
-      .where(and(eq(trackPlays.sessionKey, key), eq(trackPlays.trackId, trackId)))
-      .limit(1);
-
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const [recent] = await db
-      .select()
-      .from(trackPlays)
-      .where(
-        and(eq(trackPlays.sessionKey, key), eq(trackPlays.trackId, trackId), gt(trackPlays.playedAt, tenMinutesAgo)),
-      );
-
-    if (recent) {
-      if (completed && !recent.completed) {
-        await db.update(trackPlays).set({ completed: true }).where(eq(trackPlays.id, recent.id));
-        try {
-          await this.ensureTrackMetricsRow(trackId);
-          await db.update(trackMetrics).set({
-            completedPlaysCount: sql`${trackMetrics.completedPlaysCount} + 1`,
-            updatedAt: new Date(),
-          }).where(eq(trackMetrics.trackId, trackId));
-          this.scheduleRecomputeTrackRankingScore(trackId);
-        } catch (metricsErr: any) {
-          console.error("[play/guest] completion metrics failed", {
-            trackId,
-            code: getPostgresSqlState(metricsErr),
-            message: metricsErr?.message,
-          });
-        }
-        return { counted: false, completionUpdated: true };
-      }
-      return { counted: false, completionUpdated: false };
-    }
-
-    const ctx = this.playContextFields(opts);
-    await db.insert(trackPlays).values({ sessionKey: key, trackId, completed, ...ctx });
-    await this.bumpPlayMetricsSafe(trackId, !!hadAny, completed);
     return { counted: true, completionUpdated: false };
   }
 
@@ -1989,7 +1706,9 @@ export class DatabaseStorage implements IStorage {
         .where(or(eq(battles.trackAId, trackId), eq(battles.trackBId, trackId), eq(battles.winnerId, trackId)));
       const battleIds = [...new Set(affectedBattles.map((b) => b.id))];
       if (battleIds.length) {
-        await tx.update(battles).set({ isArchived: true }).where(inArray(battles.id, battleIds));
+        await tx.delete(battleListenCompletions).where(inArray(battleListenCompletions.battleId, battleIds));
+        await tx.delete(battleVotes).where(inArray(battleVotes.battleId, battleIds));
+        await tx.delete(battles).where(inArray(battles.id, battleIds));
       }
 
       await tx.update(tracks).set({
@@ -2179,6 +1898,12 @@ export class DatabaseStorage implements IStorage {
       trackAId: trackA.id,
       trackBId: trackB.id,
     }).returning();
+
+    void recordServerAnalyticsEvent({
+      eventName: "battle_start",
+      userId: requesterUserId,
+      properties: { battleId: battle.id, genre: battleGenre, trackAId: trackA.id, trackBId: trackB.id },
+    }).catch(() => {});
 
     return this.getBattle(battle.id);
   }
@@ -2413,6 +2138,13 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoNothing({
         target: [battleListenCompletions.userId, battleListenCompletions.battleId, battleListenCompletions.trackId],
       });
+
+    const side = trackId === battle.trackAId ? "a" : "b";
+    void recordServerAnalyticsEvent({
+      eventName: "battle_listen_complete",
+      userId,
+      properties: { battleId, trackId, side },
+    }).catch(() => {});
   }
 
   private async assertBothBattleTracksListened(battle: Battle, userId: string): Promise<void> {
@@ -2432,58 +2164,14 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  private async syncBattleTalliesFromVotes(battle: Battle): Promise<Battle> {
-    const votes = await db
-      .select({ trackId: battleVotes.trackId })
-      .from(battleVotes)
-      .where(eq(battleVotes.battleId, battle.id));
-
-    let trackAVotes = 0;
-    let trackBVotes = 0;
-    for (const vote of votes) {
-      if (vote.trackId === battle.trackAId) trackAVotes += 1;
-      else if (vote.trackId === battle.trackBId) trackBVotes += 1;
-    }
-
-    const winnerId =
-      trackAVotes === 0 && trackBVotes === 0
-        ? null
-        : trackAVotes >= trackBVotes
-          ? battle.trackAId
-          : battle.trackBId;
-
-    if (
-      battle.trackAVotes === trackAVotes &&
-      battle.trackBVotes === trackBVotes &&
-      battle.winnerId === winnerId
-    ) {
-      return battle;
-    }
-
-    const [updated] = await db
-      .update(battles)
-      .set({ trackAVotes, trackBVotes, winnerId })
-      .where(eq(battles.id, battle.id))
-      .returning();
-    return updated ?? { ...battle, trackAVotes, trackBVotes, winnerId };
-  }
-
   async recordBattleVote(
     battleId: number,
     userId: string,
     trackId: number,
     opts?: { skipListenCheck?: boolean },
-  ): Promise<{
-    trackAVotes: number;
-    trackBVotes: number;
-    winnerId: number;
-    trackAWinStreak: number;
-    trackBWinStreak: number;
-  }> {
-    let [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
+  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }> {
+    const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
     if (!battle) throw new Error("BATTLE_NOT_FOUND");
-
-    battle = await this.syncBattleTalliesFromVotes(battle);
 
     if (!opts?.skipListenCheck) {
       await this.assertBothBattleTracksListened(battle, userId);
@@ -2499,7 +2187,6 @@ export class DatabaseStorage implements IStorage {
 
     // Record vote
     await db.insert(battleVotes).values({ battleId, userId, trackId });
-    void this.incrementUserBattleVotes(userId).catch(() => {});
 
     // Increment vote count for the chosen track
     const isA = trackId === battle.trackAId;
@@ -2545,26 +2232,28 @@ export class DatabaseStorage implements IStorage {
     await db.update(tracks).set({ winStreak: sql`${tracks.winStreak} + 1` }).where(eq(tracks.id, winnerId));
     await db.update(tracks).set({ winStreak: 0 }).where(eq(tracks.id, loserId));
 
+    // Fetch updated streak values
     const [winnerTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, winnerId));
     const [loserTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, loserId));
 
     const trackAWinStreak = winnerId === battle.trackAId ? (winnerTrack?.winStreak ?? 0) : (loserTrack?.winStreak ?? 0);
     const trackBWinStreak = winnerId === battle.trackBId ? (winnerTrack?.winStreak ?? 0) : (loserTrack?.winStreak ?? 0);
 
-    // Non-blocking: email + chart promotion must not delay the vote response.
-    if (trackId === winnerId) {
-      void this.maybeNotifyBattleWin(winnerId, battleId).catch(() => {});
-    }
+    // Check if either battle track should be promoted to CHART (non-blocking)
     void this.checkAndPromoteToChart(battle.trackAId).catch(() => {});
     void this.checkAndPromoteToChart(battle.trackBId).catch(() => {});
 
-    return {
-      trackAVotes: newAVotes,
-      trackBVotes: newBVotes,
-      winnerId,
-      trackAWinStreak,
-      trackBWinStreak,
-    };
+    if (trackId === winnerId) {
+      void this.maybeNotifyBattleWin(winnerId, battleId).catch(() => {});
+    }
+
+    void recordServerAnalyticsEvent({
+      eventName: "battle_vote",
+      userId,
+      properties: { battleId, trackId, winnerId },
+    }).catch(() => {});
+
+    return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId, trackAWinStreak, trackBWinStreak };
   }
 
   async checkAndPromoteToChart(trackId: number): Promise<boolean> {
@@ -2869,9 +2558,6 @@ export class DatabaseStorage implements IStorage {
       });
       const likes = r.metrics?.likesCount ?? 0;
       const creatorName = String(t.artistName ?? "").trim() || r.profile.username;
-      const adminSubmittedForArtist =
-        r.profile.role === "admin" &&
-        creatorName.toLowerCase() !== String(r.profile.username ?? "").trim().toLowerCase();
       const chartRank =
         t.status === "CHART" && t.trackType === "audio"
           ? (audioChartRank.get(t.id) ?? null)
@@ -2882,10 +2568,7 @@ export class DatabaseStorage implements IStorage {
       return {
         trackId: t.id,
         creatorName,
-        ytHandle: extractYoutubeHandle(t.audioUrl, t.mvUrl, r.profile.username, [
-          t.description,
-          t.aiPrompt,
-        ]),
+        ytHandle: extractYoutubeHandle(t.audioUrl, t.mvUrl, r.profile.username),
         trackName: String(t.title ?? "").trim(),
         provenanceStatus: t.provenanceStatus ?? "verified",
         claimableByCreators: !!t.claimableByCreators,
@@ -2894,9 +2577,7 @@ export class DatabaseStorage implements IStorage {
         battleWins,
         chartRank,
         trackUrl: publicTrackPageUrl(t.id),
-        registrationEmail: adminSubmittedForArtist
-          ? ""
-          : isExportableRegistrationEmail(r.email),
+        registrationEmail: isExportableRegistrationEmail(r.email),
       };
     });
 
@@ -3362,6 +3043,7 @@ export class DatabaseStorage implements IStorage {
         }).where(eq(trackMetrics.trackId, row.id));
       }
       await this.recomputeCreatorTrackRankingScores(creatorProfileId);
+      void this.notifyCreatorFollowed(creatorProfileId, followerId).catch(() => {});
     }
   }
 
@@ -3781,70 +3463,6 @@ export class DatabaseStorage implements IStorage {
     return empty;
   }
 
-  async maybeNotifyBattleWin(
-    winnerTrackId: number,
-    battleId: number,
-  ): Promise<{ sent: boolean; skipReason?: string; detail?: string }> {
-    try {
-      const [already] = await db
-        .select({ id: battleWinEmails.id })
-        .from(battleWinEmails)
-        .where(and(eq(battleWinEmails.battleId, battleId), eq(battleWinEmails.winnerTrackId, winnerTrackId)))
-        .limit(1);
-      if (already) {
-        return { sent: false, skipReason: "already_sent" };
-      }
-    } catch (err) {
-      if (isMissingRelationError(err)) {
-        return { sent: false, skipReason: "table_missing" };
-      }
-      throw err;
-    }
-
-    const track = await this.getTrack(winnerTrackId);
-    const recipientUserId = track?.creator?.userId;
-    if (!recipientUserId) {
-      console.warn("[notify] battle win — missing creator userId", { battleId, winnerTrackId });
-      return { sent: false, skipReason: "no_creator_user" };
-    }
-
-    const title = track.title ?? "Your track";
-    await this.createNotification({
-      recipientUserId,
-      type: "battle_win",
-      title: "Battle win!",
-      body: `"${title}" won battle #${battleId} on NEX.`,
-      trackId: winnerTrackId,
-      href: `/track/${winnerTrackId}`,
-    });
-
-    const email = await this.emailCreator(recipientUserId, (to) =>
-      sendBattleWinEmail({ to, trackTitle: title, trackId: winnerTrackId }),
-    );
-
-    if (email.sent) {
-      try {
-        await db
-          .insert(battleWinEmails)
-          .values({ battleId, winnerTrackId })
-          .onConflictDoNothing();
-      } catch (err) {
-        if (!isMissingRelationError(err)) throw err;
-      }
-      console.info("[notify] battle win email sent", { battleId, winnerTrackId, recipientUserId });
-    } else {
-      console.warn("[notify] battle win email not sent", {
-        battleId,
-        winnerTrackId,
-        recipientUserId,
-        skipReason: email.skipReason,
-        detail: email.detail,
-      });
-    }
-
-    return email;
-  }
-
   async notifyTrackLiked(trackId: number, likerUserId: string): Promise<void> {
     const track = await this.getTrack(trackId);
     const recipientUserId = track?.creator?.userId;
@@ -3883,427 +3501,124 @@ export class DatabaseStorage implements IStorage {
     });
     void this.emailCreator(recipientUserId, (to) =>
       sendTrackLikedEmail({ to, trackTitle: title, trackId }),
+    ).catch((err) => console.warn("[email] track liked notify failed", err));
+  }
+
+  private async markEngagementEmailSent(kind: string, dedupeKey: string, recipientUserId: string): Promise<boolean> {
+    try {
+      await db.insert(creatorEngagementEmails).values({
+        kind,
+        dedupeKey,
+        recipientUserId,
+      });
+      return true;
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "23505") return false;
+      if (isMissingRelationError(err)) return false;
+      throw err;
+    }
+  }
+
+  async maybeNotifyBattleWin(winnerTrackId: number, battleId: number): Promise<void> {
+    let claimed = false;
+    try {
+      const inserted = await db
+        .insert(battleWinEmails)
+        .values({ battleId, winnerTrackId })
+        .onConflictDoNothing()
+        .returning({ id: battleWinEmails.id });
+      claimed = inserted.length > 0;
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+    if (!claimed) return;
+
+    const track = await this.getTrack(winnerTrackId);
+    const recipientUserId = track?.creator?.userId;
+    if (!recipientUserId) return;
+
+    const title = track.title ?? "Your track";
+    await this.createNotification({
+      recipientUserId,
+      type: "battle_win",
+      title: "Battle win!",
+      body: `"${title}" won a battle on NEX.`,
+      trackId: winnerTrackId,
+      href: `/track/${winnerTrackId}`,
+    });
+
+    await this.emailCreator(recipientUserId, (to) =>
+      sendBattleWinEmail({ to, trackTitle: title, trackId: winnerTrackId }),
     );
   }
 
-  async captureDailySnapshots(snapshotDate = utcMidnight()): Promise<{
-    snapshotDate: string;
-    trackRows: number;
-    platformCaptured: boolean;
-  }> {
-    const day = utcMidnight(snapshotDate);
-    const dayIso = day.toISOString().slice(0, 10);
+  async notifyTrackPlayed(trackId: number, listenerUserId: string): Promise<void> {
+    const track = await this.getTrack(trackId);
+    const recipientUserId = track?.creator?.userId;
+    if (!recipientUserId || recipientUserId === listenerUserId) return;
 
-    try {
-      await db.select({ id: dataDailyTrackSnapshots.id }).from(dataDailyTrackSnapshots).limit(1);
-    } catch (err: any) {
-      if (getPostgresSqlState(err) === "42P01") {
-        console.warn("[snapshots] tables missing — run npm run db:migrate-b2b");
-        return { snapshotDate: dayIso, trackRows: 0, platformCaptured: false };
-      }
-      throw err;
-    }
+    const todayStartUtc = new Date();
+    todayStartUtc.setUTCHours(0, 0, 0, 0);
+    const dedupeKey = `track_play:${trackId}:${todayStartUtc.toISOString().slice(0, 10)}`;
 
-    const insights = await this.getAdminInsightsSnapshot();
+    const reserved = await this.markEngagementEmailSent("track_play", dedupeKey, recipientUserId);
+    if (!reserved) return;
 
-    const allTracks = await db
-      .select({
-        track: tracks,
-        metrics: trackMetrics,
-      })
-      .from(tracks)
-      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id));
-
-    const audioChart = await db
-      .select({ id: tracks.id })
-      .from(tracks)
-      .where(and(eq(tracks.isDeleted, false), eq(tracks.status, "CHART"), eq(tracks.trackType, "audio")))
-      .orderBy(desc(tracks.rankingScore));
-    const audioChartRank = new Map(audioChart.map((t, i) => [t.id, i + 1]));
-
-    const mvChart = await db
-      .select({ id: tracks.id })
-      .from(tracks)
-      .where(and(eq(tracks.isDeleted, false), eq(tracks.status, "MV"), eq(tracks.trackType, "video")))
-      .orderBy(desc(tracks.rankingScore), desc(tracks.playCount));
-    const mvChartRank = new Map(mvChart.map((t, i) => [t.id, i + 1]));
-
-    let trackRows = 0;
-    for (const row of allTracks) {
-      const t = row.track;
-      const m = row.metrics;
-      const chartRank =
-        t.status === "CHART" && t.trackType === "audio"
-          ? (audioChartRank.get(t.id) ?? null)
-          : t.status === "MV" && t.trackType === "video"
-            ? (mvChartRank.get(t.id) ?? null)
-            : null;
-
-      await db
-        .insert(dataDailyTrackSnapshots)
-        .values({
-          snapshotDate: day,
-          trackId: t.id,
-          title: t.title,
-          genre: t.genre,
-          aiTool: t.aiTool,
-          trackType: t.trackType,
-          status: t.status,
-          provenanceStatus: t.provenanceStatus ?? "verified",
-          isDeleted: t.isDeleted,
-          playsCount: m?.playsCount ?? t.playCount ?? 0,
-          likesCount: m?.likesCount ?? 0,
-          completedPlaysCount: m?.completedPlaysCount ?? 0,
-          uniqueListenersCount: m?.uniqueListenersCount ?? 0,
-          battleWinsCount: m?.battleWinsCount ?? 0,
-          battleTotalCount: m?.battleTotalCount ?? 0,
-          chartRank,
-          rankingScore: t.rankingScore ?? 0,
-          listenerVotes: t.listenerVotes ?? 0,
-        })
-        .onConflictDoUpdate({
-          target: [dataDailyTrackSnapshots.snapshotDate, dataDailyTrackSnapshots.trackId],
-          set: {
-            title: t.title,
-            genre: t.genre,
-            aiTool: t.aiTool,
-            trackType: t.trackType,
-            status: t.status,
-            provenanceStatus: t.provenanceStatus ?? "verified",
-            isDeleted: t.isDeleted,
-            playsCount: m?.playsCount ?? t.playCount ?? 0,
-            likesCount: m?.likesCount ?? 0,
-            completedPlaysCount: m?.completedPlaysCount ?? 0,
-            uniqueListenersCount: m?.uniqueListenersCount ?? 0,
-            battleWinsCount: m?.battleWinsCount ?? 0,
-            battleTotalCount: m?.battleTotalCount ?? 0,
-            chartRank,
-            rankingScore: t.rankingScore ?? 0,
-            listenerVotes: t.listenerVotes ?? 0,
-          },
-        });
-      trackRows += 1;
-    }
-
-    await db
-      .insert(dataDailyPlatformSnapshots)
-      .values({
-        snapshotDate: day,
-        creators: insights.totals.creators,
-        userSignups: insights.totals.userSignups,
-        tracks: insights.totals.tracks,
-        tracksApproved: insights.totals.tracksApproved,
-        tracksPending: insights.totals.tracksPending,
-        tracksChart: insights.totals.tracksChart,
-        plays: insights.totals.plays,
-        likes: insights.totals.likes,
-        listenerVotes: insights.totals.listenerVotes,
-        battles: insights.totals.battles,
-        battleWins: insights.totals.battleWins,
-        activeBoosts: insights.totals.activeBoosts,
-        trackPlaysToday: insights.today.plays,
-        votesToday: insights.today.votes,
-        battlesToday: insights.today.battles,
-        newTracksToday: insights.today.newTracks,
-        newUserSignupsToday: insights.today.newUserSignups,
-      })
-      .onConflictDoUpdate({
-        target: dataDailyPlatformSnapshots.snapshotDate,
-        set: {
-          creators: insights.totals.creators,
-          userSignups: insights.totals.userSignups,
-          tracks: insights.totals.tracks,
-          tracksApproved: insights.totals.tracksApproved,
-          tracksPending: insights.totals.tracksPending,
-          tracksChart: insights.totals.tracksChart,
-          plays: insights.totals.plays,
-          likes: insights.totals.likes,
-          listenerVotes: insights.totals.listenerVotes,
-          battles: insights.totals.battles,
-          battleWins: insights.totals.battleWins,
-          activeBoosts: insights.totals.activeBoosts,
-          trackPlaysToday: insights.today.plays,
-          votesToday: insights.today.votes,
-          battlesToday: insights.today.battles,
-          newTracksToday: insights.today.newTracks,
-          newUserSignupsToday: insights.today.newUserSignups,
-        },
-      });
-
-    return { snapshotDate: dayIso, trackRows, platformCaptured: true };
-  }
-
-  async getSnapshotStatus(): Promise<{
-    lastTrackSnapshotDate: string | null;
-    lastPlatformSnapshotDate: string | null;
-    trackSnapshotDays: number;
-  }> {
-    const [lastTrack] = await db
-      .select({ d: dataDailyTrackSnapshots.snapshotDate })
-      .from(dataDailyTrackSnapshots)
-      .orderBy(desc(dataDailyTrackSnapshots.snapshotDate))
-      .limit(1);
-    const [lastPlatform] = await db
-      .select({ d: dataDailyPlatformSnapshots.snapshotDate })
-      .from(dataDailyPlatformSnapshots)
-      .orderBy(desc(dataDailyPlatformSnapshots.snapshotDate))
-      .limit(1);
-    const [daysRow] = await db
-      .select({ c: sql<number>`count(distinct ${dataDailyTrackSnapshots.snapshotDate})` })
-      .from(dataDailyTrackSnapshots);
-
-    return {
-      lastTrackSnapshotDate: lastTrack?.d ? new Date(lastTrack.d).toISOString().slice(0, 10) : null,
-      lastPlatformSnapshotDate: lastPlatform?.d ? new Date(lastPlatform.d).toISOString().slice(0, 10) : null,
-      trackSnapshotDays: Number(daysRow?.c ?? 0),
-    };
-  }
-
-  async getB2bPlayExportRows(opts?: { since?: Date; limit?: number }): Promise<B2bPlayExportRow[]> {
-    const limit = Math.min(Math.max(opts?.limit ?? 500_000, 1), 500_000);
-    const conditions = opts?.since ? [gte(trackPlays.playedAt, opts.since)] : [];
-    const rows = await db
-      .select()
-      .from(trackPlays)
-      .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(desc(trackPlays.playedAt))
-      .limit(limit);
-
-    return rows.map((r) => {
-      const { listenerType, listenerId } = exportListenerId(r.userId, r.sessionKey);
-      return {
-        playId: r.id,
-        trackId: r.trackId,
-        listenerType,
-        listenerId,
-        listenerCountry: String(r.listenerCountry ?? "").trim(),
-        deviceClass: String(r.deviceClass ?? "").trim() || "unknown",
-        referrerHost: String(r.referrerHost ?? "").trim(),
-        completed: r.completed,
-        playedAt: new Date(r.playedAt).toISOString(),
-      };
+    const title = track.title ?? "Your track";
+    await this.createNotification({
+      recipientUserId,
+      type: "track_played",
+      title: "New play on your track",
+      body: `Someone played "${title}" on NEX today.`,
+      trackId,
+      href: `/track/${trackId}`,
     });
+
+    void this.emailCreator(recipientUserId, (to) =>
+      sendTrackPlayedEmail({ to, trackTitle: title, trackId }),
+    ).catch((err) => console.warn("[email] track play notify failed", err));
   }
 
-  async getB2bBattleExportRows(): Promise<B2bBattleExportRow[]> {
-    const rows = await db.select().from(battles).orderBy(desc(battles.id));
-    return rows.map((b) => ({
-      battleId: b.id,
-      genre: b.genre,
-      trackAId: b.trackAId,
-      trackBId: b.trackBId,
-      trackAVotes: b.trackAVotes,
-      trackBVotes: b.trackBVotes,
-      winnerId: b.winnerId,
-      isArchived: !!(b as { isArchived?: boolean }).isArchived,
-      createdAt: new Date(b.createdAt).toISOString(),
-    }));
-  }
+  async notifyCreatorFollowed(creatorProfileId: number, followerUserId: string): Promise<void> {
+    const [creator] = await db
+      .select({ userId: profiles.userId, username: profiles.username })
+      .from(profiles)
+      .where(eq(profiles.id, creatorProfileId));
+    const recipientUserId = creator?.userId;
+    if (!recipientUserId || recipientUserId === followerUserId) return;
 
-  async getB2bBattleVoteExportRows(opts?: { since?: Date; limit?: number }): Promise<B2bBattleVoteExportRow[]> {
-    const limit = Math.min(Math.max(opts?.limit ?? 500_000, 1), 500_000);
-    const conditions = opts?.since ? [gte(battleVotes.votedAt, opts.since)] : [];
-    const rows = await db
-      .select()
-      .from(battleVotes)
-      .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(desc(battleVotes.votedAt))
-      .limit(limit);
+    const [followerProfile] = await db
+      .select({ username: profiles.username })
+      .from(profiles)
+      .where(eq(profiles.userId, followerUserId));
+    const followerUser = await this.getUserById(followerUserId);
+    const followerDisplayName =
+      followerProfile?.username?.trim() ||
+      [followerUser?.firstName, followerUser?.lastName].filter(Boolean).join(" ").trim() ||
+      "A NEX listener";
 
-    return rows.map((v) => ({
-      voteId: v.id,
-      battleId: v.battleId,
-      trackId: v.trackId,
-      listenerId: exportListenerId(v.userId, null).listenerId,
-      votedAt: new Date(v.votedAt).toISOString(),
-    }));
-  }
+    const dedupeKey = `follow:${creatorProfileId}:follower:${followerUserId}`;
+    const reserved = await this.markEngagementEmailSent("creator_follow", dedupeKey, recipientUserId);
+    if (!reserved) return;
 
-  async getB2bDailyTrackSnapshotExportRows(opts?: { since?: Date }): Promise<B2bDailyTrackSnapshotRow[]> {
-    const conditions = opts?.since ? [gte(dataDailyTrackSnapshots.snapshotDate, opts.since)] : [];
-    const rows = await db
-      .select()
-      .from(dataDailyTrackSnapshots)
-      .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(desc(dataDailyTrackSnapshots.snapshotDate), desc(dataDailyTrackSnapshots.trackId));
-
-    return rows.map((r) => ({
-      snapshotDate: new Date(r.snapshotDate).toISOString().slice(0, 10),
-      trackId: r.trackId,
-      title: r.title,
-      genre: r.genre,
-      aiTool: r.aiTool,
-      trackType: r.trackType,
-      status: r.status,
-      provenanceStatus: r.provenanceStatus,
-      isDeleted: r.isDeleted,
-      playsCount: r.playsCount,
-      likesCount: r.likesCount,
-      completedPlaysCount: r.completedPlaysCount,
-      uniqueListenersCount: r.uniqueListenersCount,
-      battleWinsCount: r.battleWinsCount,
-      battleTotalCount: r.battleTotalCount,
-      chartRank: r.chartRank,
-      rankingScore: r.rankingScore,
-      listenerVotes: r.listenerVotes,
-    }));
-  }
-
-  async getB2bDailyPlatformSnapshotExportRows(opts?: { since?: Date }): Promise<B2bDailyPlatformSnapshotRow[]> {
-    const conditions = opts?.since ? [gte(dataDailyPlatformSnapshots.snapshotDate, opts.since)] : [];
-    const rows = await db
-      .select()
-      .from(dataDailyPlatformSnapshots)
-      .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(desc(dataDailyPlatformSnapshots.snapshotDate));
-
-    return rows.map((r) => ({
-      snapshotDate: new Date(r.snapshotDate).toISOString().slice(0, 10),
-      creators: r.creators,
-      userSignups: r.userSignups,
-      tracks: r.tracks,
-      tracksApproved: r.tracksApproved,
-      tracksPending: r.tracksPending,
-      tracksChart: r.tracksChart,
-      plays: r.plays,
-      likes: r.likes,
-      listenerVotes: r.listenerVotes,
-      battles: r.battles,
-      battleWins: r.battleWins,
-      activeBoosts: r.activeBoosts,
-      trackPlaysToday: r.trackPlaysToday,
-      votesToday: r.votesToday,
-      battlesToday: r.battlesToday,
-      newTracksToday: r.newTracksToday,
-      newUserSignupsToday: r.newUserSignupsToday,
-    }));
-  }
-
-  async getB2bCatalogExportRows(): Promise<B2bCatalogExportRow[]> {
-    const rows = await db
-      .select({ track: tracks, metrics: trackMetrics })
-      .from(tracks)
-      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
-      .orderBy(desc(tracks.rankingScore));
-
-    const trackIds = rows.map((r) => r.track.id);
-    const battleStats = trackIds.length > 0 ? await this.getBattleStatsForTracks(trackIds) : {};
-
-    const audioChart = await db
-      .select({ id: tracks.id })
-      .from(tracks)
-      .where(and(eq(tracks.isDeleted, false), eq(tracks.status, "CHART"), eq(tracks.trackType, "audio")))
-      .orderBy(desc(tracks.rankingScore));
-    const audioChartRank = new Map(audioChart.map((t, i) => [t.id, i + 1]));
-
-    return rows.map((r) => {
-      const t = r.track;
-      const m = r.metrics;
-      const bs = battleStats[t.id];
-      const plays = resolvePublicPlayCount({ playCount: t.playCount, playsCount: m?.playsCount });
-      const chartRank =
-        t.status === "CHART" && t.trackType === "audio" ? (audioChartRank.get(t.id) ?? null) : null;
-
-      return {
-        trackId: t.id,
-        title: t.title,
-        artistName: String(t.artistName ?? "").trim(),
-        genre: t.genre,
-        aiTool: t.aiTool,
-        trackType: t.trackType,
-        status: t.status,
-        provenanceStatus: t.provenanceStatus ?? "verified",
-        claimable: !!t.claimableByCreators,
-        isDeleted: t.isDeleted,
-        plays,
-        likes: m?.likesCount ?? 0,
-        battleWins: bs?.wins ?? m?.battleWinsCount ?? 0,
-        battleTotal: bs?.totalBattles ?? m?.battleTotalCount ?? 0,
-        uniqueListeners: m?.uniqueListenersCount ?? 0,
-        chartRank,
-        rankingScore: t.rankingScore ?? 0,
-        createdAt: new Date(t.createdAt).toISOString(),
-        aiPromptCharCount: String(t.aiPrompt ?? "").trim().length,
-      };
+    const profilePath = `/profile/${creator.username}`;
+    await this.createNotification({
+      recipientUserId,
+      type: "creator_followed",
+      title: "New follower",
+      body: `${followerDisplayName} followed you on NEX.`,
+      href: profilePath,
     });
-  }
 
-  async getB2bAiInsightExportRows(): Promise<B2bAiInsightRow[]> {
-    const rows = await db
-      .select({
-        genre: tracks.genre,
-        aiTool: tracks.aiTool,
-        plays: trackMetrics.playsCount,
-        likes: trackMetrics.likesCount,
-        completed: trackMetrics.completedPlaysCount,
-        battleWins: trackMetrics.battleWinsCount,
-        battleTotal: trackMetrics.battleTotalCount,
-      })
-      .from(tracks)
-      .leftJoin(trackMetrics, eq(trackMetrics.trackId, tracks.id))
-      .where(eq(tracks.isDeleted, false));
-
-    const byKey = new Map<
-      string,
-      {
-        genre: string;
-        aiTool: string;
-        trackCount: number;
-        totalPlays: number;
-        totalLikes: number;
-        totalBattleWins: number;
-        totalBattles: number;
-        completionNumerator: number;
-        completionDenominator: number;
-        winNumerator: number;
-        winDenominator: number;
-      }
-    >();
-
-    for (const r of rows) {
-      const key = `${r.genre}\0${r.aiTool}`;
-      const cur = byKey.get(key) ?? {
-        genre: r.genre,
-        aiTool: r.aiTool,
-        trackCount: 0,
-        totalPlays: 0,
-        totalLikes: 0,
-        totalBattleWins: 0,
-        totalBattles: 0,
-        completionNumerator: 0,
-        completionDenominator: 0,
-        winNumerator: 0,
-        winDenominator: 0,
-      };
-      const plays = Number(r.plays ?? 0);
-      const completed = Number(r.completed ?? 0);
-      const battleWins = Number(r.battleWins ?? 0);
-      const battleTotal = Number(r.battleTotal ?? 0);
-      cur.trackCount += 1;
-      cur.totalPlays += plays;
-      cur.totalLikes += Number(r.likes ?? 0);
-      cur.totalBattleWins += battleWins;
-      cur.totalBattles += battleTotal;
-      cur.completionNumerator += completed;
-      cur.completionDenominator += plays;
-      cur.winNumerator += battleWins;
-      cur.winDenominator += battleTotal;
-      byKey.set(key, cur);
-    }
-
-    return [...byKey.values()]
-      .map((g) => ({
-        genre: g.genre,
-        aiTool: g.aiTool,
-        trackCount: g.trackCount,
-        totalPlays: g.totalPlays,
-        totalLikes: g.totalLikes,
-        totalBattleWins: g.totalBattleWins,
-        totalBattles: g.totalBattles,
-        avgWinRate: g.winDenominator > 0 ? g.winNumerator / g.winDenominator : 0,
-        avgCompletionRate: g.completionDenominator > 0 ? g.completionNumerator / g.completionDenominator : 0,
-      }))
-      .sort((a, b) => b.totalPlays - a.totalPlays);
+    void this.emailCreator(recipientUserId, (to) =>
+      sendCreatorFollowedEmail({
+        to,
+        followerDisplayName,
+        creatorProfilePath: profilePath,
+      }),
+    ).catch((err) => console.warn("[email] follow notify failed", err));
   }
 
 }

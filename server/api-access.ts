@@ -67,6 +67,11 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
       return;
     }
 
+    if (req.method === "POST" && req.path === "/api/analytics/event") {
+      next();
+      return;
+    }
+
     if (req.path.startsWith("/api/admin")) {
       isAuthenticated(req, res, () => {
         void (async () => {

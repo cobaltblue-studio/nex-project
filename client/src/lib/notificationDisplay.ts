@@ -44,6 +44,16 @@ export function localizedNotificationCopy(
         title: t("notifications.battleWinTitle"),
         body: t("notifications.battleWinBody", { title }),
       };
+    case "track_played":
+      return {
+        title: n.title,
+        body: n.body,
+      };
+    case "creator_followed":
+      return {
+        title: n.title,
+        body: n.body,
+      };
     default:
       return { title: n.title, body: n.body };
   }

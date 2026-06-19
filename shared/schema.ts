@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, integer, boolean, serial, doublePrecision, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, serial, doublePrecision, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -149,20 +149,11 @@ export const follows = pgTable("follows", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Tracks play history for spam prevention (once per 10 min per listener per track)
+// Tracks play history for spam prevention (once per 10 min per user per track)
 export const trackPlays = pgTable("track_plays", {
   id: serial("id").primaryKey(),
-  /** Null when recorded via anonymous `sessionKey` (guest listener). */
-  userId: varchar("user_id").references(() => users.id),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   trackId: integer("track_id").references(() => tracks.id).notNull(),
-  /** Stable browser session id for guest plays (localStorage). */
-  sessionKey: text("session_key"),
-  /** Profile country when authenticated; null for guests. */
-  listenerCountry: text("listener_country"),
-  /** mobile | desktop | tablet | unknown */
-  deviceClass: text("device_class"),
-  /** Hostname only from document.referrer (no path/query). */
-  referrerHost: text("referrer_host"),
   completed: boolean("completed").default(false).notNull(),
   playedAt: timestamp("played_at").defaultNow().notNull(),
 });
@@ -191,61 +182,6 @@ export const battles = pgTable("battles", {
   trackAVotes: integer("track_a_votes").default(0).notNull(),
   trackBVotes: integer("track_b_votes").default(0).notNull(),
   winnerId: integer("winner_id").references(() => tracks.id),
-  /** Soft-archive when a participating track is removed from catalog (B2B history preserved). */
-  isArchived: boolean("is_archived").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-/** Per-track daily metrics snapshot for time-series / B2B exports. */
-export const dataDailyTrackSnapshots = pgTable(
-  "data_daily_track_snapshots",
-  {
-    id: serial("id").primaryKey(),
-    /** UTC calendar date (midnight UTC). */
-    snapshotDate: timestamp("snapshot_date").notNull(),
-    trackId: integer("track_id").references(() => tracks.id).notNull(),
-    title: text("title").notNull(),
-    genre: text("genre").notNull(),
-    aiTool: text("ai_tool").notNull(),
-    trackType: text("track_type").notNull(),
-    status: text("status").notNull(),
-    provenanceStatus: text("provenance_status").default("verified").notNull(),
-    isDeleted: boolean("is_deleted").default(false).notNull(),
-    playsCount: integer("plays_count").default(0).notNull(),
-    likesCount: integer("likes_count").default(0).notNull(),
-    completedPlaysCount: integer("completed_plays_count").default(0).notNull(),
-    uniqueListenersCount: integer("unique_listeners_count").default(0).notNull(),
-    battleWinsCount: integer("battle_wins_count").default(0).notNull(),
-    battleTotalCount: integer("battle_total_count").default(0).notNull(),
-    chartRank: integer("chart_rank"),
-    rankingScore: doublePrecision("ranking_score").default(0).notNull(),
-    listenerVotes: integer("listener_votes").default(0).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => [uniqueIndex("data_daily_track_snapshots_date_track_unique").on(t.snapshotDate, t.trackId)],
-);
-
-/** Platform-wide daily rollup (insights history). */
-export const dataDailyPlatformSnapshots = pgTable("data_daily_platform_snapshots", {
-  id: serial("id").primaryKey(),
-  snapshotDate: timestamp("snapshot_date").notNull().unique(),
-  creators: integer("creators").default(0).notNull(),
-  userSignups: integer("user_signups").default(0).notNull(),
-  tracks: integer("tracks").default(0).notNull(),
-  tracksApproved: integer("tracks_approved").default(0).notNull(),
-  tracksPending: integer("tracks_pending").default(0).notNull(),
-  tracksChart: integer("tracks_chart").default(0).notNull(),
-  plays: integer("plays").default(0).notNull(),
-  likes: integer("likes").default(0).notNull(),
-  listenerVotes: integer("listener_votes").default(0).notNull(),
-  battles: integer("battles").default(0).notNull(),
-  battleWins: integer("battle_wins").default(0).notNull(),
-  activeBoosts: integer("active_boosts").default(0).notNull(),
-  trackPlaysToday: integer("track_plays_today").default(0).notNull(),
-  votesToday: integer("votes_today").default(0).notNull(),
-  battlesToday: integer("battles_today").default(0).notNull(),
-  newTracksToday: integer("new_tracks_today").default(0).notNull(),
-  newUserSignupsToday: integer("new_user_signups_today").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -271,6 +207,14 @@ export const battleListenCompletions = pgTable(
   (t) => [uniqueIndex("battle_listen_user_battle_track_unique").on(t.userId, t.battleId, t.trackId)],
 );
 
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  trackId: integer("track_id").references(() => tracks.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   recipientUserId: varchar("recipient_user_id").references(() => users.id).notNull(),
@@ -283,19 +227,19 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/** Per-user engagement counters for admin activity reporting. */
-export const userActivityStats = pgTable("user_activity_stats", {
+/** Append-only product analytics for funnels (session + optional user). */
+export const analyticsEvents = pgTable("analytics_events", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id).notNull().unique(),
-  lastLoginAt: timestamp("last_login_at"),
-  lastVisitAt: timestamp("last_visit_at"),
-  visitCount: integer("visit_count").default(0).notNull(),
-  tracksPlayedCount: integer("tracks_played_count").default(0).notNull(),
-  battleVoteCount: integer("battle_vote_count").default(0).notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  eventName: text("event_name").notNull(),
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: text("session_id").notNull(),
+  pagePath: text("page_path"),
+  properties: jsonb("properties").$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/** One battle-win email per (battle, winning track) — prevents duplicate sends. */
+/** Dedupe battle-win emails per (battle, winning track). */
 export const battleWinEmails = pgTable(
   "battle_win_emails",
   {
@@ -307,13 +251,18 @@ export const battleWinEmails = pgTable(
   (t) => [uniqueIndex("battle_win_emails_battle_track_unique").on(t.battleId, t.winnerTrackId)],
 );
 
-export const comments = pgTable("comments", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  trackId: integer("track_id").references(() => tracks.id).notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+/** Dedupe creator engagement emails (play / follow / like). */
+export const creatorEngagementEmails = pgTable(
+  "creator_engagement_emails",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    recipientUserId: varchar("recipient_user_id").references(() => users.id).notNull(),
+    sentAt: timestamp("sent_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("creator_engagement_emails_kind_dedupe_unique").on(t.kind, t.dedupeKey)],
+);
 
 export const battlesRelations = relations(battles, ({ one, many }) => ({
   trackA: one(tracks, { fields: [battles.trackAId], references: [tracks.id] }),
@@ -402,7 +351,6 @@ export const insertTrackSchema = createInsertSchema(tracks).omit({
   archivedAt: true,
   isDeleted: true,
   claimableByCreators: true,
-  provenanceStatus: true,
   aiPromptEditCount: true,
   aiPromptLastEditedAt: true,
 });
@@ -416,11 +364,9 @@ export type TrackPlay = typeof trackPlays.$inferSelect;
 export type Battle = typeof battles.$inferSelect;
 export type BattleVote = typeof battleVotes.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
-export type Notification = typeof notifications.$inferSelect;
-export type UserActivityStats = typeof userActivityStats.$inferSelect;
-export type BattleWinEmail = typeof battleWinEmails.$inferSelect;
 export type BoostTicket = typeof boostTickets.$inferSelect;
 export type BoostUsageLog = typeof boostUsageLogs.$inferSelect;
 export type BoostStatusRow = typeof boostStatus.$inferSelect;
-export type DataDailyTrackSnapshot = typeof dataDailyTrackSnapshots.$inferSelect;
-export type DataDailyPlatformSnapshot = typeof dataDailyPlatformSnapshots.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type BattleWinEmail = typeof battleWinEmails.$inferSelect;

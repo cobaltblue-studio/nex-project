@@ -182,3 +182,41 @@ export async function sendBattleWinEmail(opts: {
   });
   return sendEmail({ to: opts.to, subject, html, text });
 }
+
+export async function sendCreatorFollowedEmail(opts: {
+  to: string;
+  followerDisplayName: string;
+  creatorProfilePath: string;
+}): Promise<EmailSendResult> {
+  const follower = escapeHtml(opts.followerDisplayName || "Someone");
+  const href = `${siteOrigin()}${opts.creatorProfilePath.startsWith("/") ? opts.creatorProfilePath : `/${opts.creatorProfilePath}`}`;
+  const subject = `[NEX] 새 팔로워 — ${opts.followerDisplayName || "New follower"}`;
+  const text = `${follower}님이 NEX에서 당신을 팔로우했습니다.\n${href}`;
+  const html = emailLayout({
+    headline: "새 팔로워가 생겼어요 ✨",
+    bodyHtml: `<p style="margin:0;"><strong style="color:#fff;">${follower}</strong>님이 NEX에서 당신을 팔로우했습니다.</p>
+      <p style="margin:12px 0 0;">프로필과 최신 활동을 확인해 보세요.</p>`,
+    ctaLabel: "내 프로필 보기",
+    ctaHref: href,
+  });
+  return sendEmail({ to: opts.to, subject, html, text });
+}
+
+export async function sendTrackPlayedEmail(opts: {
+  to: string;
+  trackTitle: string;
+  trackId: number;
+}): Promise<EmailSendResult> {
+  const title = escapeHtml(opts.trackTitle);
+  const href = `${siteOrigin()}/track/${opts.trackId}`;
+  const subject = `[NEX] 새 재생 — ${opts.trackTitle}`;
+  const text = `누군가 "${opts.trackTitle}"을(를) NEX에서 들었습니다.\n${href}`;
+  const html = emailLayout({
+    headline: "누군가 당신의 곡을 들었어요 🎧",
+    bodyHtml: `<p style="margin:0;"><strong style="color:#fff;">${title}</strong>에 새 재생이 기록되었습니다.</p>
+      <p style="margin:12px 0 0;">지금 NEX에서 반응을 확인해 보세요.</p>`,
+    ctaLabel: "트랙 보기",
+    ctaHref: href,
+  });
+  return sendEmail({ to: opts.to, subject, html, text });
+}

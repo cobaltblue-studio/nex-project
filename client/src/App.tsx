@@ -34,6 +34,7 @@ import About from "@/pages/About";
 import DataPolicy from "@/pages/DataPolicy";
 import ChartMethodology from "@/pages/ChartMethodology";
 import Auth from "@/pages/Auth";
+import { AnalyticsBootstrap } from "@/components/AnalyticsBootstrap";
 
 function Router() {
   return (
@@ -76,6 +77,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <AnalyticsBootstrap />
         <Toaster />
         <Router />
       </TooltipProvider>
