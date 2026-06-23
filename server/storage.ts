@@ -37,6 +37,7 @@ import {
 } from "./adminExport";
 import { db } from "./db";
 import {
+  isDeliverableEmail,
   isEmailEnabled,
   sendTrackApprovedEmail,
   sendTrackLikedEmail,
@@ -2243,9 +2244,9 @@ export class DatabaseStorage implements IStorage {
     void this.checkAndPromoteToChart(battle.trackAId).catch(() => {});
     void this.checkAndPromoteToChart(battle.trackBId).catch(() => {});
 
-    if (trackId === winnerId) {
-      void this.maybeNotifyBattleWin(winnerId, battleId).catch(() => {});
-    }
+    void this.maybeNotifyBattleWin(winnerId, battleId).catch((err) => {
+      console.warn("[email] maybeNotifyBattleWin failed", { battleId, winnerId, err });
+    });
 
     void recordServerAnalyticsEvent({
       eventName: "battle_vote",
@@ -3520,26 +3521,74 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async maybeNotifyBattleWin(winnerTrackId: number, battleId: number): Promise<void> {
-    let claimed = false;
+  private async markBattleWinEmailSent(battleId: number, winnerTrackId: number): Promise<void> {
     try {
-      const inserted = await db
+      await db
         .insert(battleWinEmails)
         .values({ battleId, winnerTrackId })
-        .onConflictDoNothing()
-        .returning({ id: battleWinEmails.id });
-      claimed = inserted.length > 0;
+        .onConflictDoNothing();
     } catch (err) {
       if (isMissingRelationError(err)) return;
       throw err;
     }
-    if (!claimed) return;
+  }
+
+  async maybeNotifyBattleWin(winnerTrackId: number, battleId: number): Promise<void> {
+    try {
+      const [existing] = await db
+        .select({ id: battleWinEmails.id })
+        .from(battleWinEmails)
+        .where(
+          and(eq(battleWinEmails.battleId, battleId), eq(battleWinEmails.winnerTrackId, winnerTrackId)),
+        )
+        .limit(1);
+      if (existing) return;
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
 
     const track = await this.getTrack(winnerTrackId);
     const recipientUserId = track?.creator?.userId;
     if (!recipientUserId) return;
 
     const title = track.title ?? "Your track";
+    const user = await this.getUserById(recipientUserId);
+    const to = user?.email?.trim() ?? "";
+
+    if (!isDeliverableEmail(to)) {
+      console.warn("[email] battle win skipped — no deliverable address", {
+        battleId,
+        winnerTrackId,
+        to: to || "(empty)",
+      });
+      await this.createNotification({
+        recipientUserId,
+        type: "battle_win",
+        title: "Battle win!",
+        body: `"${title}" won a battle on NEX.`,
+        trackId: winnerTrackId,
+        href: `/track/${winnerTrackId}`,
+      });
+      await this.markBattleWinEmailSent(battleId, winnerTrackId);
+      return;
+    }
+
+    const emailResult = await this.emailCreator(recipientUserId, (addr) =>
+      sendBattleWinEmail({ to: addr, trackTitle: title, trackId: winnerTrackId }),
+    );
+
+    if (!emailResult.sent) {
+      console.warn("[email] battle win not sent — will retry on next vote while still winner", {
+        battleId,
+        winnerTrackId,
+        to,
+        skipReason: emailResult.skipReason,
+        detail: emailResult.detail,
+      });
+      return;
+    }
+
     await this.createNotification({
       recipientUserId,
       type: "battle_win",
@@ -3548,10 +3597,7 @@ export class DatabaseStorage implements IStorage {
       trackId: winnerTrackId,
       href: `/track/${winnerTrackId}`,
     });
-
-    await this.emailCreator(recipientUserId, (to) =>
-      sendBattleWinEmail({ to, trackTitle: title, trackId: winnerTrackId }),
-    );
+    await this.markBattleWinEmailSent(battleId, winnerTrackId);
   }
 
   async notifyTrackPlayed(trackId: number, listenerUserId: string): Promise<void> {

@@ -23,6 +23,14 @@ export function isEmailEnabled(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
 
+/** Real inbox only — skips auto-imported placeholder accounts. */
+export function isDeliverableEmail(to: string): boolean {
+  const lower = to.trim().toLowerCase();
+  if (!lower || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lower)) return false;
+  if (lower.endsWith("@artist.local") || lower.endsWith("@neo.ai")) return false;
+  return true;
+}
+
 export function emailFromPreview(): string {
   const raw = fromAddress();
   const match = raw.match(/<([^>]+)>/);
@@ -129,7 +137,7 @@ export async function sendEmail(opts: {
   }
 
   const to = opts.to.trim().toLowerCase();
-  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+  if (!isDeliverableEmail(to)) {
     return { sent: false, reason: "invalid_to" };
   }
 
