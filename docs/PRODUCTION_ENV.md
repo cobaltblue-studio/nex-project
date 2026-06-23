@@ -28,6 +28,8 @@ Vercel-style **serverless** is not assumed: this app is a **single long-lived No
 
 | Variable | Purpose |
 |----------|---------|
+| `RESEND_API_KEY` | [Resend](https://resend.com/api-keys) API key — **required for creator emails** (approve/reject, like, battle win, follow, play). Without it, notifications are in-app only. |
+| `NEX_EMAIL_FROM` | Verified sender, e.g. `NEX <notifications@nexmusic.ai>`. Domain must be verified in Resend. Default sandbox: `NEX <onboarding@resend.dev>` (only delivers to your Resend account email). |
 | `RANKING_RECOMPUTE_DEBOUNCE_MS` | Debounce for ranking recomputation queue (default `5000`). |
 | `RANKING_RECOMPUTE_MAX_BATCH` | Max tracks per batch (default `50`). |
 | `ENABLE_SEED_ENDPOINT` | Set `1` only temporarily with `ADMIN_SEED_TOKEN` for staging dumps. |
@@ -76,3 +78,19 @@ If the browser loads **`https://nexmusic.ai`** from Vercel but API runs on anoth
 4. On the **API host**, set `GOOGLE_CALLBACK_URL` to the **public nexmusic.ai** callback (e.g. `https://nexmusic.ai/api/auth/google/callback`), not the Railway hostname, so Google redirects through Vercel → proxy → Express.
 
 **Alternative:** Do not split hosts — deploy `npm run start` (Express + built static) on one platform and point `nexmusic.ai` only there; then no proxy variable is needed.
+
+## Transactional email (Resend)
+
+1. Create a Resend account and add domain **`nexmusic.ai`** (DNS records in Resend dashboard).
+2. Create an API key and set on **Railway** (API host, not Vercel):
+   - `RESEND_API_KEY=re_...`
+   - `NEX_EMAIL_FROM=NEX <notifications@nexmusic.ai>`
+3. Run DB migration once (email dedupe tables): `npm run db:migrate-b2b` with production `DATABASE_URL`.
+4. Redeploy Railway. Verify: `curl -s https://nexmusic.ai/api/health` → `"email":{"enabled":true}`.
+5. As admin, `POST /api/admin/email-test` (or `npm run check:email` with `EMAIL_TEST_TO=you@example.com` locally).
+
+Quick Railway setup (after `railway login`):
+
+```bash
+RESEND_API_KEY=re_xxx ./scripts/configure-railway-email.sh
+```

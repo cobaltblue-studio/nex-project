@@ -23,6 +23,58 @@ export function isEmailEnabled(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
 
+export function emailFromPreview(): string {
+  const raw = fromAddress();
+  const match = raw.match(/<([^>]+)>/);
+  return match?.[1] ?? raw;
+}
+
+export type ResendProbeResult =
+  | { ok: true; domains: number }
+  | { ok: false; reason: "disabled" | "unauthorized" | "error"; detail?: string };
+
+/** Validates RESEND_API_KEY without sending mail. */
+export async function probeResendApiKey(): Promise<ResendProbeResult> {
+  const key = process.env.RESEND_API_KEY?.trim();
+  if (!key) return { ok: false, reason: "disabled" };
+
+  try {
+    const res = await fetch("https://api.resend.com/domains", {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, reason: "unauthorized", detail: `HTTP ${res.status}` };
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, reason: "error", detail: `${res.status}: ${body.slice(0, 160)}` };
+    }
+    const data = (await res.json()) as { data?: unknown[] };
+    return { ok: true, domains: Array.isArray(data.data) ? data.data.length : 0 };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "error",
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+export async function sendTestEmail(to: string): Promise<EmailSendResult> {
+  const origin = siteOrigin();
+  return sendEmail({
+    to,
+    subject: "[NEX] Email test",
+    text: `NEX transactional email is working.\n${origin}`,
+    html: emailLayout({
+      headline: "Email test OK",
+      bodyHtml: `<p style="margin:0;">NEX transactional email is configured correctly.</p>`,
+      ctaLabel: "Open NEX",
+      ctaHref: origin,
+    }),
+  });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

@@ -77,10 +77,12 @@ let appReady = false;
 
 /** Railway/Neon: respond 200 while DB wakes so the container is not killed mid-connect. */
 app.get("/api/health", (_req, res) => {
+  const emailEnabled = Boolean(process.env.RESEND_API_KEY?.trim());
   res.status(200).json({
     ok: true,
     ready: appReady,
     build: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || process.env.BUILD_ID || "local",
+    email: { enabled: emailEnabled },
   });
 });
 

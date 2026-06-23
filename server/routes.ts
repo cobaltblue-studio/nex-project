@@ -49,7 +49,7 @@ import {
 } from "./suno-resolve";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { recordAnalyticsEvents, type AnalyticsEventInput } from "./analytics";
-import { isEmailEnabled } from "./email";
+import { emailFromPreview, isEmailEnabled, probeResendApiKey, sendTestEmail } from "./email";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
@@ -2013,10 +2013,54 @@ export async function registerRoutes(
     if (!(await isAdmin(req))) {
       return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
     }
+    const probe = await probeResendApiKey();
+    let dbReady = { notifications: false, battleWinEmails: false, creatorEngagementEmails: false };
+    try {
+      const rows = await db.execute(sql`
+        SELECT
+          to_regclass('public.notifications') IS NOT NULL AS notifications,
+          to_regclass('public.battle_win_emails') IS NOT NULL AS battle_win_emails,
+          to_regclass('public.creator_engagement_emails') IS NOT NULL AS creator_engagement_emails
+      `);
+      const r = rows.rows[0] as Record<string, boolean> | undefined;
+      dbReady = {
+        notifications: Boolean(r?.notifications),
+        battleWinEmails: Boolean(r?.battle_win_emails),
+        creatorEngagementEmails: Boolean(r?.creator_engagement_emails),
+      };
+    } catch {
+      /* ignore */
+    }
     res.json({
       enabled: isEmailEnabled(),
       fromConfigured: Boolean(process.env.NEX_EMAIL_FROM?.trim()),
+      fromPreview: emailFromPreview(),
+      resend: probe,
+      dbReady,
     });
+  });
+
+  app.post("/api/admin/email-test", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const to =
+      (typeof req.body?.to === "string" && req.body.to.trim()) ||
+      getUserEmail(req) ||
+      process.env.NEX_FOUNDER_ADMIN_EMAIL?.trim();
+    if (!to) {
+      return res.status(400).json({
+        message: apiMsg("수신 이메일 주소가 필요합니다", "Recipient email is required"),
+      });
+    }
+    const result = await sendTestEmail(to);
+    if (!result.sent) {
+      return res.status(502).json({
+        message: apiMsg("테스트 메일 발송에 실패했습니다", "Test email failed"),
+        result,
+      });
+    }
+    res.json({ sent: true, to });
   });
 
   app.get("/api/admin/insights", isAuthenticated, async (req: any, res) => {
