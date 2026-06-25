@@ -258,6 +258,7 @@ export default function AdminPanel() {
   const {
     data: userActivity,
     isLoading: userActivityLoading,
+    isError: userActivityError,
     refetch: refetchUserActivity,
   } = useQuery<UserActivityRow[]>({
     queryKey: ["/api/admin/user-activity"],
@@ -519,11 +520,18 @@ export default function AdminPanel() {
         <p className="text-[11px] text-zinc-500 mb-3 leading-relaxed">
           Per-user engagement summary. <span className="text-emerald-400">active</span> = visited within the last 7 days (UTC).
         </p>
-        {userActivityLoading || !userActivity ? (
+        {userActivityLoading ? (
           <div className="border border-white/5 rounded-sm p-8 flex justify-center">
             <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
           </div>
-        ) : userActivity.length === 0 ? (
+        ) : userActivityError ? (
+          <div className="border border-red-400/20 rounded-sm p-4 text-[11px] text-red-300">
+            Failed to load user activity.{" "}
+            <button type="button" className="underline" onClick={() => void refetchUserActivity()}>
+              Retry
+            </button>
+          </div>
+        ) : !userActivity || userActivity.length === 0 ? (
           <p className="text-[11px] text-zinc-600 uppercase tracking-widest">No users yet</p>
         ) : (
           <div className="border border-white/5 rounded-sm overflow-x-auto">
