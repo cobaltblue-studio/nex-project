@@ -264,6 +264,21 @@ export const creatorEngagementEmails = pgTable(
   (t) => [uniqueIndex("creator_engagement_emails_kind_dedupe_unique").on(t.kind, t.dedupeKey)],
 );
 
+/** Per-user activity rollup for admin (login / visit / plays / votes). */
+export const userActivityStats = pgTable(
+  "user_activity_stats",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id").references(() => users.id).notNull().unique(),
+    lastLoginAt: timestamp("last_login_at"),
+    lastVisitAt: timestamp("last_visit_at"),
+    visitCount: integer("visit_count").default(0).notNull(),
+    tracksPlayedCount: integer("tracks_played_count").default(0).notNull(),
+    battleVoteCount: integer("battle_vote_count").default(0).notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
+
 export const battlesRelations = relations(battles, ({ one, many }) => ({
   trackA: one(tracks, { fields: [battles.trackAId], references: [tracks.id] }),
   trackB: one(tracks, { fields: [battles.trackBId], references: [tracks.id] }),

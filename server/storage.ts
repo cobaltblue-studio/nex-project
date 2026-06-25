@@ -14,6 +14,7 @@ import {
   notifications,
   battleWinEmails,
   creatorEngagementEmails,
+  userActivityStats,
   analyticsEvents,
   trackClaimRequests,
   boostTickets,
@@ -291,6 +292,7 @@ export interface IStorage {
     lastName?: string | null;
     profileImageUrl?: string | null;
   }): Promise<void>;
+  recordUserLogin(userId: string): Promise<void>;
   getProfileByUsername(username: string): Promise<Profile | undefined>;
   getProfile(id: number): Promise<(Profile & { tracks: Track[]; followerCount: number }) | undefined>;
   createProfile(p: any): Promise<Profile>;
@@ -844,6 +846,31 @@ export class DatabaseStorage implements IStorage {
         updatedAt: sql`now()`,
       })
       .where(eq(users.id, u.id));
+  }
+
+  async recordUserLogin(userId: string): Promise<void> {
+    const uid = userId.trim();
+    if (!uid) return;
+    const now = new Date();
+    try {
+      await db
+        .insert(userActivityStats)
+        .values({
+          userId: uid,
+          lastLoginAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: userActivityStats.userId,
+          set: {
+            lastLoginAt: now,
+            updatedAt: now,
+          },
+        });
+    } catch (err) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
   }
 
   async getProfileByUserId(userId: string): Promise<Profile | undefined> {

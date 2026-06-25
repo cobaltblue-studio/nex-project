@@ -463,10 +463,16 @@ export function registerAuthRoutes(app: Express) {
 
           // Session fixation: regenerate once, then req.login + persist session before redirect.
           req.session.regenerate((sessionErr) => {
-            if (sessionErr) return next(sessionErr);
+            if (sessionErr) {
+              console.error("[auth] session regenerate failed:", sessionErr);
+              return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_session_failed`);
+            }
 
             req.login(user, async (loginErr) => {
-              if (loginErr) return next(loginErr);
+              if (loginErr) {
+                console.error("[auth] req.login failed:", loginErr);
+                return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_session_failed`);
+              }
 
               try {
                 await new Promise<void>((resolve, reject) => {
@@ -482,12 +488,14 @@ export function registerAuthRoutes(app: Express) {
                 const redirectPath = await sanitizeOAuthRedirect(hydrated, rawTarget);
                 return res.redirect(redirectPath);
               } catch (profileOrSaveErr) {
-                return next(profileOrSaveErr);
+                console.error("[auth] session save / redirect failed:", profileOrSaveErr);
+                return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_post_failed`);
               }
             });
           });
         } catch (e) {
-          next(e);
+          console.error("[auth] Google callback post-login failed:", e);
+          return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_post_failed`);
         }
       })();
     })(req, res, next);
