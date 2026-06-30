@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  buildSoundCloudPlayerSrc,
   buildStreamingIframeSrc,
-  buildSunoEmbedFromCanonicalUuid,
   urlLooksLikeSoundCloudShare,
   urlLooksLikeSunoShare,
 } from "@/lib/streamingEmbed";
-import { getCachedEmbedSrc } from "@/lib/prefetchStreamingEmbed";
+import {
+  ensureStreamingEmbedResolved,
+  getCachedEmbedSrc,
+} from "@/lib/prefetchStreamingEmbed";
 
 type Opts = { autoplay?: boolean; enableJsApi?: boolean; embedSeekSeconds?: number };
 
@@ -23,14 +24,19 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
       ? opts.embedSeekSeconds
       : undefined;
 
+  const embedOpts = useMemo(
+    () => ({ autoplay, embedSeekSeconds }),
+    [autoplay, embedSeekSeconds],
+  );
+
   const syncSrc = useMemo(
     () => buildStreamingIframeSrc(rawUrl, { autoplay, enableJsApi, embedSeekSeconds }),
     [rawUrl, autoplay, enableJsApi, embedSeekSeconds],
   );
 
   const cachedSrc = useMemo(
-    () => (rawUrl?.trim() ? getCachedEmbedSrc(rawUrl) : undefined),
-    [rawUrl],
+    () => (rawUrl?.trim() ? getCachedEmbedSrc(rawUrl, embedOpts) : undefined),
+    [rawUrl, embedOpts],
   );
 
   const [resolvedAsyncSrc, setResolvedAsyncSrc] = useState<string | null>(null);
@@ -60,39 +66,26 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     let cancelled = false;
     setLoading(true);
 
-    const resolve = isSuno
-      ? fetch(`/api/suno/resolve?url=${encodeURIComponent(url)}`).then(async (r) => {
-          const j = (await r.json()) as { songUuid?: string; message?: string };
-          if (!r.ok || !j.songUuid) {
-            throw new Error(
-              typeof j.message === "string" ? j.message : t("suno.resolveFailed"),
-            );
-          }
-          const embed = buildSunoEmbedFromCanonicalUuid(j.songUuid, autoplay);
-          if (!embed) throw new Error(t("suno.embedFailed"));
-          return embed;
-        })
-      : fetch(`/api/soundcloud/resolve?url=${encodeURIComponent(url)}`).then(async (r) => {
-          const j = (await r.json()) as { permalink?: string; message?: string };
-          if (!r.ok || !j.permalink) {
-            throw new Error(
-              typeof j.message === "string"
-                ? j.message
-                : "Need a SoundCloud track share link (Share → Copy link on the track page).",
-            );
-          }
-          const embed = buildSoundCloudPlayerSrc(j.permalink, { autoplay, embedSeekSeconds });
-          if (!embed) throw new Error("Could not build SoundCloud embed URL.");
-          return embed;
-        });
-
-    void resolve
-      .then((embed) => {
-        if (!cancelled) setResolvedAsyncSrc(embed);
+    void ensureStreamingEmbedResolved(url)
+      .then(() => {
+        if (cancelled) return;
+        const embed = getCachedEmbedSrc(url, embedOpts);
+        if (!embed) {
+          throw new Error(
+            isSuno ? t("suno.embedFailed") : "Could not build SoundCloud embed URL.",
+          );
+        }
+        setResolvedAsyncSrc(embed);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t("suno.requestFailed"));
+          setError(
+            err instanceof Error
+              ? err.message
+              : isSuno
+                ? t("suno.requestFailed")
+                : "Could not resolve SoundCloud link.",
+          );
         }
       })
       .finally(() => {
@@ -102,7 +95,7 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     return () => {
       cancelled = true;
     };
-  }, [rawUrl, syncSrc, cachedSrc, autoplay, embedSeekSeconds, t]);
+  }, [rawUrl, syncSrc, cachedSrc, embedOpts, t]);
 
   const iframeSrc = resolvedAsyncSrc ?? syncSrc ?? cachedSrc ?? null;
   return { iframeSrc, loading, error };

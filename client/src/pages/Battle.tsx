@@ -28,7 +28,7 @@ import {
 } from "@/components/YoutubePlayer";
 import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
-import { prefetchPlayableStreamingEmbed } from "@/lib/prefetchStreamingEmbed";
+import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
@@ -669,6 +669,7 @@ export function Battle() {
 
   useEffect(() => {
     warmYoutubeIframeApi();
+    warmStreamingEmbedOrigins();
   }, []);
 
   useEffect(() => {

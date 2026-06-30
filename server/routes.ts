@@ -695,8 +695,8 @@ export async function registerRoutes(
           ),
         });
       }
-      const durationSeconds = await fetchSunoSongDurationSeconds(songUuid);
-      res.json({ songUuid, durationSeconds });
+      // Return UUID immediately — embed only needs this. Duration is optional (/api/suno/metadata).
+      res.json({ songUuid, durationSeconds: null });
     } catch {
       res.status(500).json({
         songUuid: null,

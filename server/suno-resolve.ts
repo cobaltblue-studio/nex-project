@@ -54,6 +54,36 @@ export function parseSunoDurationSecondsFromHtml(html: string): number | null {
   return null;
 }
 
+/** Best-effort parse of song UUID from a Suno share HTML payload (SPA pages may not redirect). */
+export function parseSunoSongUuidFromHtml(html: string): string | null {
+  const og = html.match(/property="og:url"\s+content="([^"]+)"/i);
+  if (og?.[1]) {
+    const fromOg = extractSunoSongUuidFromUrlString(og[1]);
+    if (fromOg) return fromOg;
+  }
+  const canonical = html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i);
+  if (canonical?.[1]) {
+    const fromCanonical = extractSunoSongUuidFromUrlString(canonical[1]);
+    if (fromCanonical) return fromCanonical;
+  }
+  const m = html.match(
+    /\/song\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+  );
+  return m ? m[1].toLowerCase() : null;
+}
+
+const RESOLVE_CACHE_MAX = 500;
+const resolveCache = new Map<string, string>();
+
+function cacheResolvedUuid(inputUrl: string, uuid: string): void {
+  const key = inputUrl.trim().toLowerCase();
+  if (resolveCache.size >= RESOLVE_CACHE_MAX) {
+    const first = resolveCache.keys().next().value;
+    if (first) resolveCache.delete(first);
+  }
+  resolveCache.set(key, uuid);
+}
+
 export async function fetchSunoSongDurationSeconds(songUuid: string): Promise<number | null> {
   const uuid = songUuid.trim().toLowerCase();
   if (!extractSunoSongUuidFromUrlString(`https://suno.com/song/${uuid}`)) return null;
@@ -91,11 +121,18 @@ export async function resolveSunoShareToSongUuid(inputUrl: string): Promise<stri
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
   if (!isAllowedSunoFetchHost(parsed.hostname)) return null;
 
+  const cacheKey = parsed.href.trim().toLowerCase();
+  const cached = resolveCache.get(cacheKey);
+  if (cached) return cached;
+
   const fromInput = extractSunoSongUuidFromUrlString(parsed.href);
-  if (fromInput) return fromInput;
+  if (fromInput) {
+    cacheResolvedUuid(cacheKey, fromInput);
+    return fromInput;
+  }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
     const res = await fetch(parsed.href, {
       method: "GET",
@@ -103,8 +140,15 @@ export async function resolveSunoShareToSongUuid(inputUrl: string): Promise<stri
       signal: controller.signal,
       headers: SUNO_FETCH_HEADERS,
     });
-    const finalUrl = res.url;
-    return extractSunoSongUuidFromUrlString(finalUrl);
+    const fromFinalUrl = extractSunoSongUuidFromUrlString(res.url);
+    if (fromFinalUrl) {
+      cacheResolvedUuid(cacheKey, fromFinalUrl);
+      return fromFinalUrl;
+    }
+    const html = await res.text();
+    const fromHtml = parseSunoSongUuidFromHtml(html);
+    if (fromHtml) cacheResolvedUuid(cacheKey, fromHtml);
+    return fromHtml;
   } catch {
     return null;
   } finally {
