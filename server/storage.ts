@@ -497,6 +497,7 @@ export interface IStorage {
       battles: number;
       battleWins: number;
       activeBoosts: number;
+      onlineNow: number;
     };
     today: {
       newTracks: number;
@@ -504,6 +505,7 @@ export interface IStorage {
       plays: number;
       votes: number;
       battles: number;
+      uniqueVisitors: number;
     };
   }>;
   checkBoostEligibility(params: {
@@ -1430,6 +1432,27 @@ export class DatabaseStorage implements IStorage {
       if (err?.code !== "42P01") throw err;
     }
 
+    /** "Online now" = distinct sessions with an event in the last 5 minutes (page views / heartbeats). */
+    let onlineNow = 0;
+    let uniqueVisitorsToday = 0;
+    try {
+      const onlineSince = new Date(Date.now() - 5 * 60 * 1000);
+      const [[onlineRow], [visitorsRow]] = await Promise.all([
+        db
+          .select({ c: sql<number>`count(distinct ${analyticsEvents.sessionId})` })
+          .from(analyticsEvents)
+          .where(gte(analyticsEvents.occurredAt, onlineSince)),
+        db
+          .select({ c: sql<number>`count(distinct ${analyticsEvents.sessionId})` })
+          .from(analyticsEvents)
+          .where(gte(analyticsEvents.occurredAt, todayStartUtc)),
+      ]);
+      onlineNow = Number(onlineRow?.c ?? 0);
+      uniqueVisitorsToday = Number(visitorsRow?.c ?? 0);
+    } catch (err: any) {
+      if (err?.code !== "42P01") throw err;
+    }
+
     const m = metricsAggRow[0];
     return {
       generatedAt: new Date().toISOString(),
@@ -1446,6 +1469,7 @@ export class DatabaseStorage implements IStorage {
         battles: Number(m?.battles ?? 0),
         battleWins: Number(m?.battleWins ?? 0),
         activeBoosts,
+        onlineNow,
       },
       today: {
         newTracks: Number(newTracksTodayRow[0]?.c ?? 0),
@@ -1453,6 +1477,7 @@ export class DatabaseStorage implements IStorage {
         plays: Number(playsTodayRow[0]?.c ?? 0),
         votes: Number(votesTodayRow[0]?.c ?? 0),
         battles: Number(battlesTodayRow[0]?.c ?? 0),
+        uniqueVisitors: uniqueVisitorsToday,
       },
     };
   }

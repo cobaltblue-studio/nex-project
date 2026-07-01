@@ -69,6 +69,8 @@ type AdminInsights = {
     battles: number;
     battleWins: number;
     activeBoosts: number;
+    /** Present after server deploy; old API omit → UI shows 0. */
+    onlineNow?: number;
   };
   today: {
     newTracks: number;
@@ -76,6 +78,8 @@ type AdminInsights = {
     plays: number;
     votes: number;
     battles: number;
+    /** Present after server deploy; old API omit → UI shows 0. */
+    uniqueVisitors?: number;
   };
 };
 
@@ -497,8 +501,10 @@ export default function AdminPanel() {
                   <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Likes / Votes</p><p className="text-xl font-black text-white">{insights.totals.likes} / {insights.totals.listenerVotes}</p></div>
                   <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Battles / Wins</p><p className="text-xl font-black text-white">{insights.totals.battles} / {insights.totals.battleWins}</p></div>
                   <div className="border border-white/5 rounded-sm p-3 bg-black/20"><p className="text-[9px] text-zinc-500 uppercase">Active Boosts</p><p className="text-xl font-black text-white">{insights.totals.activeBoosts}</p></div>
+                  <div className="border border-sky-400/20 rounded-sm p-3 bg-sky-400/5"><p className="text-[9px] text-sky-300 uppercase">Online Now</p><p className="text-xl font-black text-white">{insights.totals.onlineNow ?? 0}</p><p className="text-[8px] text-sky-400/50 mt-1">Active sessions · last 5 min</p></div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mt-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mt-3">
+                  <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Visitors</p><p className="text-lg font-black text-white">{insights.today.uniqueVisitors ?? 0}</p><p className="text-[8px] text-emerald-400/50 mt-1">Unique sessions · UTC midnight → now</p></div>
                   <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today signups</p><p className="text-lg font-black text-white">{insights.today.newUserSignups ?? "—"}</p><p className="text-[8px] text-emerald-400/50 mt-1">UTC midnight → now</p></div>
                   <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today New Tracks</p><p className="text-lg font-black text-white">{insights.today.newTracks}</p></div>
                   <div className="border border-emerald-400/20 rounded-sm p-3 bg-emerald-400/5"><p className="text-[9px] text-emerald-300 uppercase">Today Plays</p><p className="text-lg font-black text-white">{insights.today.plays}</p></div>
