@@ -83,13 +83,21 @@ export function formatCommunitySeedTitle(
   seed: (typeof COMMUNITY_SYSTEM_SEED_POSTS)[number],
   isKorean: boolean,
 ): string {
-  return isKorean ? `${seed.titleKo} / ${seed.titleEn}` : `${seed.titleEn} / ${seed.titleKo}`;
+  return isKorean ? seed.titleKo : seed.titleEn;
 }
 
 export function formatCommunitySeedBody(
   seed: (typeof COMMUNITY_SYSTEM_SEED_POSTS)[number],
   isKorean: boolean,
 ): string {
-  return isKorean ? `${seed.bodyKo}\n\n---\n\n${seed.bodyEn}` : `${seed.bodyEn}\n\n---\n\n${seed.bodyKo}`;
+  return isKorean ? seed.bodyKo : seed.bodyEn;
+}
+
+export function getCommunitySystemSeed(
+  category: CommunityCategorySlug,
+  authorUserId?: string | null,
+): (typeof COMMUNITY_SYSTEM_SEED_POSTS)[number] | null {
+  if (authorUserId !== COMMUNITY_SYSTEM_AUTHOR_ID) return null;
+  return COMMUNITY_SYSTEM_SEED_POSTS.find((seed) => seed.category === category) ?? null;
 }
 

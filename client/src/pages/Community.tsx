@@ -12,6 +12,7 @@ import {
   COMMUNITY_SYSTEM_SEED_POSTS,
   formatCommunitySeedBody,
   formatCommunitySeedTitle,
+  getCommunitySystemSeed,
   type CommunityCategorySlug,
 } from "@shared/community";
 
@@ -62,6 +63,10 @@ function formatTime(value: string, locale: string) {
 function excerpt(text: string, max = 220) {
   if (text.length <= max) return text;
   return `${text.slice(0, max).trim()}...`;
+}
+
+function isExcerpted(text: string, max = 220) {
+  return text.length > max;
 }
 
 function invalidateCommunityQueries() {
@@ -124,7 +129,11 @@ export default function Community() {
             loadingFeed: "커뮤니티 피드를 불러오는 중...",
             feedSyncing: "최신 글을 가져오는 중입니다.",
             allCategories: "전체 카테고리",
-            exploreCategories: "카테고리 둘러보기",
+            browseTopics: "주제 먼저 고르기",
+            browseTopicsHint: "잘 되는 커뮤니티는 태그와 카테고리를 먼저 보게 합니다. 보고 싶은 대화부터 빠르게 골라보세요.",
+            allTopicsTitle: "전체",
+            allTopicsDescription: "모든 카테고리 글을 한 번에 봅니다.",
+            readMore: "더보기",
           }
         : {
             pageTitle: "NEX Community",
@@ -160,7 +169,11 @@ export default function Community() {
             loadingFeed: "Loading community feed...",
             feedSyncing: "Refreshing latest posts...",
             allCategories: "All categories",
-            exploreCategories: "Explore categories",
+            browseTopics: "Browse topics first",
+            browseTopicsHint: "High-performing communities make tags the first navigation layer. Pick a topic, then scan the conversations.",
+            allTopicsTitle: "All",
+            allTopicsDescription: "See every category in one feed.",
+            readMore: "Read more",
           },
     [isKorean],
   );
@@ -283,6 +296,21 @@ export default function Community() {
         : "Browsing all categories."
       : categoryOptions.find((item) => item.slug === selectedCategory)?.description;
 
+  const topicCards = [
+    {
+      slug: "all" as const,
+      label: copy.allTopicsTitle,
+      description: copy.allTopicsDescription,
+      Icon: MessageSquare,
+    },
+    ...categoryOptions.map((item) => ({
+      slug: item.slug,
+      label: item.label,
+      description: item.description,
+      Icon: CATEGORY_ICONS[item.slug],
+    })),
+  ];
+
   return (
     <div className="space-y-10 pb-12">
       <section className="grid items-start gap-5 lg:grid-cols-[1.25fr_0.95fr]">
@@ -292,26 +320,50 @@ export default function Community() {
           <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">{copy.pageBody}</p>
 
           <div className="mt-6 border-t border-white/10 pt-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 md:p-5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-zinc-500">{copy.browseTopics}</p>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{copy.browseTopicsHint}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                {topicCards.map((item) => {
+                  const active = selectedCategory === item.slug;
+                  const Icon = item.Icon;
+                  return (
+                    <button
+                      key={item.slug}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(item.slug);
+                        if (item.slug !== "all") {
+                          setCategory(item.slug);
+                        }
+                      }}
+                      className={`rounded-2xl border p-4 text-left transition ${
+                        active ? "border-primary/50 bg-primary/10 shadow-[0_0_30px_rgba(0,194,255,0.08)]" : "border-white/10 bg-black/20 hover:border-white/25"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-white">
+                        <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-zinc-400"}`} />
+                        <span className="text-sm font-bold">{item.label}</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-6 text-zinc-400">{item.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="text-2xl font-black text-white">{copy.feedTitle}</h2>
                 <p className="mt-2 text-sm text-zinc-400">{feedDescription}</p>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-[10rem_10rem_16rem]">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value as CommunityCategorySlug | "all")}
-                  className="rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
-                >
-                  <option value="all">{copy.allCategories}</option>
-                  {categoryOptions.map((item) => (
-                    <option key={item.slug} value={item.slug}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-
+              <div className="grid gap-3 md:grid-cols-[10rem_16rem]">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as "latest" | "popular")}
@@ -344,6 +396,10 @@ export default function Community() {
                 {renderedPosts.map((post) => {
                   const categoryItem = categoryOptions.find((item) => item.slug === post.category);
                   const Icon = CATEGORY_ICONS[post.category];
+                  const seed = getCommunitySystemSeed(post.category, post.authorUserId);
+                  const displayTitle = seed ? formatCommunitySeedTitle(seed, isKorean) : post.title;
+                  const displayBody = seed ? formatCommunitySeedBody(seed, isKorean) : post.body;
+                  const truncated = isExcerpted(displayBody);
                   const trackHref = post.attachedTrack
                     ? post.attachedTrack.trackType === "video"
                       ? `/mv/${post.attachedTrack.id}`
@@ -372,14 +428,23 @@ export default function Community() {
                           {post.id > 0 ? (
                             <h3 className="mt-3 text-xl font-black text-white">
                               <Link href={`/community/${post.id}`} className="hover:text-primary">
-                                {post.title}
+                                {displayTitle}
                               </Link>
                             </h3>
                           ) : (
-                            <h3 className="mt-3 text-xl font-black text-white">{post.title}</h3>
+                            <h3 className="mt-3 text-xl font-black text-white">{displayTitle}</h3>
                           )}
-                          <p className="mt-2 text-sm leading-7 text-zinc-300 whitespace-pre-wrap">{excerpt(post.body)}</p>
-
+                          <p className="mt-2 text-sm leading-7 text-zinc-300 whitespace-pre-wrap">{excerpt(displayBody)}</p>
+                          {truncated && post.id > 0 ? (
+                            <div className="mt-3">
+                              <Link
+                                href={`/community/${post.id}`}
+                                className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/15"
+                              >
+                                {copy.readMore}
+                              </Link>
+                            </div>
+                          ) : null}
                           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
                             <span>@{post.authorName ?? "unknown"}</span>
                             <span>{formatTime(post.createdAt, locale)}</span>
@@ -469,36 +534,6 @@ export default function Community() {
               <p className="mt-4 text-xs text-zinc-500">{copy.feedSyncing}</p>
             ) : null}
 
-            <div className="mt-8 border-t border-white/10 pt-6">
-              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-                {copy.exploreCategories}
-              </p>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {categoryOptions.map((item) => {
-                  const Icon = CATEGORY_ICONS[item.slug];
-                  const active = selectedCategory === item.slug;
-                  return (
-                    <button
-                      key={item.slug}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategory(item.slug);
-                        setCategory(item.slug);
-                      }}
-                      className={`rounded-2xl border p-4 text-left transition ${
-                        active ? "border-primary/50 bg-primary/10" : "border-white/10 bg-black/20 hover:border-white/25"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 text-white">
-                        <Icon className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-bold">{item.label}</span>
-                      </div>
-                      <p className="mt-2 text-xs leading-6 text-zinc-400">{item.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         </div>
 

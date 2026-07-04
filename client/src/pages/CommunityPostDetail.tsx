@@ -3,7 +3,13 @@ import { Link, useRoute } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Heart, Loader2, MessageSquare, Pin } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { COMMUNITY_CATEGORIES, type CommunityCategorySlug } from "@shared/community";
+import {
+  COMMUNITY_CATEGORIES,
+  formatCommunitySeedBody,
+  formatCommunitySeedTitle,
+  getCommunitySystemSeed,
+  type CommunityCategorySlug,
+} from "@shared/community";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -210,6 +216,9 @@ export function CommunityPostDetail() {
   }
 
   const admin = user?.role === "admin";
+  const seed = getCommunitySystemSeed(post.category, post.authorUserId);
+  const displayTitle = seed ? formatCommunitySeedTitle(seed, isKorean) : post.title;
+  const displayBody = seed ? formatCommunitySeedBody(seed, isKorean) : post.body;
   const trackHref = post.attachedTrack
     ? post.attachedTrack.trackType === "video"
       ? `/mv/${post.attachedTrack.id}`
@@ -239,7 +248,7 @@ export function CommunityPostDetail() {
           )}
         </div>
 
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-white">{post.title}</h1>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-white">{displayTitle}</h1>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
           <span>@{post.authorName ?? "unknown"}</span>
           <span>{formatTime(post.createdAt, locale)}</span>
@@ -258,7 +267,7 @@ export function CommunityPostDetail() {
           </div>
         )}
 
-        <div className="mt-6 whitespace-pre-wrap text-sm leading-8 text-zinc-200">{post.body}</div>
+        <div className="mt-6 whitespace-pre-wrap text-sm leading-8 text-zinc-200">{displayBody}</div>
 
         {(trackHref || post.externalUrl) && (
           <div className="mt-6 flex flex-wrap gap-2">
