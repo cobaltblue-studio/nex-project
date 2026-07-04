@@ -54,6 +54,7 @@ import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
 import { rejectArtisticIntent } from "./artisticIntent";
+import { describePlaybackIssue, inspectTrackPlaybackAvailability } from "./media-availability";
 
 function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
@@ -867,6 +868,18 @@ export async function registerRoutes(
     }
 
     const resolvedTrackType = trackType === "video" ? "video" : "audio";
+    const playbackCheck = await inspectTrackPlaybackAvailability(normalizedTrackLink);
+    if (playbackCheck.status === "blocked") {
+      const issue = describePlaybackIssue(playbackCheck);
+      res.status(400).json({
+        code: "MEDIA_NOT_PUBLIC_OR_EMBEDDABLE",
+        message: apiMsg(
+          `${issue.ko} 이 문제는 NEX 관리자가 대신 수정할 수 없으며, 업로더가 원본 링크를 수정한 뒤 다시 제출해야 합니다.`,
+          `${issue.en} NEX admins cannot fix this on your behalf; the uploader must replace or fix the source link before submitting again.`,
+        ),
+      });
+      return;
+    }
     // Listener submissions = creator registration request; always surfaces in admin (applications + pending tracks).
     if (!(await isAdmin(req)) && p.role === "listener") {
       await storage.updateProfile(p.id, { creatorApplicationStatus: "pending" });
@@ -2142,6 +2155,39 @@ export async function registerRoutes(
     }
 
     const reviewedTrackId = Number(req.params.id);
+    if (status === "BATTLE_POOL" || status === "PUBLISHED" || status === "MV") {
+      const existingTrack = await storage.getTrack(reviewedTrackId);
+      if (!existingTrack) {
+        return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+      }
+      const playbackUrl =
+        existingTrack.trackType === "video"
+          ? (existingTrack.mvUrl || existingTrack.audioUrl || "").trim()
+          : (existingTrack.audioUrl || existingTrack.mvUrl || "").trim();
+      const playbackCheck = await inspectTrackPlaybackAvailability(playbackUrl);
+      if (playbackCheck.status === "blocked") {
+        const issue = describePlaybackIssue(playbackCheck);
+        let notifyResult: Awaited<ReturnType<typeof storage.notifyTrackPlaybackIssue>> = {
+          notified: false,
+          email: { sent: false, skipReason: "skipped" },
+        };
+        try {
+          notifyResult = await storage.notifyTrackPlaybackIssue(reviewedTrackId, issue.en);
+        } catch (err) {
+          console.error("[admin/review] notifyTrackPlaybackIssue failed", reviewedTrackId, err);
+        }
+        return res.status(409).json({
+          code: "TRACK_NOT_PLAYABLE",
+          message: apiMsg(
+            `${issue.ko} 업로더에게 자동 이메일로 수정 요청을 보냈습니다.`,
+            `${issue.en} An automatic email has been sent to the uploader asking them to fix and resubmit the source link.`,
+          ),
+          emailSent: notifyResult.email.sent,
+          emailSkipReason: notifyResult.email.skipReason ?? null,
+          emailDetail: notifyResult.email.detail ?? null,
+        });
+      }
+    }
     await storage.updateTrackStatus(
       reviewedTrackId,
       status,

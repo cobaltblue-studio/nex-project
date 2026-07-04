@@ -71,7 +71,7 @@ const SUPPORTED_LINKS = [
 
 const TRACK_TYPES = ["audio", "video"] as const;
 
-function makeSubmitSchema(t: TFunction) {
+function makeSubmitSchema(t: TFunction, isKorean: boolean) {
   return z.object({
     title: z
       .string()
@@ -123,6 +123,17 @@ function makeSubmitSchema(t: TFunction) {
     originalityConfirmed: z.boolean().refine((val) => val === true, {
       message: "You must confirm this track is original AI-generated content",
     }),
+    videoVisibilityConfirmed: z.boolean().default(false),
+  }).superRefine((data, ctx) => {
+    if (data.trackType === "video" && !data.videoVisibilityConfirmed) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["videoVisibilityConfirmed"],
+        message: isKorean
+          ? "뮤직비디오는 공개 상태이며 로그인 없이 재생되고 임베드 차단이 없는지 확인 후 제출해야 합니다"
+          : "For music videos, confirm the link is public, playable without login, and not blocked from embeds before submitting.",
+      });
+    }
   });
 }
 
@@ -131,8 +142,9 @@ type FormData = z.infer<ReturnType<typeof makeSubmitSchema>>;
 type MeProfile = { id: number; role: string };
 
 function SubmitTrackForm() {
-  const { t } = useTranslation();
-  const schema = useMemo(() => makeSubmitSchema(t), [t]);
+  const { t, i18n } = useTranslation();
+  const isKorean = (i18n.resolvedLanguage ?? i18n.language ?? "").toLowerCase().startsWith("ko");
+  const schema = useMemo(() => makeSubmitSchema(t, isKorean), [t, isKorean]);
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [submitted, setSubmitted] = useState(false);
@@ -171,6 +183,7 @@ function SubmitTrackForm() {
       aiPrompt: "",
       coverImageUrl: "",
       originalityConfirmed: false,
+      videoVisibilityConfirmed: false,
     },
   });
 
@@ -249,6 +262,9 @@ function SubmitTrackForm() {
     !linkPreviewError &&
     !duplicateUrl &&
     !form.formState.errors.trackLink;
+  const isVideoSubmission = form.watch("trackType") === "video";
+  const videoVisibilityConfirmed = !!form.watch("videoVisibilityConfirmed");
+  const videoReadyToSubmit = !isVideoSubmission || videoVisibilityConfirmed;
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -566,6 +582,61 @@ function SubmitTrackForm() {
                     </p>
                   </div>
                 )}
+                {isVideoSubmission && (
+                  <div
+                    className="mt-3 rounded-sm border border-amber-500/25 bg-amber-500/5 p-3 space-y-3"
+                    data-testid="warning-video-visibility-check"
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-200">
+                          {isKorean ? "뮤직비디오 업로드 전 확인" : "Check before uploading a music video"}
+                        </p>
+                        <p className="text-[10px] text-amber-100/90 leading-relaxed normal-case">
+                          {isKorean
+                            ? "NEX는 원본 플랫폼의 공개/임베드 상태를 그대로 따릅니다. 유튜브나 원본 서비스에서 비공개, 로그인 필요, 지역 제한, 임베드 차단이 걸려 있으면 업로드 후에도 재생되지 않습니다."
+                            : "NEX follows the source platform's visibility and embed permissions. If YouTube or the source service marks the video private, login-only, region-blocked, or embed-blocked, it will not play after upload."}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-amber-100/85 leading-relaxed normal-case space-y-1">
+                      <p>
+                        {isKorean
+                          ? "1. 지금 링크를 열어 로그아웃/시크릿 창에서도 재생되는지 확인하세요."
+                          : "1. Open this link and confirm it plays even in a logged-out or incognito window."}
+                      </p>
+                      <p>
+                        {isKorean
+                          ? "2. 원본 페이지에서 Public 상태인지, 연령/지역 제한이 없는지 확인하세요."
+                          : "2. Check that the source page is public and has no age or region restriction."}
+                      </p>
+                      <p>
+                        {isKorean
+                          ? "3. 유튜브 플레이어에 비공개/차단 메시지가 뜨면 URL을 수정한 뒤 업로드하세요."
+                          : "3. If the player shows a private or blocked message, fix the source URL before uploading."}
+                      </p>
+                    </div>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        {...form.register("videoVisibilityConfirmed")}
+                        data-testid="checkbox-video-visibility-confirmed"
+                        className="mt-0.5 w-4 h-4 rounded-sm border border-white/20 bg-black/40 accent-primary cursor-pointer"
+                      />
+                      <span className="text-[10px] text-amber-100/90 leading-relaxed normal-case group-hover:text-white transition-colors">
+                        {isKorean
+                          ? "위 링크가 공개 상태이고, 로그인 없이 재생되며, 외부 사이트 임베드 차단이 없는 것을 확인했습니다."
+                          : "I confirmed this link is public, plays without login, and is not blocked from external embeds."}
+                      </span>
+                    </label>
+                    {form.formState.errors.videoVisibilityConfirmed && (
+                      <p className="text-[10px] text-red-300 tracking-wide">
+                        {form.formState.errors.videoVisibilityConfirmed.message}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Social/Portfolio Link */}
@@ -665,11 +736,11 @@ function SubmitTrackForm() {
               <div className="pt-2 space-y-2">
                 <button
                   type="submit"
-                  disabled={mutation.isPending || duplicateUrl || !artisticIntentMeetsMin}
+                  disabled={mutation.isPending || duplicateUrl || !artisticIntentMeetsMin || !videoReadyToSubmit}
                   data-testid="button-submit-track"
                   className={cn(
                     "w-full py-3.5 text-[11px] font-black uppercase tracking-[0.3em] rounded-sm transition-all flex items-center justify-center gap-2 border",
-                    mutation.isPending || duplicateUrl || !artisticIntentMeetsMin
+                    mutation.isPending || duplicateUrl || !artisticIntentMeetsMin || !videoReadyToSubmit
                       ? "bg-primary/10 border-primary/30 text-primary/50 cursor-not-allowed opacity-60"
                       : "bg-primary border-primary text-primary-foreground hover:bg-primary/90 hover:border-primary shadow-[0_0_24px_-8px_hsl(var(--primary)/0.55)]",
                   )}
@@ -683,6 +754,16 @@ function SubmitTrackForm() {
                     data-testid="text-artistic-intent-hint"
                   >
                     {t("submitTrack.validationIntent", { min: MIN_TRACK_ARTISTIC_INTENT_CHARS })}
+                  </p>
+                )}
+                {isVideoSubmission && !videoVisibilityConfirmed && (
+                  <p
+                    className="text-center text-[10px] text-amber-300/90 leading-relaxed px-1"
+                    data-testid="text-video-visibility-hint"
+                  >
+                    {isKorean
+                      ? "뮤직비디오는 공개/임베드 가능 여부 확인 체크를 해야 제출할 수 있습니다."
+                      : "Music videos require the public/embed confirmation check before submission."}
                   </p>
                 )}
               </div>

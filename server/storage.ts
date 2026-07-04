@@ -36,6 +36,15 @@ import {
   isExportableRegistrationEmail,
   publicTrackPageUrl,
 } from "./adminExport";
+import type {
+  B2bAiInsightRow,
+  B2bBattleExportRow,
+  B2bBattleVoteExportRow,
+  B2bCatalogExportRow,
+  B2bDailyPlatformSnapshotRow,
+  B2bDailyTrackSnapshotRow,
+  B2bPlayExportRow,
+} from "./b2bExport";
 import { db } from "./db";
 import {
   isDeliverableEmail,
@@ -46,6 +55,7 @@ import {
   sendBattleWinEmail,
   sendCreatorFollowedEmail,
   sendTrackPlayedEmail,
+  sendTrackPlaybackIssueEmail,
 } from "./email";
 import { recordServerAnalyticsEvent } from "./analytics";
 import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull, isNull } from "drizzle-orm";
@@ -331,13 +341,22 @@ export interface IStorage {
   getTrack(id: number): Promise<any | undefined>;
   createTrack(track: any): Promise<Track>;
   submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; coverImageUrl?: string | null; portfolioLink?: string | null; creatorId: number }): Promise<Track>;
-  checkAndPromoteToChart(trackId: number): Promise<void>;
+  checkAndPromoteToChart(trackId: number): Promise<boolean>;
   hasVoted(userId: string, trackId: number): Promise<boolean>;
   voteTrack(userId: string, trackId: number): Promise<void>;
   likeTrack(userId: string, trackId: number): Promise<{ likesCount: number }>;
   /** True if this user already has a like for this track for the current UTC calendar day. */
   hasLikedTrackToday(userId: string, trackId: number): Promise<boolean>;
-  recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }>;
+  recordPlay(
+    userId: string,
+    trackId: number,
+    opts?: { completed?: boolean; listenerCountry?: string | null; deviceClass?: string | null; referrerHost?: string | null },
+  ): Promise<{ counted: boolean; completionUpdated: boolean }>;
+  recordGuestPlay(
+    sessionKey: string,
+    trackId: number,
+    opts?: { completed?: boolean; deviceClass?: string | null; referrerHost?: string | null },
+  ): Promise<{ counted: boolean; completionUpdated: boolean }>;
   updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void>;
   updateTrackMetadata(
     id: number,
@@ -544,6 +563,27 @@ export interface IStorage {
       startedAt: Date;
     }[]
   >;
+  getSnapshotStatus(): Promise<{
+    lastTrackSnapshotDate: string | null;
+    lastPlatformSnapshotDate: string | null;
+    trackSnapshotDays: number;
+  }>;
+  captureDailySnapshots(): Promise<{
+    snapshotDate: string;
+    trackRows: number;
+    platformCaptured: boolean;
+  }>;
+  getB2bPlayExportRows(opts?: { since?: Date }): Promise<B2bPlayExportRow[]>;
+  getB2bBattleExportRows(): Promise<B2bBattleExportRow[]>;
+  getB2bBattleVoteExportRows(opts?: { since?: Date }): Promise<B2bBattleVoteExportRow[]>;
+  getB2bDailyTrackSnapshotExportRows(opts?: { since?: Date }): Promise<B2bDailyTrackSnapshotRow[]>;
+  getB2bDailyPlatformSnapshotExportRows(opts?: { since?: Date }): Promise<B2bDailyPlatformSnapshotRow[]>;
+  getB2bCatalogExportRows(): Promise<B2bCatalogExportRow[]>;
+  getB2bAiInsightExportRows(): Promise<B2bAiInsightRow[]>;
+  notifyTrackPlaybackIssue(trackId: number, issueSummary: string): Promise<{
+    notified: boolean;
+    email: { sent: boolean; skipReason?: string; detail?: string };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -802,6 +842,10 @@ export class DatabaseStorage implements IStorage {
 
         if (pFrom && pTo) {
           await tx.update(tracks).set({ creatorId: pTo.id }).where(eq(tracks.creatorId, pFrom.id));
+          await tx.update(trackClaimRequests).set({ requesterProfileId: pTo.id }).where(eq(trackClaimRequests.requesterProfileId, pFrom.id));
+          await tx.update(boostTickets).set({ userProfileId: pTo.id }).where(eq(boostTickets.userProfileId, pFrom.id));
+          await tx.update(boostUsageLogs).set({ ownerProfileId: pTo.id }).where(eq(boostUsageLogs.ownerProfileId, pFrom.id));
+          await tx.update(follows).set({ creatorProfileId: pTo.id }).where(eq(follows.creatorProfileId, pFrom.id));
           await tx.delete(profiles).where(eq(profiles.id, pFrom.id));
         } else if (pFrom && !pTo) {
           await tx.update(profiles).set({ userId: toId }).where(eq(profiles.userId, fromId));
@@ -812,7 +856,37 @@ export class DatabaseStorage implements IStorage {
         await tx.update(follows).set({ followerId: toId }).where(eq(follows.followerId, fromId));
         await tx.update(trackPlays).set({ userId: toId }).where(eq(trackPlays.userId, fromId));
         await tx.update(battleVotes).set({ userId: toId }).where(eq(battleVotes.userId, fromId));
+        await tx.update(battleListenCompletions).set({ userId: toId }).where(eq(battleListenCompletions.userId, fromId));
         await tx.update(comments).set({ userId: toId }).where(eq(comments.userId, fromId));
+        await tx.update(notifications).set({ recipientUserId: toId }).where(eq(notifications.recipientUserId, fromId));
+        await tx.update(analyticsEvents).set({ userId: toId }).where(eq(analyticsEvents.userId, fromId));
+        await tx.update(creatorEngagementEmails).set({ recipientUserId: toId }).where(eq(creatorEngagementEmails.recipientUserId, fromId));
+        await tx.update(boostImpressionEvents).set({ viewerUserId: toId }).where(eq(boostImpressionEvents.viewerUserId, fromId));
+
+        const [fromStats] = await tx.select().from(userActivityStats).where(eq(userActivityStats.userId, fromId));
+        const [toStats] = await tx.select().from(userActivityStats).where(eq(userActivityStats.userId, toId));
+        if (fromStats && toStats) {
+          await tx
+            .update(userActivityStats)
+            .set({
+              lastLoginAt:
+                (toStats.lastLoginAt ?? null) && (fromStats.lastLoginAt ?? null)
+                  ? new Date(Math.max(toStats.lastLoginAt!.getTime(), fromStats.lastLoginAt!.getTime()))
+                  : (toStats.lastLoginAt ?? fromStats.lastLoginAt ?? null),
+              lastVisitAt:
+                (toStats.lastVisitAt ?? null) && (fromStats.lastVisitAt ?? null)
+                  ? new Date(Math.max(toStats.lastVisitAt!.getTime(), fromStats.lastVisitAt!.getTime()))
+                  : (toStats.lastVisitAt ?? fromStats.lastVisitAt ?? null),
+              visitCount: (toStats.visitCount ?? 0) + (fromStats.visitCount ?? 0),
+              tracksPlayedCount: (toStats.tracksPlayedCount ?? 0) + (fromStats.tracksPlayedCount ?? 0),
+              battleVoteCount: (toStats.battleVoteCount ?? 0) + (fromStats.battleVoteCount ?? 0),
+              updatedAt: sql`now()`,
+            })
+            .where(eq(userActivityStats.userId, toId));
+          await tx.delete(userActivityStats).where(eq(userActivityStats.userId, fromId));
+        } else if (fromStats && !toStats) {
+          await tx.update(userActivityStats).set({ userId: toId }).where(eq(userActivityStats.userId, fromId));
+        }
 
         await tx.delete(users).where(eq(users.id, fromId));
       });
@@ -1739,7 +1813,11 @@ export class DatabaseStorage implements IStorage {
     return { likesCount: await this.readTrackLikesCount(trackId) };
   }
 
-  async recordPlay(userId: string, trackId: number, opts?: { completed?: boolean }): Promise<{ counted: boolean; completionUpdated: boolean }> {
+  async recordPlay(
+    userId: string,
+    trackId: number,
+    opts?: { completed?: boolean; listenerCountry?: string | null; deviceClass?: string | null; referrerHost?: string | null },
+  ): Promise<{ counted: boolean; completionUpdated: boolean }> {
     if (!String(userId ?? "").trim()) {
       return { counted: false, completionUpdated: false };
     }
@@ -1803,6 +1881,19 @@ export class DatabaseStorage implements IStorage {
       void this.notifyTrackPlayed(trackId, userId).catch(() => {});
     }
     return { counted: true, completionUpdated: false };
+  }
+
+  async recordGuestPlay(
+    sessionKey: string,
+    trackId: number,
+    opts?: { completed?: boolean; deviceClass?: string | null; referrerHost?: string | null },
+  ): Promise<{ counted: boolean; completionUpdated: boolean }> {
+    const key = String(sessionKey ?? "").trim();
+    if (!key) return { counted: false, completionUpdated: false };
+    // The current schema stores plays against `users.id`, so use a stable synthetic guest ID.
+    // This keeps guest play tracking alive without blocking runtime on missing guest-specific columns.
+    const guestUserId = `guest:${key.slice(0, 120)}`;
+    return this.recordPlay(guestUserId, trackId, { completed: opts?.completed });
   }
 
   async updateTrackStatus(id: number, status: string, aiCraftScore?: number): Promise<void> {
@@ -3807,6 +3898,44 @@ export class DatabaseStorage implements IStorage {
     ).catch((err) => console.warn("[email] track play notify failed", err));
   }
 
+  async notifyTrackPlaybackIssue(trackId: number, issueSummary: string): Promise<{
+    notified: boolean;
+    email: { sent: boolean; skipReason?: string; detail?: string };
+  }> {
+    const empty = { notified: false, email: { sent: false, skipReason: "skipped" as const } };
+    const track = await this.getTrack(trackId);
+    const recipientUserId = track?.creator?.userId;
+    if (!recipientUserId) {
+      console.warn("[notify] track playback issue — missing creator userId", { trackId, issueSummary });
+      return { ...empty, email: { sent: false, skipReason: "no_creator_user" } };
+    }
+
+    const dedupeKey = `track:${trackId}:playback-issue:${issueSummary.trim().toLowerCase()}`;
+    const reserved = await this.markEngagementEmailSent("track_playback_issue", dedupeKey, recipientUserId);
+    if (!reserved) {
+      return { ...empty, email: { sent: false, skipReason: "duplicate" } };
+    }
+
+    const title = track.title ?? "Your track";
+    await this.createNotification({
+      recipientUserId,
+      type: "track_playback_issue",
+      title: "Track needs link fix",
+      body: `"${title}" cannot play on NEX right now. ${issueSummary}`,
+      trackId,
+      href: "/my-tracks",
+    });
+    const email = await this.emailCreator(recipientUserId, (to) =>
+      sendTrackPlaybackIssueEmail({
+        to,
+        trackTitle: title,
+        trackId,
+        issueSummary,
+      }),
+    );
+    return { notified: true, email };
+  }
+
   async notifyCreatorFollowed(creatorProfileId: number, followerUserId: string): Promise<void> {
     const [creator] = await db
       .select({ userId: profiles.userId, username: profiles.username })
@@ -3845,6 +3974,58 @@ export class DatabaseStorage implements IStorage {
         creatorProfilePath: profilePath,
       }),
     ).catch((err) => console.warn("[email] follow notify failed", err));
+  }
+
+  async getSnapshotStatus(): Promise<{
+    lastTrackSnapshotDate: string | null;
+    lastPlatformSnapshotDate: string | null;
+    trackSnapshotDays: number;
+  }> {
+    return {
+      lastTrackSnapshotDate: null,
+      lastPlatformSnapshotDate: null,
+      trackSnapshotDays: 0,
+    };
+  }
+
+  async captureDailySnapshots(): Promise<{
+    snapshotDate: string;
+    trackRows: number;
+    platformCaptured: boolean;
+  }> {
+    return {
+      snapshotDate: new Date().toISOString().slice(0, 10),
+      trackRows: 0,
+      platformCaptured: false,
+    };
+  }
+
+  async getB2bPlayExportRows(_opts?: { since?: Date }): Promise<B2bPlayExportRow[]> {
+    return [];
+  }
+
+  async getB2bBattleExportRows(): Promise<B2bBattleExportRow[]> {
+    return [];
+  }
+
+  async getB2bBattleVoteExportRows(_opts?: { since?: Date }): Promise<B2bBattleVoteExportRow[]> {
+    return [];
+  }
+
+  async getB2bDailyTrackSnapshotExportRows(_opts?: { since?: Date }): Promise<B2bDailyTrackSnapshotRow[]> {
+    return [];
+  }
+
+  async getB2bDailyPlatformSnapshotExportRows(_opts?: { since?: Date }): Promise<B2bDailyPlatformSnapshotRow[]> {
+    return [];
+  }
+
+  async getB2bCatalogExportRows(): Promise<B2bCatalogExportRow[]> {
+    return [];
+  }
+
+  async getB2bAiInsightExportRows(): Promise<B2bAiInsightRow[]> {
+    return [];
   }
 
 }

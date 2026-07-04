@@ -230,15 +230,21 @@ export async function sendBattleWinEmail(opts: {
   trackId: number;
 }): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
-  const href = `${siteOrigin()}/track/${opts.trackId}`;
+  const trackHref = `${siteOrigin()}/track/${opts.trackId}`;
+  const battleHref = `${siteOrigin()}/battle`;
   const subject = `[NEX] 배틀 승리 — ${opts.trackTitle}`;
-  const text = `당신이 올린 "${opts.trackTitle}"이(가) 배틀에서 승리했어요. 확인해보세요.\n${href}`;
+  const text =
+    `당신의 곡 "${opts.trackTitle}"이(가) 오늘 NEX 배틀에서 승리했습니다.\n` +
+    `지금 NEX에 들어와서 결과를 확인하고, 또 다른 배틀을 실행해 보세요.\n` +
+    `트랙 보기: ${trackHref}\n` +
+    `배틀 바로가기: ${battleHref}`;
   const html = emailLayout({
     headline: "배틀에서 승리했어요 🏆",
-    bodyHtml: `<p style="margin:0;">당신이 올린 <strong style="color:#fff;">${title}</strong>이(가) 배틀에서 승리했어요.</p>
-      <p style="margin:12px 0 0;">지금 NEX에서 결과를 확인해보세요.</p>`,
-    ctaLabel: "트랙 보기",
-    ctaHref: href,
+    bodyHtml: `<p style="margin:0;">당신의 곡 <strong style="color:#fff;">${title}</strong>이(가) 오늘 NEX 배틀에서 승리했습니다.</p>
+      <p style="margin:12px 0 0;">지금 NEX에 들어와서 결과를 확인하고, 또 다른 배틀을 실행해 보세요.</p>
+      <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">트랙 보기</a></p>`,
+    ctaLabel: "배틀 다시 하기",
+    ctaHref: battleHref,
   });
   return sendEmail({ to: opts.to, subject, html, text });
 }
@@ -276,6 +282,32 @@ export async function sendTrackPlayedEmail(opts: {
     bodyHtml: `<p style="margin:0;"><strong style="color:#fff;">${title}</strong>에 새 재생이 기록되었습니다.</p>
       <p style="margin:12px 0 0;">지금 NEX에서 반응을 확인해 보세요.</p>`,
     ctaLabel: "트랙 보기",
+    ctaHref: href,
+  });
+  return sendEmail({ to: opts.to, subject, html, text });
+}
+
+export async function sendTrackPlaybackIssueEmail(opts: {
+  to: string;
+  trackTitle: string;
+  trackId: number;
+  issueSummary: string;
+}): Promise<EmailSendResult> {
+  const title = escapeHtml(opts.trackTitle);
+  const issue = escapeHtml(opts.issueSummary);
+  const href = `${siteOrigin()}/my-tracks`;
+  const subject = `[NEX] 재생 불가 링크 수정 필요 — ${opts.trackTitle}`;
+  const text =
+    `"${opts.trackTitle}"은(는) 현재 NEX에서 정상 재생되지 않습니다.\n` +
+    `사유: ${opts.issueSummary}\n` +
+    `이 문제는 NEX 관리자가 대신 수정할 수 없으며, 업로더가 원본 링크를 공개/재생 가능 상태로 바꾸거나 올바른 링크로 다시 제출해야 합니다.\n` +
+    `${href}`;
+  const html = emailLayout({
+    headline: "업로드한 링크를 수정해 주세요",
+    bodyHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong>은(는) 현재 NEX에서 정상 재생되지 않습니다.</p>
+      <p style="margin:0 0 12px;">사유: <strong style="color:#fff;">${issue}</strong></p>
+      <p style="margin:0;">이 문제는 NEX 관리자가 대신 고칠 수 없습니다. 업로더가 원본 플랫폼에서 공개/재생 가능 상태를 확인하고, 링크를 수정하거나 다시 제출해 주세요.</p>`,
+    ctaLabel: "내 트랙 확인",
     ctaHref: href,
   });
   return sendEmail({ to: opts.to, subject, html, text });

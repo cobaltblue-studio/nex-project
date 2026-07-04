@@ -204,6 +204,10 @@ app.use((req, res, next) => {
 
   const { startDailySnapshotScheduler } = await import("./dailySnapshot");
   startDailySnapshotScheduler(storage);
+  if (isEmailEnabled()) {
+    const { startPublicTrackPlaybackAudit } = await import("./playbackAudit");
+    startPublicTrackPlaybackAudit(storage);
+  }
 })().catch((err) => {
   console.error("[boot] fatal:", err);
   process.exit(1);
