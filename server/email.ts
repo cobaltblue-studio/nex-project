@@ -94,7 +94,7 @@ function escapeHtml(s: string): string {
 function emailLayout(opts: { headline: string; bodyHtml: string; ctaLabel: string; ctaHref: string }): string {
   const origin = siteOrigin();
   return `<!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head>
 <body style="margin:0;background:#050505;font-family:Inter,system-ui,sans-serif;color:#e2e8f0;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:32px 16px;">
@@ -118,6 +118,48 @@ function emailLayout(opts: { headline: string; bodyHtml: string; ctaLabel: strin
   </table>
 </body>
 </html>`;
+}
+
+function bilingualText(english: string, korean: string): string {
+  return `English\n${english}\n\n한국어\n${korean}`;
+}
+
+function bilingualBody(englishHtml: string, koreanHtml: string): string {
+  return `
+    <div style="margin:0 0 20px;">
+      <p style="margin:0 0 10px;font-size:11px;letter-spacing:0.18em;color:#67e8f9;font-weight:700;text-transform:uppercase;">English</p>
+      ${englishHtml}
+    </div>
+    <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08);">
+      <p style="margin:0 0 10px;font-size:11px;letter-spacing:0.18em;color:#67e8f9;font-weight:700;">한국어</p>
+      ${koreanHtml}
+    </div>
+  `;
+}
+
+function composeBilingualEmail(opts: {
+  subjectEn: string;
+  subjectKo: string;
+  headlineEn: string;
+  headlineKo: string;
+  englishHtml: string;
+  koreanHtml: string;
+  ctaLabelEn: string;
+  ctaLabelKo: string;
+  ctaHref: string;
+  textEn: string;
+  textKo: string;
+}): { subject: string; html: string; text: string } {
+  return {
+    subject: `[NEX] ${opts.subjectEn} / ${opts.subjectKo}`,
+    text: bilingualText(opts.textEn, opts.textKo),
+    html: emailLayout({
+      headline: `${escapeHtml(opts.headlineEn)}<br/><span style="font-size:16px;color:#94a3b8;font-weight:600;">${escapeHtml(opts.headlineKo)}</span>`,
+      bodyHtml: bilingualBody(opts.englishHtml, opts.koreanHtml),
+      ctaLabel: `${escapeHtml(opts.ctaLabelEn)} / ${escapeHtml(opts.ctaLabelKo)}`,
+      ctaHref: opts.ctaHref,
+    }),
+  };
 }
 
 export type EmailSendResult =
@@ -176,16 +218,22 @@ export async function sendTrackApprovedEmail(opts: {
 }): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
   const href = `${siteOrigin()}/track/${opts.trackId}`;
-  const subject = `[NEX] 승인 완료 — ${opts.trackTitle}`;
-  const text = `축하합니다! "${opts.trackTitle}"이(가) 승인되어 ${opts.destination}에 노출됩니다.\n${href}`;
-  const html = emailLayout({
-    headline: "트랙이 승인되었습니다 🎉",
-    bodyHtml: `<p style="margin:0 0 12px;">축하합니다! <strong style="color:#fff;">${title}</strong>이(가) 관리자 승인을 받았습니다.</p>
-      <p style="margin:0;">지금 <strong style="color:#67e8f9;">${escapeHtml(opts.destination)}</strong>에서 확인할 수 있어요.</p>`,
-    ctaLabel: "트랙 보기",
+  const msg = composeBilingualEmail({
+    subjectEn: `Track approved — ${opts.trackTitle}`,
+    subjectKo: `승인 완료 — ${opts.trackTitle}`,
+    headlineEn: "Your track is approved",
+    headlineKo: "트랙이 승인되었습니다",
+    englishHtml: `<p style="margin:0 0 12px;">Congratulations. <strong style="color:#fff;">${title}</strong> was approved by NEX.</p>
+      <p style="margin:0;">You can now find it in <strong style="color:#67e8f9;">${escapeHtml(opts.destination)}</strong>.</p>`,
+    koreanHtml: `<p style="margin:0 0 12px;">축하합니다. <strong style="color:#fff;">${title}</strong>이(가) NEX 관리자 승인을 받았습니다.</p>
+      <p style="margin:0;">지금 NEX에서 트랙 상태와 노출 위치를 확인해 보세요.</p>`,
+    ctaLabelEn: "View track",
+    ctaLabelKo: "트랙 보기",
     ctaHref: href,
+    textEn: `Congratulations. "${opts.trackTitle}" was approved by NEX and is now visible in ${opts.destination}.\nTrack: ${href}`,
+    textKo: `축하합니다. "${opts.trackTitle}"이(가) NEX 관리자 승인을 받아 현재 노출 중입니다.\n트랙 보기: ${href}`,
   });
-  return sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, ...msg });
 }
 
 export async function sendTrackRejectedEmail(opts: {
@@ -194,16 +242,22 @@ export async function sendTrackRejectedEmail(opts: {
 }): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
   const href = `${siteOrigin()}/my-tracks`;
-  const subject = `[NEX] 승인 안내 — ${opts.trackTitle}`;
-  const text = `"${opts.trackTitle}"은(는) 이번 심사에서 승인되지 않았습니다. 수정 후 다시 제출해 주세요.\n${href}`;
-  const html = emailLayout({
-    headline: "트랙 승인 결과 안내",
-    bodyHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong>은(는) 이번에는 승인되지 않았습니다.</p>
-      <p style="margin:0;">링크·메타데이터를 보완한 뒤 다시 제출해 주세요.</p>`,
-    ctaLabel: "내 트랙",
+  const msg = composeBilingualEmail({
+    subjectEn: `Review result — ${opts.trackTitle}`,
+    subjectKo: `승인 안내 — ${opts.trackTitle}`,
+    headlineEn: "Track review result",
+    headlineKo: "트랙 승인 결과 안내",
+    englishHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong> was not approved this time.</p>
+      <p style="margin:0;">Please improve the link or metadata, then submit an updated version.</p>`,
+    koreanHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong>은(는) 이번 심사에서 승인되지 않았습니다.</p>
+      <p style="margin:0;">링크나 메타데이터를 보완한 뒤 다시 제출해 주세요.</p>`,
+    ctaLabelEn: "Open my tracks",
+    ctaLabelKo: "내 트랙 열기",
     ctaHref: href,
+    textEn: `"${opts.trackTitle}" was not approved this time. Please update the source link or metadata and resubmit.\nMy tracks: ${href}`,
+    textKo: `"${opts.trackTitle}"은(는) 이번 심사에서 승인되지 않았습니다. 링크나 메타데이터를 수정한 뒤 다시 제출해 주세요.\n내 트랙: ${href}`,
   });
-  return sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, ...msg });
 }
 
 export async function sendTrackLikedEmail(opts: {
@@ -212,16 +266,26 @@ export async function sendTrackLikedEmail(opts: {
   trackId: number;
 }): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
-  const href = `${siteOrigin()}/track/${opts.trackId}`;
-  const subject = `[NEX] 새 좋아요 — ${opts.trackTitle}`;
-  const text = `누군가 "${opts.trackTitle}"에 오늘 좋아요(치어)를 남겼습니다.\n${href}`;
-  const html = emailLayout({
-    headline: "새 좋아요가 도착했어요 💙",
-    bodyHtml: `<p style="margin:0;">누군가 <strong style="color:#fff;">${title}</strong>에 오늘 NEX에서 좋아요를 눌렀습니다.</p>`,
-    ctaLabel: "트랙 보기",
-    ctaHref: href,
+  const trackHref = `${siteOrigin()}/track/${opts.trackId}`;
+  const battleHref = `${siteOrigin()}/battle`;
+  const msg = composeBilingualEmail({
+    subjectEn: `New like — ${opts.trackTitle}`,
+    subjectKo: `새 좋아요 — ${opts.trackTitle}`,
+    headlineEn: "Your track got a new like",
+    headlineKo: "새 좋아요가 도착했어요",
+    englishHtml: `<p style="margin:0;">Someone liked <strong style="color:#fff;">${title}</strong> on NEX today.</p>
+      <p style="margin:12px 0 0;">Visit NEX to check the reaction and launch another battle.</p>
+      <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">View track</a></p>`,
+    koreanHtml: `<p style="margin:0;">누군가 오늘 NEX에서 <strong style="color:#fff;">${title}</strong>에 좋아요를 남겼습니다.</p>
+      <p style="margin:12px 0 0;">지금 NEX에 들어와 반응을 확인하고, 다른 배틀에도 참여해 보세요.</p>
+      <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">트랙 보기</a></p>`,
+    ctaLabelEn: "Open NEX Battle",
+    ctaLabelKo: "NEX 배틀 열기",
+    ctaHref: battleHref,
+    textEn: `Someone liked "${opts.trackTitle}" on NEX today.\nVisit NEX to check the reaction and launch another battle.\nTrack: ${trackHref}\nBattle: ${battleHref}`,
+    textKo: `누군가 오늘 NEX에서 "${opts.trackTitle}"에 좋아요를 남겼습니다.\n지금 NEX에 들어와 반응을 확인하고 다른 배틀에도 참여해 보세요.\n트랙 보기: ${trackHref}\n배틀 바로가기: ${battleHref}`,
   });
-  return sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, ...msg });
 }
 
 export async function sendBattleWinEmail(opts: {
@@ -232,21 +296,24 @@ export async function sendBattleWinEmail(opts: {
   const title = escapeHtml(opts.trackTitle);
   const trackHref = `${siteOrigin()}/track/${opts.trackId}`;
   const battleHref = `${siteOrigin()}/battle`;
-  const subject = `[NEX] 배틀 승리 — ${opts.trackTitle}`;
-  const text =
-    `당신의 곡 "${opts.trackTitle}"이(가) 오늘 NEX 배틀에서 승리했습니다.\n` +
-    `지금 NEX에 들어와서 결과를 확인하고, 또 다른 배틀을 실행해 보세요.\n` +
-    `트랙 보기: ${trackHref}\n` +
-    `배틀 바로가기: ${battleHref}`;
-  const html = emailLayout({
-    headline: "배틀에서 승리했어요 🏆",
-    bodyHtml: `<p style="margin:0;">당신의 곡 <strong style="color:#fff;">${title}</strong>이(가) 오늘 NEX 배틀에서 승리했습니다.</p>
-      <p style="margin:12px 0 0;">지금 NEX에 들어와서 결과를 확인하고, 또 다른 배틀을 실행해 보세요.</p>
+  const msg = composeBilingualEmail({
+    subjectEn: `Battle win — ${opts.trackTitle}`,
+    subjectKo: `배틀 승리 — ${opts.trackTitle}`,
+    headlineEn: "Your track won a battle",
+    headlineKo: "배틀에서 승리했어요",
+    englishHtml: `<p style="margin:0;">Your track <strong style="color:#fff;">${title}</strong> won a NEX battle today.</p>
+      <p style="margin:12px 0 0;">Visit NEX now to check the result and launch another battle.</p>
+      <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">View track</a></p>`,
+    koreanHtml: `<p style="margin:0;">당신의 곡 <strong style="color:#fff;">${title}</strong>이(가) 오늘 NEX 배틀에서 승리했습니다.</p>
+      <p style="margin:12px 0 0;">지금 NEX에 들어와 결과를 확인하고, 또 다른 배틀에도 참여해 보세요.</p>
       <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">트랙 보기</a></p>`,
-    ctaLabel: "배틀 다시 하기",
+    ctaLabelEn: "Launch another battle",
+    ctaLabelKo: "배틀 다시 하기",
     ctaHref: battleHref,
+    textEn: `Your track "${opts.trackTitle}" won a NEX battle today.\nVisit NEX now to check the result and launch another battle.\nTrack: ${trackHref}\nBattle: ${battleHref}`,
+    textKo: `당신의 곡 "${opts.trackTitle}"이(가) 오늘 NEX 배틀에서 승리했습니다.\n지금 NEX에 들어와 결과를 확인하고 또 다른 배틀에도 참여해 보세요.\n트랙 보기: ${trackHref}\n배틀 바로가기: ${battleHref}`,
   });
-  return sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, ...msg });
 }
 
 export async function sendCreatorFollowedEmail(opts: {
@@ -255,17 +322,26 @@ export async function sendCreatorFollowedEmail(opts: {
   creatorProfilePath: string;
 }): Promise<EmailSendResult> {
   const follower = escapeHtml(opts.followerDisplayName || "Someone");
-  const href = `${siteOrigin()}${opts.creatorProfilePath.startsWith("/") ? opts.creatorProfilePath : `/${opts.creatorProfilePath}`}`;
-  const subject = `[NEX] 새 팔로워 — ${opts.followerDisplayName || "New follower"}`;
-  const text = `${follower}님이 NEX에서 당신을 팔로우했습니다.\n${href}`;
-  const html = emailLayout({
-    headline: "새 팔로워가 생겼어요 ✨",
-    bodyHtml: `<p style="margin:0;"><strong style="color:#fff;">${follower}</strong>님이 NEX에서 당신을 팔로우했습니다.</p>
-      <p style="margin:12px 0 0;">프로필과 최신 활동을 확인해 보세요.</p>`,
-    ctaLabel: "내 프로필 보기",
-    ctaHref: href,
+  const profileHref = `${siteOrigin()}${opts.creatorProfilePath.startsWith("/") ? opts.creatorProfilePath : `/${opts.creatorProfilePath}`}`;
+  const battleHref = `${siteOrigin()}/battle`;
+  const msg = composeBilingualEmail({
+    subjectEn: `New follower — ${opts.followerDisplayName || "New follower"}`,
+    subjectKo: `새 팔로워 — ${opts.followerDisplayName || "New follower"}`,
+    headlineEn: "You have a new follower",
+    headlineKo: "새 팔로워가 생겼어요",
+    englishHtml: `<p style="margin:0;"><strong style="color:#fff;">${follower}</strong> followed you on NEX.</p>
+      <p style="margin:12px 0 0;">Visit NEX to review your latest activity and join more battles.</p>
+      <p style="margin:12px 0 0;"><a href="${profileHref}" style="color:#67e8f9;">Open your profile</a></p>`,
+    koreanHtml: `<p style="margin:0;"><strong style="color:#fff;">${follower}</strong>님이 NEX에서 당신을 팔로우했습니다.</p>
+      <p style="margin:12px 0 0;">지금 NEX에 들어와 최근 반응을 확인하고, 더 많은 배틀에도 참여해 보세요.</p>
+      <p style="margin:12px 0 0;"><a href="${profileHref}" style="color:#67e8f9;">내 프로필 보기</a></p>`,
+    ctaLabelEn: "Open NEX Battle",
+    ctaLabelKo: "NEX 배틀 열기",
+    ctaHref: battleHref,
+    textEn: `${opts.followerDisplayName || "Someone"} followed you on NEX.\nVisit NEX to review your latest activity and join more battles.\nProfile: ${profileHref}\nBattle: ${battleHref}`,
+    textKo: `${opts.followerDisplayName || "누군가"}님이 NEX에서 당신을 팔로우했습니다.\n지금 NEX에 들어와 최근 반응을 확인하고 더 많은 배틀에도 참여해 보세요.\n프로필: ${profileHref}\n배틀 바로가기: ${battleHref}`,
   });
-  return sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, ...msg });
 }
 
 export async function sendTrackPlayedEmail(opts: {
@@ -274,17 +350,26 @@ export async function sendTrackPlayedEmail(opts: {
   trackId: number;
 }): Promise<EmailSendResult> {
   const title = escapeHtml(opts.trackTitle);
-  const href = `${siteOrigin()}/track/${opts.trackId}`;
-  const subject = `[NEX] 새 재생 — ${opts.trackTitle}`;
-  const text = `누군가 "${opts.trackTitle}"을(를) NEX에서 들었습니다.\n${href}`;
-  const html = emailLayout({
-    headline: "누군가 당신의 곡을 들었어요 🎧",
-    bodyHtml: `<p style="margin:0;"><strong style="color:#fff;">${title}</strong>에 새 재생이 기록되었습니다.</p>
-      <p style="margin:12px 0 0;">지금 NEX에서 반응을 확인해 보세요.</p>`,
-    ctaLabel: "트랙 보기",
-    ctaHref: href,
+  const trackHref = `${siteOrigin()}/track/${opts.trackId}`;
+  const battleHref = `${siteOrigin()}/battle`;
+  const msg = composeBilingualEmail({
+    subjectEn: `New play — ${opts.trackTitle}`,
+    subjectKo: `새 재생 — ${opts.trackTitle}`,
+    headlineEn: "Someone played your track",
+    headlineKo: "누군가 당신의 곡을 들었어요",
+    englishHtml: `<p style="margin:0;"><strong style="color:#fff;">${title}</strong> received a new play on NEX.</p>
+      <p style="margin:12px 0 0;">Visit NEX to check the reaction and join another battle.</p>
+      <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">View track</a></p>`,
+    koreanHtml: `<p style="margin:0;"><strong style="color:#fff;">${title}</strong>에 새 재생이 기록되었습니다.</p>
+      <p style="margin:12px 0 0;">지금 NEX에 들어와 반응을 확인하고, 다른 배틀에도 참여해 보세요.</p>
+      <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">트랙 보기</a></p>`,
+    ctaLabelEn: "Open NEX Battle",
+    ctaLabelKo: "NEX 배틀 열기",
+    ctaHref: battleHref,
+    textEn: `Someone played "${opts.trackTitle}" on NEX.\nVisit NEX to check the reaction and join another battle.\nTrack: ${trackHref}\nBattle: ${battleHref}`,
+    textKo: `누군가 NEX에서 "${opts.trackTitle}"을(를) 재생했습니다.\n지금 NEX에 들어와 반응을 확인하고 다른 배틀에도 참여해 보세요.\n트랙 보기: ${trackHref}\n배틀 바로가기: ${battleHref}`,
   });
-  return sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, ...msg });
 }
 
 export async function sendTrackPlaybackIssueEmail(opts: {
@@ -296,19 +381,30 @@ export async function sendTrackPlaybackIssueEmail(opts: {
   const title = escapeHtml(opts.trackTitle);
   const issue = escapeHtml(opts.issueSummary);
   const href = `${siteOrigin()}/my-tracks`;
-  const subject = `[NEX] 재생 불가 링크 수정 필요 — ${opts.trackTitle}`;
-  const text =
-    `"${opts.trackTitle}"은(는) 현재 NEX에서 정상 재생되지 않습니다.\n` +
-    `사유: ${opts.issueSummary}\n` +
-    `이 문제는 NEX 관리자가 대신 수정할 수 없으며, 업로더가 원본 링크를 공개/재생 가능 상태로 바꾸거나 올바른 링크로 다시 제출해야 합니다.\n` +
-    `${href}`;
-  const html = emailLayout({
-    headline: "업로드한 링크를 수정해 주세요",
-    bodyHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong>은(는) 현재 NEX에서 정상 재생되지 않습니다.</p>
+  const msg = composeBilingualEmail({
+    subjectEn: `Fix required for playback link — ${opts.trackTitle}`,
+    subjectKo: `재생 불가 링크 수정 필요 — ${opts.trackTitle}`,
+    headlineEn: "Please fix your uploaded link",
+    headlineKo: "업로드한 링크를 수정해 주세요",
+    englishHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong> is not playing on NEX right now.</p>
+      <p style="margin:0 0 12px;">Reason: <strong style="color:#fff;">${issue}</strong></p>
+      <p style="margin:0;">NEX admins cannot fix this for you. Please make the source link public/playable on the original platform, or resubmit with a correct link.</p>`,
+    koreanHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong>은(는) 현재 NEX에서 정상 재생되지 않습니다.</p>
       <p style="margin:0 0 12px;">사유: <strong style="color:#fff;">${issue}</strong></p>
-      <p style="margin:0;">이 문제는 NEX 관리자가 대신 고칠 수 없습니다. 업로더가 원본 플랫폼에서 공개/재생 가능 상태를 확인하고, 링크를 수정하거나 다시 제출해 주세요.</p>`,
-    ctaLabel: "내 트랙 확인",
+      <p style="margin:0;">이 문제는 NEX 관리자가 대신 수정할 수 없습니다. 원본 플랫폼에서 공개/재생 가능 상태를 확인한 뒤 링크를 수정하거나 다시 제출해 주세요.</p>`,
+    ctaLabelEn: "Open my tracks",
+    ctaLabelKo: "내 트랙 열기",
     ctaHref: href,
+    textEn:
+      `"${opts.trackTitle}" is not playing on NEX right now.\n` +
+      `Reason: ${opts.issueSummary}\n` +
+      `NEX admins cannot fix this for you. Please make the source link public/playable on the original platform, or resubmit with a correct link.\n` +
+      `My tracks: ${href}`,
+    textKo:
+      `"${opts.trackTitle}"은(는) 현재 NEX에서 정상 재생되지 않습니다.\n` +
+      `사유: ${opts.issueSummary}\n` +
+      `이 문제는 NEX 관리자가 대신 수정할 수 없습니다. 원본 플랫폼에서 공개/재생 가능 상태를 확인한 뒤 링크를 수정하거나 다시 제출해 주세요.\n` +
+      `내 트랙: ${href}`,
   });
-  return sendEmail({ to: opts.to, subject, html, text });
+  return sendEmail({ to: opts.to, ...msg });
 }

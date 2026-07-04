@@ -14,6 +14,7 @@ import {
   NEX_FOUNDER_ADMIN_EMAIL,
 } from "@shared/constants";
 import { apiMsg } from "./api-i18n";
+import { isDeliverableEmail } from "./email";
 
 function founderEmailForEnv(): string {
   return (process.env.NEX_FOUNDER_ADMIN_EMAIL || NEX_FOUNDER_ADMIN_EMAIL).trim().toLowerCase();
@@ -24,6 +25,7 @@ export type SessionUser = {
   username?: string;
   role?: "admin" | "creator" | "listener" | string;
   email: string | null;
+  hasDeliverableEmail?: boolean;
   firstName: string | null;
   lastName: string | null;
   profileImageUrl: string | null;
@@ -53,6 +55,7 @@ function buildSessionUserFromDbRow(row: User, profile: Profile | undefined): Ses
   return {
     id: row.id,
     email: row.email ?? null,
+    hasDeliverableEmail: isDeliverableEmail(row.email ?? ""),
     firstName: row.firstName ?? null,
     lastName: row.lastName ?? null,
     profileImageUrl: row.profileImageUrl ?? null,
@@ -543,12 +546,16 @@ export function registerAuthRoutes(app: Express) {
           role: mergedRole,
           username: profile?.username ?? base.username,
           creatorApplicationStatus: profile?.creatorApplicationStatus ?? "none",
+          hasDeliverableEmail: isDeliverableEmail(email ?? ""),
         });
       }
       const { email: _e2, id: _id2, ...safeOnly } = base;
       void _e2;
       void _id2;
-      res.json(safeOnly);
+      res.json({
+        ...safeOnly,
+        hasDeliverableEmail: isDeliverableEmail(base.email ?? ""),
+      });
     } catch (e) {
       next(e);
     }

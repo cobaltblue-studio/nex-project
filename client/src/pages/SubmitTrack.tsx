@@ -71,7 +71,7 @@ const SUPPORTED_LINKS = [
 
 const TRACK_TYPES = ["audio", "video"] as const;
 
-function makeSubmitSchema(t: TFunction, isKorean: boolean) {
+function makeSubmitSchema(t: TFunction, isKorean: boolean, needsContactEmail: boolean) {
   return z.object({
     title: z
       .string()
@@ -97,6 +97,7 @@ function makeSubmitSchema(t: TFunction, isKorean: boolean) {
       .string()
       .url("Social/Portfolio link must be a valid URL")
       .refine((s) => /^https?:\/\//i.test(s), "Social/Portfolio link must start with http(s)"),
+    contactEmail: z.string().max(320).optional().default(""),
     aiPrompt: z
       .string()
       .max(MAX_TRACK_ARTISTIC_INTENT_CHARS, "Prompt too long")
@@ -134,6 +135,29 @@ function makeSubmitSchema(t: TFunction, isKorean: boolean) {
           : "For music videos, confirm the link is public, playable without login, and not blocked from embeds before submitting.",
       });
     }
+    const contactEmail = String(data.contactEmail ?? "").trim().toLowerCase();
+    const contactEmailValid =
+      !!contactEmail &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) &&
+      !contactEmail.endsWith("@artist.local") &&
+      !contactEmail.endsWith("@neo.ai");
+    if (needsContactEmail && !contactEmail) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["contactEmail"],
+        message: isKorean
+          ? "배틀/좋아요/팔로우 알림을 받으려면 실제 이메일 주소를 입력해야 합니다"
+          : "Enter a reachable email address to receive battle, like, play, and follow alerts.",
+      });
+    } else if (contactEmail && !contactEmailValid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["contactEmail"],
+        message: isKorean
+          ? "실제로 수신 가능한 이메일 주소를 입력해 주세요"
+          : "Please enter a real, reachable email address.",
+      });
+    }
   });
 }
 
@@ -144,8 +168,9 @@ type MeProfile = { id: number; role: string };
 function SubmitTrackForm() {
   const { t, i18n } = useTranslation();
   const isKorean = (i18n.resolvedLanguage ?? i18n.language ?? "").toLowerCase().startsWith("ko");
-  const schema = useMemo(() => makeSubmitSchema(t, isKorean), [t, isKorean]);
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const needsContactEmail = user?.hasDeliverableEmail === false;
+  const schema = useMemo(() => makeSubmitSchema(t, isKorean, needsContactEmail), [t, isKorean, needsContactEmail]);
   const [, setLocation] = useLocation();
   const [submitted, setSubmitted] = useState(false);
   const [trackId, setTrackId] = useState<number | null>(null);
@@ -180,6 +205,7 @@ function SubmitTrackForm() {
       trackType: "audio",
       trackLink: "",
       portfolioLink: "",
+      contactEmail: "",
       aiPrompt: "",
       coverImageUrl: "",
       originalityConfirmed: false,
@@ -265,6 +291,12 @@ function SubmitTrackForm() {
   const isVideoSubmission = form.watch("trackType") === "video";
   const videoVisibilityConfirmed = !!form.watch("videoVisibilityConfirmed");
   const videoReadyToSubmit = !isVideoSubmission || videoVisibilityConfirmed;
+  const contactEmailValue = String(form.watch("contactEmail") ?? "").trim().toLowerCase();
+  const contactEmailReadyToSubmit =
+    !needsContactEmail ||
+    (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmailValue) &&
+      !contactEmailValue.endsWith("@artist.local") &&
+      !contactEmailValue.endsWith("@neo.ai"));
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -307,6 +339,16 @@ function SubmitTrackForm() {
             data-testid="text-listener-submit-notice"
           >
             {t("submitTrack.listenerSubmitNotice")}
+          </p>
+        ) : null}
+        {needsContactEmail ? (
+          <p
+            className="text-[11px] text-amber-200/90 mt-3 p-3 rounded-sm border border-amber-500/25 bg-amber-500/5 leading-relaxed normal-case"
+            data-testid="text-contact-email-required-notice"
+          >
+            {isKorean
+              ? "현재 계정에는 실제 발송 가능한 이메일이 저장되어 있지 않습니다. 아래에 연락 가능한 이메일을 입력해야 배틀 승리, 재생, 좋아요, 팔로우, 링크 수정 요청 메일을 영어→한국어 순으로 받을 수 있습니다."
+              : "This account does not currently have a reachable email on file. Enter a contact email below so NEX can send battle wins, plays, likes, follows, and link-fix alerts in English first and Korean second."}
           </p>
         ) : null}
       </div>
@@ -658,6 +700,33 @@ function SubmitTrackForm() {
                 )}
               </div>
 
+              {needsContactEmail && (
+                <div>
+                  <label className="block text-[9px] font-bold uppercase tracking-[0.3em] text-amber-300 mb-2">
+                    Contact Email For Creator Alerts
+                  </label>
+                  <input
+                    {...form.register("contactEmail")}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    data-testid="input-contact-email"
+                    className="w-full bg-black/40 border border-amber-500/30 rounded-sm px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-amber-300/70 focus:ring-1 focus:ring-amber-300/20 transition-all"
+                  />
+                  <p className="text-[9px] text-amber-200/80 tracking-wide mt-1.5 normal-case leading-relaxed">
+                    {isKorean
+                      ? "이 주소로 배틀 승리, 재생, 좋아요, 팔로우, 재생 불가 링크 수정 요청 메일이 영어→한국어 순으로 발송됩니다."
+                      : "NEX will send battle wins, plays, likes, follows, and link-fix alerts to this address in English first, then Korean."}
+                  </p>
+                  {form.formState.errors.contactEmail && (
+                    <p className="text-[10px] text-red-400 mt-1 tracking-wide">
+                      {form.formState.errors.contactEmail.message}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Cover Image URL */}
               <div>
                 <label className="block text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-2">
@@ -736,11 +805,11 @@ function SubmitTrackForm() {
               <div className="pt-2 space-y-2">
                 <button
                   type="submit"
-                  disabled={mutation.isPending || duplicateUrl || !artisticIntentMeetsMin || !videoReadyToSubmit}
+                  disabled={mutation.isPending || duplicateUrl || !artisticIntentMeetsMin || !videoReadyToSubmit || !contactEmailReadyToSubmit}
                   data-testid="button-submit-track"
                   className={cn(
                     "w-full py-3.5 text-[11px] font-black uppercase tracking-[0.3em] rounded-sm transition-all flex items-center justify-center gap-2 border",
-                    mutation.isPending || duplicateUrl || !artisticIntentMeetsMin || !videoReadyToSubmit
+                    mutation.isPending || duplicateUrl || !artisticIntentMeetsMin || !videoReadyToSubmit || !contactEmailReadyToSubmit
                       ? "bg-primary/10 border-primary/30 text-primary/50 cursor-not-allowed opacity-60"
                       : "bg-primary border-primary text-primary-foreground hover:bg-primary/90 hover:border-primary shadow-[0_0_24px_-8px_hsl(var(--primary)/0.55)]",
                   )}
@@ -764,6 +833,16 @@ function SubmitTrackForm() {
                     {isKorean
                       ? "뮤직비디오는 공개/임베드 가능 여부 확인 체크를 해야 제출할 수 있습니다."
                       : "Music videos require the public/embed confirmation check before submission."}
+                  </p>
+                )}
+                {needsContactEmail && !contactEmailReadyToSubmit && (
+                  <p
+                    className="text-center text-[10px] text-amber-300/90 leading-relaxed px-1"
+                    data-testid="text-contact-email-hint"
+                  >
+                    {isKorean
+                      ? "실제 수신 가능한 이메일 주소를 입력해야 제출할 수 있습니다."
+                      : "Enter a reachable email address before you can submit."}
                   </p>
                 )}
               </div>

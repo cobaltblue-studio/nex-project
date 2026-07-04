@@ -5,6 +5,7 @@ export type SessionUser = {
   /** Omitted from API JSON for privacy; session cookie still identifies the user. */
   id?: string;
   email?: string | null;
+  hasDeliverableEmail?: boolean;
   firstName?: string | null;
   lastName?: string | null;
   profileImageUrl?: string | null;

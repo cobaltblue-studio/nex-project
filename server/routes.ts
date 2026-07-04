@@ -49,7 +49,7 @@ import {
 } from "./suno-resolve";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { recordAnalyticsEvents, type AnalyticsEventInput } from "./analytics";
-import { emailFromPreview, isEmailEnabled, probeResendApiKey, sendTestEmail } from "./email";
+import { emailFromPreview, isDeliverableEmail, isEmailEnabled, probeResendApiKey, sendTestEmail } from "./email";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
@@ -70,7 +70,7 @@ function getPostgresSqlStateFromErr(err: unknown): string | undefined {
 }
 
 /** Ensure `users` row exists before likes/plays (avoids FK 500 on fresh OAuth sessions). */
-async function persistSessionUser(req: any): Promise<string> {
+async function persistSessionUser(req: any, overrides?: { email?: string | null }): Promise<string> {
   const userId = getUserId(req);
   if (!userId) return "";
   const u = req.user as {
@@ -82,7 +82,7 @@ async function persistSessionUser(req: any): Promise<string> {
   try {
     await storage.upsertOAuthUser({
       id: userId,
-      email: u?.email ?? null,
+      email: overrides?.email ?? u?.email ?? null,
       firstName: u?.firstName ?? null,
       lastName: u?.lastName ?? null,
       profileImageUrl: u?.profileImageUrl ?? null,
@@ -91,7 +91,7 @@ async function persistSessionUser(req: any): Promise<string> {
     console.warn("[auth] upsertOAuthUser before action failed", err?.message);
     await storage.createUser({
       id: userId,
-      email: u?.email ?? null,
+      email: overrides?.email ?? u?.email ?? null,
       firstName: u?.firstName ?? null,
       lastName: u?.lastName ?? null,
       profileImageUrl: u?.profileImageUrl ?? null,
@@ -733,7 +733,34 @@ export async function registerRoutes(
       res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
       return;
     }
-    const p = await storage.getProfileByUserId(getUserId(req));
+    const contactEmail = typeof req.body?.contactEmail === "string" ? req.body.contactEmail.trim().toLowerCase() : "";
+    const sessionEmail = String(getUserEmail(req) ?? "").trim().toLowerCase();
+    const needsContactEmail = !isDeliverableEmail(sessionEmail);
+    if (contactEmail && !isDeliverableEmail(contactEmail)) {
+      res.status(400).json({
+        code: "INVALID_CONTACT_EMAIL",
+        message: apiMsg(
+          "연락 가능한 실제 이메일 주소를 입력해 주세요",
+          "Please enter a real, reachable email address",
+        ),
+      });
+      return;
+    }
+    if (needsContactEmail && !contactEmail) {
+      res.status(400).json({
+        code: "CONTACT_EMAIL_REQUIRED",
+        message: apiMsg(
+          "배틀 승리, 재생, 좋아요, 팔로우 알림을 받으려면 연락 가능한 이메일 주소를 입력해야 합니다",
+          "A reachable email address is required so NEX can send battle wins, plays, likes, and follow notifications",
+        ),
+      });
+      return;
+    }
+
+    const userId = await persistSessionUser(req, {
+      email: contactEmail || undefined,
+    });
+    const p = await storage.getProfileByUserId(userId);
     if (!p) {
       res.status(403).json({ message: apiMsg("프로필이 필요합니다", "Profile required") });
       return;
