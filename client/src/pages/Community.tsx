@@ -400,6 +400,7 @@ export default function Community() {
                   const displayTitle = seed ? formatCommunitySeedTitle(seed, isKorean) : post.title;
                   const displayBody = seed ? formatCommunitySeedBody(seed, isKorean) : post.body;
                   const truncated = isExcerpted(displayBody);
+                  const openLabel = truncated ? copy.readMore : copy.open;
                   const trackHref = post.attachedTrack
                     ? post.attachedTrack.trackType === "video"
                       ? `/mv/${post.attachedTrack.id}`
@@ -435,16 +436,6 @@ export default function Community() {
                             <h3 className="mt-3 text-xl font-black text-white">{displayTitle}</h3>
                           )}
                           <p className="mt-2 text-sm leading-7 text-zinc-300 whitespace-pre-wrap">{excerpt(displayBody)}</p>
-                          {truncated && post.id > 0 ? (
-                            <div className="mt-3">
-                              <Link
-                                href={`/community/${post.id}`}
-                                className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/15"
-                              >
-                                {copy.readMore}
-                              </Link>
-                            </div>
-                          ) : null}
                           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
                             <span>@{post.authorName ?? "unknown"}</span>
                             <span>{formatTime(post.createdAt, locale)}</span>
@@ -501,7 +492,7 @@ export default function Community() {
                               className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-primary/40 hover:text-primary"
                             >
                               <MessageSquare className="h-3 w-3" />
-                              {copy.open}
+                              {openLabel}
                             </Link>
                           ) : null}
                           {admin && (
