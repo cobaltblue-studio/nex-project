@@ -35,6 +35,7 @@ export const COMMUNITY_SYSTEM_AUTHOR_ID = "system:nex-community";
 
 export const COMMUNITY_SYSTEM_SEED_POSTS = [
   {
+    postId: 1,
     category: "track-share",
     pinned: true,
     titleKo: "NEX 커뮤니티 오픈",
@@ -45,6 +46,7 @@ export const COMMUNITY_SYSTEM_SEED_POSTS = [
       "Welcome to the new NEX Community. This is the place to share tracks, compare prompt ideas, talk about battle results, and suggest what NEX should build next.\n\nHow to use this space:\n- Share one track and explain the idea behind it\n- Post prompt experiments that changed your result\n- React to battle matchups and why you voted that way\n- Suggest product ideas that would make NEX more fun\n\nPlease keep posts specific, constructive, and creator-friendly.",
   },
   {
+    postId: 2,
     category: "prompts",
     pinned: false,
     titleKo: "프롬프트 교환 시작 글",
@@ -55,6 +57,7 @@ export const COMMUNITY_SYSTEM_SEED_POSTS = [
       "Use this thread to share one prompt pattern that worked for you.\n\nSuggested format:\n- Tool used\n- Genre / mood target\n- Short prompt snippet\n- What changed in the output\n\nThe goal is not to dump everything, but to share one repeatable idea another creator can test today.",
   },
   {
+    postId: 3,
     category: "battle-talk",
     pinned: false,
     titleKo: "배틀 토크: 왜 이 곡이 이겼을까?",
@@ -65,6 +68,7 @@ export const COMMUNITY_SYSTEM_SEED_POSTS = [
       "When you react to a battle, try explaining the winning point instead of only naming the winner.\n\nGood discussion prompts:\n- What hook or drop made the difference?\n- Did arrangement beat sound design, or the other way around?\n- Was the vote about replay value, originality, or emotional impact?\n\nThis helps the chart feel more transparent and teaches creators what listeners are actually responding to.",
   },
 ] as const satisfies readonly {
+  postId: number;
   category: CommunityCategorySlug;
   pinned: boolean;
   titleKo: string;

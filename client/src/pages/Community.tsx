@@ -219,7 +219,7 @@ export default function Community() {
   const fallbackPosts = useMemo<CommunityPost[]>(
     () =>
       COMMUNITY_SYSTEM_SEED_POSTS.map((seed, index) => ({
-        id: -(index + 1),
+        id: seed.postId ?? -(index + 1),
         category: seed.category,
         title: formatCommunitySeedTitle(seed, isKorean),
         body: formatCommunitySeedBody(seed, isKorean),
