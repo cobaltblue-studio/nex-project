@@ -300,6 +300,35 @@ export const creatorEngagementEmails = pgTable(
   (t) => [uniqueIndex("creator_engagement_emails_kind_dedupe_unique").on(t.kind, t.dedupeKey)],
 );
 
+/** Records successful platform announcement sends per campaign + recipient email. */
+export const announcementEmailDeliveries = pgTable(
+  "announcement_email_deliveries",
+  {
+    id: serial("id").primaryKey(),
+    campaignSlug: text("campaign_slug").notNull(),
+    recipientUserId: varchar("recipient_user_id").references(() => users.id),
+    recipientEmail: text("recipient_email").notNull(),
+    recipientKind: text("recipient_kind").notNull(),
+    sentAt: timestamp("sent_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("announcement_email_campaign_recipient_unique").on(t.campaignSlug, t.recipientEmail)],
+);
+
+/** Queue + audit trail for announcement campaigns processed by the server. */
+export const announcementEmailCampaignRuns = pgTable("announcement_email_campaign_runs", {
+  id: serial("id").primaryKey(),
+  campaignSlug: text("campaign_slug").notNull(),
+  dryRun: boolean("dry_run").default(false).notNull(),
+  limit: integer("limit"),
+  requestedBy: text("requested_by"),
+  status: text("status").default("pending").notNull(),
+  summary: jsonb("summary").$type<Record<string, unknown>>(),
+  error: text("error"),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+});
+
 /** Per-user activity rollup for admin (login / visit / plays / votes). */
 export const userActivityStats = pgTable(
   "user_activity_stats",
@@ -439,6 +468,8 @@ export type BoostStatusRow = typeof boostStatus.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type BattleWinEmail = typeof battleWinEmails.$inferSelect;
+export type AnnouncementEmailDelivery = typeof announcementEmailDeliveries.$inferSelect;
+export type AnnouncementEmailCampaignRun = typeof announcementEmailCampaignRuns.$inferSelect;
 export type CommunityPost = typeof communityPosts.$inferSelect;
 export type CommunityPostLike = typeof communityPostLikes.$inferSelect;
 export type CommunityComment = typeof communityComments.$inferSelect;

@@ -96,8 +96,7 @@ export default function Community() {
     () =>
       isKorean
         ? {
-            pageTitle: "NEX 커뮤니티",
-            eyebrow: "커뮤니티",
+            pageTitle: "커뮤니티",
             pageBody: "AI 음악 제작자들이 트랙, 프롬프트, 배틀 전략, 서비스 아이디어를 나누는 공간입니다.",
             createTitle: "새 글 쓰기",
             createHint: "트랙 홍보만이 아니라 제작 과정, 막힌 점, 배틀 해설까지 자유롭게 올릴 수 있습니다.",
@@ -136,8 +135,7 @@ export default function Community() {
             readMore: "더보기",
           }
         : {
-            pageTitle: "NEX Community",
-            eyebrow: "COMMUNITY",
+            pageTitle: "Community",
             pageBody: "A place for AI music creators to share tracks, prompts, battle strategy, and product ideas.",
             createTitle: "Start a post",
             createHint: "Use this space for launches, workflow notes, battle reactions, or requests for help.",
@@ -315,9 +313,8 @@ export default function Community() {
     <div className="space-y-10 pb-12">
       <section className="grid items-start gap-5 lg:grid-cols-[1.25fr_0.95fr]">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
-          <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-primary">{copy.eyebrow}</p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">{copy.pageTitle}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">{copy.pageBody}</p>
+          <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">{copy.pageTitle}</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-zinc-300">{copy.pageBody}</p>
 
           <div className="mt-6 border-t border-white/10 pt-6">
             <div className="rounded-2xl border border-white/10 bg-black/20 p-4 md:p-5">

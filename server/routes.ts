@@ -50,6 +50,13 @@ import {
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { recordAnalyticsEvents, type AnalyticsEventInput } from "./analytics";
 import { emailFromPreview, isDeliverableEmail, isEmailEnabled, probeResendApiKey, sendTestEmail } from "./email";
+import {
+  enqueueAnnouncementCampaign,
+  listAnnouncementCampaigns,
+  listAnnouncementCampaignRuns,
+  previewAnnouncementCampaign,
+  sendAnnouncementCampaign,
+} from "./announcementCampaigns";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
@@ -2228,19 +2235,21 @@ export async function registerRoutes(
       return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
     }
     const probe = await probeResendApiKey();
-    let dbReady = { notifications: false, battleWinEmails: false, creatorEngagementEmails: false };
+    let dbReady = { notifications: false, battleWinEmails: false, creatorEngagementEmails: false, announcementEmailDeliveries: false };
     try {
       const rows = await db.execute(sql`
         SELECT
           to_regclass('public.notifications') IS NOT NULL AS notifications,
           to_regclass('public.battle_win_emails') IS NOT NULL AS battle_win_emails,
-          to_regclass('public.creator_engagement_emails') IS NOT NULL AS creator_engagement_emails
+          to_regclass('public.creator_engagement_emails') IS NOT NULL AS creator_engagement_emails,
+          to_regclass('public.announcement_email_deliveries') IS NOT NULL AS announcement_email_deliveries
       `);
       const r = rows.rows[0] as Record<string, boolean> | undefined;
       dbReady = {
         notifications: Boolean(r?.notifications),
         battleWinEmails: Boolean(r?.battle_win_emails),
         creatorEngagementEmails: Boolean(r?.creator_engagement_emails),
+        announcementEmailDeliveries: Boolean(r?.announcement_email_deliveries),
       };
     } catch {
       /* ignore */
@@ -2275,6 +2284,73 @@ export async function registerRoutes(
       });
     }
     res.json({ sent: true, to });
+  });
+
+  app.get("/api/admin/announcement-campaigns", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    const previews = await Promise.all(
+      listAnnouncementCampaigns().map(async (campaign) => previewAnnouncementCampaign(campaign.slug)),
+    );
+    res.json(previews);
+  });
+
+  app.get("/api/admin/announcement-campaign-runs", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    const rows = await listAnnouncementCampaignRuns();
+    res.json(rows);
+  });
+
+  app.post("/api/admin/announcement-campaigns/:slug/send", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    const slug = String(req.params.slug || "").trim();
+    const dryRun = Boolean(req.body?.dryRun);
+    const rawLimit = Number(req.body?.limit);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : undefined;
+
+    try {
+      const result = await sendAnnouncementCampaign(slug, { dryRun, limit });
+      res.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({
+        message: apiMsg("공지 이메일 캠페인을 처리할 수 없습니다", "Announcement email campaign could not be processed"),
+        detail: message,
+      });
+    }
+  });
+
+  app.post("/api/admin/announcement-campaigns/:slug/queue", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    const slug = String(req.params.slug || "").trim();
+    const rawLimit = Number(req.body?.limit);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : undefined;
+
+    try {
+      const job = await enqueueAnnouncementCampaign(slug, {
+        dryRun: Boolean(req.body?.dryRun),
+        limit,
+        requestedBy: getUserEmail(req) || getUserId(req) || "admin",
+      });
+      res.json(job);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({
+        message: apiMsg("공지 이메일 큐 등록에 실패했습니다", "Announcement email queueing failed"),
+        detail: message,
+      });
+    }
   });
 
   app.get("/api/admin/insights", isAuthenticated, async (req: any, res) => {

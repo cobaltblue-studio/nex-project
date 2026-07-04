@@ -210,6 +210,36 @@ export async function sendEmail(opts: {
   }
 }
 
+export async function sendPlatformAnnouncementEmail(opts: {
+  to: string;
+  subjectEn: string;
+  subjectKo: string;
+  headlineEn: string;
+  headlineKo: string;
+  englishHtml: string;
+  koreanHtml: string;
+  ctaLabelEn: string;
+  ctaLabelKo: string;
+  ctaHref: string;
+  textEn: string;
+  textKo: string;
+}): Promise<EmailSendResult> {
+  const msg = composeBilingualEmail({
+    subjectEn: opts.subjectEn,
+    subjectKo: opts.subjectKo,
+    headlineEn: opts.headlineEn,
+    headlineKo: opts.headlineKo,
+    englishHtml: opts.englishHtml,
+    koreanHtml: opts.koreanHtml,
+    ctaLabelEn: opts.ctaLabelEn,
+    ctaLabelKo: opts.ctaLabelKo,
+    ctaHref: opts.ctaHref,
+    textEn: opts.textEn,
+    textKo: opts.textKo,
+  });
+  return sendEmail({ to: opts.to, ...msg });
+}
+
 export async function sendTrackApprovedEmail(opts: {
   to: string;
   trackTitle: string;

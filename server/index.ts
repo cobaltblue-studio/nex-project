@@ -205,6 +205,8 @@ app.use((req, res, next) => {
   const { startDailySnapshotScheduler } = await import("./dailySnapshot");
   startDailySnapshotScheduler(storage);
   if (isEmailEnabled()) {
+    const { startAnnouncementCampaignWorker } = await import("./announcementCampaigns");
+    startAnnouncementCampaignWorker();
     const { startPublicTrackPlaybackAudit } = await import("./playbackAudit");
     startPublicTrackPlaybackAudit(storage);
   }
