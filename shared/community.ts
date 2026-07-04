@@ -1,10 +1,10 @@
 export const COMMUNITY_CATEGORIES = [
   {
     slug: "track-share",
-    title: "Creation Talk",
-    titleKo: "제작 이야기",
-    description: "Share why you made a track, what you tried, and hear what others think.",
-    descriptionKo: "곡을 만든 의도, 시도한 점, 막힌 부분을 나누고 다른 사람의 의견을 들어보세요.",
+    title: "Creative Notes",
+    titleKo: "창작 노트",
+    description: "Write your creative intent and process, then hear what others think.",
+    descriptionKo: "제작 의도와 과정을 적고, 다른 사람의 의견을 나누세요.",
   },
   {
     slug: "prompts",
