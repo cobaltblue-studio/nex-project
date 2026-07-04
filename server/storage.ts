@@ -2414,8 +2414,18 @@ export class DatabaseStorage implements IStorage {
       ? Number(input.attachedTrackId)
       : null;
     if (attachedTrackId) {
-      const [track] = await db.select({ id: tracks.id }).from(tracks).where(and(eq(tracks.id, attachedTrackId), eq(tracks.isDeleted, false))).limit(1);
+      const [track] = await db
+        .select({ id: tracks.id, creatorId: tracks.creatorId })
+        .from(tracks)
+        .where(and(eq(tracks.id, attachedTrackId), eq(tracks.isDeleted, false)))
+        .limit(1);
       if (!track) throw new Error("ATTACHED_TRACK_NOT_FOUND");
+      const [profile] = await db
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.userId, input.authorUserId))
+        .limit(1);
+      if (!profile || profile.id !== track.creatorId) throw new Error("ATTACHED_TRACK_NOT_OWNED");
     }
 
     const [row] = await db

@@ -49,6 +49,7 @@ type CommunityPost = {
 };
 
 type MeProfile = { id: number; username: string; role?: string } | null;
+type MyTrack = { id: number; title: string; trackType: string; status: string };
 
 const CATEGORY_ICONS: Record<CommunityCategorySlug, typeof MessageSquare> = {
   "track-share": BookOpen,
@@ -95,6 +96,7 @@ export default function Community() {
   const [category, setCategory] = useState<CommunityCategorySlug>("track-share");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [attachedTrackId, setAttachedTrackId] = useState("");
 
   const copy = useMemo(
     () =>
@@ -113,6 +115,9 @@ export default function Community() {
             search: "제목/본문 검색",
             title: "제목",
             body: "본문",
+            relatedTrack: "관련 곡 선택",
+            noRelatedTrack: "관련 곡 없음",
+            relatedTrackHint: "이미 NEX에 올린 본인 곡만 선택할 수 있습니다. 새 곡 등록은 '트랙 제출'에서 하세요.",
             publish: "글 올리기",
             feedTitle: "커뮤니티 피드",
             emptyFeed: "아직 글이 없습니다. 첫 번째 대화를 시작해 보세요.",
@@ -149,6 +154,9 @@ export default function Community() {
             search: "Search title or body",
             title: "Title",
             body: "Body",
+            relatedTrack: "Related track",
+            noRelatedTrack: "No related track",
+            relatedTrackHint: "Choose one of your tracks already on NEX. Use Submit Track to upload new music.",
             publish: "Publish post",
             feedTitle: "Community feed",
             emptyFeed: "No posts yet. Start the first conversation.",
@@ -187,6 +195,13 @@ export default function Community() {
   const { data: myProfile } = useQuery<MeProfile>({
     queryKey: ["/api/profiles/me"],
     enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const tracksUrl = myProfile?.id ? `/api/tracks?creatorId=${myProfile.id}` : "";
+  const { data: myTracks } = useQuery<MyTrack[]>({
+    queryKey: [tracksUrl],
+    enabled: Boolean(tracksUrl),
     retry: false,
   });
 
@@ -239,12 +254,14 @@ export default function Community() {
         category,
         title,
         body,
+        attachedTrackId: attachedTrackId ? Number(attachedTrackId) : null,
       });
       return res.json() as Promise<{ postId: number; message: string }>;
     },
     onSuccess: async (data) => {
       setTitle("");
       setBody("");
+      setAttachedTrackId("");
       setWriteOpen(false);
       setSelectedCategory(category);
       setSortBy("latest");
@@ -305,6 +322,23 @@ export default function Community() {
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.relatedTrack}</span>
+            <select
+              value={attachedTrackId}
+              onChange={(e) => setAttachedTrackId(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50"
+            >
+              <option value="">{copy.noRelatedTrack}</option>
+              {(myTracks ?? []).map((track) => (
+                <option key={track.id} value={track.id}>
+                  {track.title} · {track.trackType}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs leading-5 text-zinc-500">{copy.relatedTrackHint}</p>
           </label>
 
           <label className="block">

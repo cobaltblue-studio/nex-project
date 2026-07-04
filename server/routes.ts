@@ -405,6 +405,11 @@ export async function registerRoutes(
       if (msg === "ATTACHED_TRACK_NOT_FOUND") {
         return res.status(404).json({ message: apiMsg("첨부할 트랙을 찾을 수 없습니다", "Attached track not found") });
       }
+      if (msg === "ATTACHED_TRACK_NOT_OWNED") {
+        return res.status(403).json({
+          message: apiMsg("본인이 NEX에 올린 곡만 관련 곡으로 선택할 수 있습니다", "You can only link tracks you uploaded to NEX"),
+        });
+      }
       throw err;
     }
   });
