@@ -244,33 +244,8 @@ export default function Community() {
           <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-primary">COMMUNITY</p>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">{copy.pageTitle}</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">{copy.pageBody}</p>
-          <div className="mt-6 grid gap-3 md:grid-cols-2">
-            {categoryOptions.map((item) => {
-              const Icon = CATEGORY_ICONS[item.slug];
-              const active = selectedCategory === item.slug;
-              return (
-                <button
-                  key={item.slug}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(item.slug);
-                    setCategory(item.slug);
-                  }}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    active ? "border-primary/50 bg-primary/10" : "border-white/10 bg-black/20 hover:border-white/25"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 text-white">
-                    <Icon className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-bold">{item.label}</span>
-                  </div>
-                  <p className="mt-2 text-xs leading-6 text-zinc-400">{item.description}</p>
-                </button>
-              );
-            })}
-          </div>
 
-          <div className="mt-8 border-t border-white/10 pt-6">
+          <div className="mt-6 border-t border-white/10 pt-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="text-2xl font-black text-white">{copy.feedTitle}</h2>
@@ -435,6 +410,37 @@ export default function Community() {
                 })}
               </div>
             )}
+
+            <div className="mt-8 border-t border-white/10 pt-6">
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+                {isKorean ? "카테고리 둘러보기" : "Explore categories"}
+              </p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {categoryOptions.map((item) => {
+                  const Icon = CATEGORY_ICONS[item.slug];
+                  const active = selectedCategory === item.slug;
+                  return (
+                    <button
+                      key={item.slug}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(item.slug);
+                        setCategory(item.slug);
+                      }}
+                      className={`rounded-2xl border p-4 text-left transition ${
+                        active ? "border-primary/50 bg-primary/10" : "border-white/10 bg-black/20 hover:border-white/25"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-white">
+                        <Icon className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-bold">{item.label}</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-6 text-zinc-400">{item.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
