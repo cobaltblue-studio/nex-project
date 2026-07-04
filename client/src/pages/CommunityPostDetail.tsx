@@ -78,6 +78,7 @@ export function CommunityPostDetail() {
       isKorean
         ? {
             back: "커뮤니티로 돌아가기",
+            pinned: "고정",
             comments: "댓글",
             loginNeeded: "좋아요와 댓글은 로그인 후 사용할 수 있습니다.",
             commentPlaceholder: "대화에 참여해 보세요",
@@ -91,9 +92,14 @@ export function CommunityPostDetail() {
             unhide: "숨김 해제",
             pin: "상단 고정",
             unpin: "고정 해제",
+            invalidPost: "잘못된 글 주소입니다.",
+            loadingPost: "글을 불러오는 중...",
+            notFound: "글을 찾을 수 없습니다.",
+            noComments: "아직 댓글이 없습니다.",
           }
         : {
             back: "Back to community",
+            pinned: "Pinned",
             comments: "Comments",
             loginNeeded: "Login is required to like or comment.",
             commentPlaceholder: "Join the conversation",
@@ -107,6 +113,10 @@ export function CommunityPostDetail() {
             unhide: "Unhide",
             pin: "Pin",
             unpin: "Unpin",
+            invalidPost: "Invalid post id.",
+            loadingPost: "Loading post...",
+            notFound: "Post not found.",
+            noComments: "No comments yet.",
           },
     [isKorean],
   );
@@ -125,11 +135,13 @@ export function CommunityPostDetail() {
     queryKey: [postUrl],
     enabled: Boolean(postUrl),
     retry: false,
+    staleTime: 30_000,
   });
   const { data: comments } = useQuery<CommunityComment[]>({
     queryKey: [commentsUrl],
     enabled: Boolean(commentsUrl),
     retry: false,
+    staleTime: 30_000,
   });
 
   const likeMutation = useMutation({
@@ -181,20 +193,20 @@ export function CommunityPostDetail() {
   });
 
   if (!Number.isFinite(postId)) {
-    return <div className="text-sm text-zinc-400">Invalid post id.</div>;
+    return <div className="text-sm text-zinc-400">{copy.invalidPost}</div>;
   }
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-3 text-sm text-zinc-400">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Loading post...
+        {copy.loadingPost}
       </div>
     );
   }
 
   if (!post) {
-    return <div className="text-sm text-zinc-400">Post not found.</div>;
+    return <div className="text-sm text-zinc-400">{copy.notFound}</div>;
   }
 
   const admin = user?.role === "admin";
@@ -219,7 +231,7 @@ export function CommunityPostDetail() {
           {post.pinnedAt && (
             <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1 text-yellow-100">
               <Pin className="h-3 w-3" />
-              PINNED
+              {copy.pinned}
             </span>
           )}
           {post.hiddenAt && (
@@ -371,7 +383,7 @@ export function CommunityPostDetail() {
               )}
             </div>
           ))}
-          {!comments?.length && <div className="text-sm text-zinc-500">No comments yet.</div>}
+          {!comments?.length && <div className="text-sm text-zinc-500">{copy.noComments}</div>}
         </div>
       </section>
     </div>

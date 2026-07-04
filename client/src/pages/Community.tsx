@@ -6,7 +6,14 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { COMMUNITY_CATEGORIES, type CommunityCategorySlug } from "@shared/community";
+import {
+  COMMUNITY_CATEGORIES,
+  COMMUNITY_SYSTEM_AUTHOR_ID,
+  COMMUNITY_SYSTEM_SEED_POSTS,
+  formatCommunitySeedBody,
+  formatCommunitySeedTitle,
+  type CommunityCategorySlug,
+} from "@shared/community";
 
 type CommunityPost = {
   id: number;
@@ -84,7 +91,8 @@ export default function Community() {
     () =>
       isKorean
         ? {
-            pageTitle: "NEX Community",
+            pageTitle: "NEX 커뮤니티",
+            eyebrow: "커뮤니티",
             pageBody: "AI 음악 제작자들이 트랙, 프롬프트, 배틀 전략, 서비스 아이디어를 나누는 공간입니다.",
             createTitle: "새 글 쓰기",
             createHint: "트랙 홍보만이 아니라 제작 과정, 막힌 점, 배틀 해설까지 자유롭게 올릴 수 있습니다.",
@@ -113,9 +121,14 @@ export default function Community() {
             openTrack: "첨부 트랙 보기",
             viewExternal: "외부 링크 열기",
             needProfile: "커뮤니티 글을 쓰려면 먼저 프로필이 있어야 합니다.",
+            loadingFeed: "커뮤니티 피드를 불러오는 중...",
+            feedSyncing: "최신 글을 가져오는 중입니다.",
+            allCategories: "전체 카테고리",
+            exploreCategories: "카테고리 둘러보기",
           }
         : {
             pageTitle: "NEX Community",
+            eyebrow: "COMMUNITY",
             pageBody: "A place for AI music creators to share tracks, prompts, battle strategy, and product ideas.",
             createTitle: "Start a post",
             createHint: "Use this space for launches, workflow notes, battle reactions, or requests for help.",
@@ -144,6 +157,10 @@ export default function Community() {
             openTrack: "Open attached track",
             viewExternal: "Open external link",
             needProfile: "Create your profile first to post in the community.",
+            loadingFeed: "Loading community feed...",
+            feedSyncing: "Refreshing latest posts...",
+            allCategories: "All categories",
+            exploreCategories: "Explore categories",
           },
     [isKorean],
   );
@@ -183,7 +200,36 @@ export default function Community() {
   const { data: posts, isLoading } = useQuery<CommunityPost[]>({
     queryKey: [postsUrl],
     retry: false,
+    staleTime: 30_000,
   });
+
+  const fallbackPosts = useMemo<CommunityPost[]>(
+    () =>
+      COMMUNITY_SYSTEM_SEED_POSTS.map((seed, index) => ({
+        id: -(index + 1),
+        category: seed.category,
+        title: formatCommunitySeedTitle(seed, isKorean),
+        body: formatCommunitySeedBody(seed, isKorean),
+        externalUrl: null,
+        createdAt: new Date("2026-07-04T20:49:16+09:00").toISOString(),
+        pinnedAt: seed.pinned ? new Date("2026-07-04T20:49:16+09:00").toISOString() : null,
+        hiddenAt: null,
+        hiddenReason: null,
+        authorUserId: COMMUNITY_SYSTEM_AUTHOR_ID,
+        authorName: "nexcommunity",
+        authorProfileId: 160,
+        authorIsVerified: true,
+        attachedTrack: null,
+        likeCount: 0,
+        commentCount: 0,
+        viewerHasLiked: false,
+      })),
+    [isKorean],
+  );
+
+  const postsCount = posts?.length ?? 0;
+  const renderedPosts: CommunityPost[] = postsCount > 0 ? posts ?? [] : fallbackPosts;
+  const showLoadingState = isLoading && postsCount === 0;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -241,7 +287,7 @@ export default function Community() {
     <div className="space-y-10 pb-12">
       <section className="grid items-start gap-5 lg:grid-cols-[1.25fr_0.95fr]">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
-          <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-primary">COMMUNITY</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-primary">{copy.eyebrow}</p>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">{copy.pageTitle}</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">{copy.pageBody}</p>
 
@@ -258,7 +304,7 @@ export default function Community() {
                   onChange={(e) => setSelectedCategory(e.target.value as CommunityCategorySlug | "all")}
                   className="rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
                 >
-                  <option value="all">{isKorean ? "전체 카테고리" : "All categories"}</option>
+                  <option value="all">{copy.allCategories}</option>
                   {categoryOptions.map((item) => (
                     <option key={item.slug} value={item.slug}>
                       {item.label}
@@ -284,16 +330,18 @@ export default function Community() {
               </div>
             </div>
 
-            {isLoading ? (
-              <div className="mt-8 flex items-center gap-3 text-sm text-zinc-400">
+            {showLoadingState && (
+              <div className="mt-6 flex items-center gap-3 text-sm text-zinc-400">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading community feed...
+                {copy.loadingFeed}
               </div>
-            ) : !posts?.length ? (
+            )}
+
+            {!showLoadingState && posts && posts.length === 0 ? (
               <div className="mt-8 rounded-2xl border border-dashed border-white/10 p-10 text-center text-sm text-zinc-500">{copy.emptyFeed}</div>
             ) : (
               <div className="mt-8 space-y-4">
-                {posts.map((post) => {
+                {renderedPosts.map((post) => {
                   const categoryItem = categoryOptions.find((item) => item.slug === post.category);
                   const Icon = CATEGORY_ICONS[post.category];
                   const trackHref = post.attachedTrack
@@ -321,11 +369,15 @@ export default function Community() {
                             )}
                           </div>
 
-                          <h3 className="mt-3 text-xl font-black text-white">
-                            <Link href={`/community/${post.id}`} className="hover:text-primary">
-                              {post.title}
-                            </Link>
-                          </h3>
+                          {post.id > 0 ? (
+                            <h3 className="mt-3 text-xl font-black text-white">
+                              <Link href={`/community/${post.id}`} className="hover:text-primary">
+                                {post.title}
+                              </Link>
+                            </h3>
+                          ) : (
+                            <h3 className="mt-3 text-xl font-black text-white">{post.title}</h3>
+                          )}
                           <p className="mt-2 text-sm leading-7 text-zinc-300 whitespace-pre-wrap">{excerpt(post.body)}</p>
 
                           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
@@ -367,7 +419,7 @@ export default function Community() {
                         <div className="flex flex-wrap gap-2 md:justify-end">
                           <button
                             type="button"
-                            disabled={!isAuthenticated || likeMutation.isPending}
+                            disabled={!isAuthenticated || likeMutation.isPending || post.id <= 0}
                             onClick={() => likeMutation.mutate(post.id)}
                             className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition ${
                               post.viewerHasLiked
@@ -378,13 +430,15 @@ export default function Community() {
                             <Heart className={`h-3 w-3 ${post.viewerHasLiked ? "fill-current" : ""}`} />
                             {copy.like}
                           </button>
-                          <Link
-                            href={`/community/${post.id}`}
-                            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-primary/40 hover:text-primary"
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                            {copy.open}
-                          </Link>
+                          {post.id > 0 ? (
+                            <Link
+                              href={`/community/${post.id}`}
+                              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-primary/40 hover:text-primary"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              {copy.open}
+                            </Link>
+                          ) : null}
                           {admin && (
                             <>
                               <button
@@ -411,9 +465,13 @@ export default function Community() {
               </div>
             )}
 
+            {showLoadingState ? (
+              <p className="mt-4 text-xs text-zinc-500">{copy.feedSyncing}</p>
+            ) : null}
+
             <div className="mt-8 border-t border-white/10 pt-6">
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-                {isKorean ? "카테고리 둘러보기" : "Explore categories"}
+                {copy.exploreCategories}
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {categoryOptions.map((item) => {
