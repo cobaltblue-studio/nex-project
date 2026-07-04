@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { MessageSquare, Heart, Pin, Loader2, Sparkles, Swords, Lightbulb, ExternalLink, PenLine, Search, BookOpen } from "lucide-react";
+import { MessageSquare, Heart, Pin, Loader2, Sparkles, Swords, Lightbulb, ExternalLink, PenLine, Search, BookOpen, Music2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -125,7 +125,7 @@ export default function Community() {
             moderateUnhide: "숨김 해제",
             moderatePin: "상단 고정",
             moderateUnpin: "고정 해제",
-            openTrack: "첨부 트랙 보기",
+            openTrack: "관련 곡",
             viewExternal: "외부 링크 열기",
             needProfile: "커뮤니티 글을 쓰려면 먼저 프로필이 있어야 합니다.",
             loadingFeed: "커뮤니티 피드를 불러오는 중...",
@@ -161,7 +161,7 @@ export default function Community() {
             moderateUnhide: "Unhide",
             moderatePin: "Pin",
             moderateUnpin: "Unpin",
-            openTrack: "Open attached track",
+            openTrack: "Related track",
             viewExternal: "Open external link",
             needProfile: "Create your profile first to post in the community.",
             loadingFeed: "Loading community feed...",
@@ -465,6 +465,16 @@ export default function Community() {
                       )}
                     </div>
 
+                    {post.attachedTrack && trackHref && (
+                      <Link
+                        href={trackHref}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                      >
+                        <Music2 className="h-3.5 w-3.5" />
+                        {copy.openTrack}: {post.attachedTrack.title}
+                      </Link>
+                    )}
+
                     {post.id > 0 ? (
                       <h3 className="mt-3 text-lg font-black text-white md:text-xl">
                         <Link href={`/community/${post.id}`} className="hover:text-primary">
@@ -482,16 +492,8 @@ export default function Community() {
                       <span>{formatTime(post.createdAt, locale)}</span>
                     </div>
 
-                    {(post.attachedTrack || post.externalUrl) && (
+                    {(post.externalUrl) && (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {post.attachedTrack && trackHref && (
-                          <Link
-                            href={trackHref}
-                            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-200 transition hover:border-primary/40 hover:text-primary"
-                          >
-                            {copy.openTrack}: {post.attachedTrack.title}
-                          </Link>
-                        )}
                         {post.externalUrl && (
                           <a
                             href={post.externalUrl}

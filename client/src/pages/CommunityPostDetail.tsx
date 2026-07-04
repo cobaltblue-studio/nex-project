@@ -89,7 +89,7 @@ export function CommunityPostDetail() {
             loginNeeded: "좋아요와 댓글은 로그인 후 사용할 수 있습니다.",
             commentPlaceholder: "대화에 참여해 보세요",
             submitComment: "댓글 남기기",
-            openTrack: "첨부 트랙 보기",
+            openTrack: "관련 곡",
             openExternal: "외부 링크 열기",
             hidden: "이 글은 관리자에 의해 숨김 처리되었습니다.",
             hiddenComment: "숨김 댓글",
@@ -110,7 +110,7 @@ export function CommunityPostDetail() {
             loginNeeded: "Login is required to like or comment.",
             commentPlaceholder: "Join the conversation",
             submitComment: "Post comment",
-            openTrack: "Open attached track",
+            openTrack: "Related track",
             openExternal: "Open external link",
             hidden: "This post is hidden by an admin.",
             hiddenComment: "Hidden comment",
@@ -249,6 +249,16 @@ export function CommunityPostDetail() {
         </div>
 
         <h1 className="mt-4 text-3xl font-black tracking-tight text-white">{displayTitle}</h1>
+
+        {trackHref && post.attachedTrack && (
+          <Link
+            href={trackHref}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+          >
+            {copy.openTrack}: {post.attachedTrack.title}
+          </Link>
+        )}
+
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
           <span>@{post.authorName ?? "unknown"}</span>
           <span>{formatTime(post.createdAt, locale)}</span>
@@ -269,16 +279,8 @@ export function CommunityPostDetail() {
 
         <div className="mt-6 whitespace-pre-wrap text-sm leading-8 text-zinc-200">{displayBody}</div>
 
-        {(trackHref || post.externalUrl) && (
+        {(post.externalUrl) && (
           <div className="mt-6 flex flex-wrap gap-2">
-            {trackHref && (
-              <Link
-                href={trackHref}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-200 transition hover:border-primary/40 hover:text-primary"
-              >
-                {copy.openTrack}: {post.attachedTrack?.title}
-              </Link>
-            )}
             {post.externalUrl && (
               <a
                 href={post.externalUrl}
