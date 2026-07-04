@@ -1,10 +1,10 @@
 export const COMMUNITY_CATEGORIES = [
   {
     slug: "track-share",
-    title: "Track Share",
-    titleKo: "트랙 공유",
-    description: "Show your new AI track, explain the idea, and gather reactions.",
-    descriptionKo: "새 AI 곡을 공유하고 제작 의도와 반응을 나누세요.",
+    title: "Creation Talk",
+    titleKo: "제작 이야기",
+    description: "Share why you made a track, what you tried, and hear what others think.",
+    descriptionKo: "곡을 만든 의도, 시도한 점, 막힌 부분을 나누고 다른 사람의 의견을 들어보세요.",
   },
   {
     slug: "prompts",
@@ -41,9 +41,9 @@ export const COMMUNITY_SYSTEM_SEED_POSTS = [
     titleKo: "NEX 커뮤니티 오픈",
     titleEn: "Welcome to NEX Community",
     bodyKo:
-      "NEX 커뮤니티에 오신 것을 환영합니다. 여기는 트랙 공유, 프롬프트 아이디어 교환, 배틀 결과 토론, 그리고 NEX 기능 제안을 위한 공간입니다.\n\n이렇게 활용해 주세요:\n- 한 곡을 공유하고 어떤 의도로 만들었는지 설명하기\n- 결과를 바꾼 프롬프트 실험 공유하기\n- 배틀 매치업과 투표 이유 이야기하기\n- NEX를 더 재미있게 만들 기능 제안하기\n\n구체적이고 건설적이며 창작자에게 도움이 되는 글을 부탁드립니다.",
+      "NEX 커뮤니티에 오신 것을 환영합니다. 트랙 등록은 상단 메뉴의 '트랙 제출'에서 하세요. 여기는 제작 의도, 프롬프트 실험, 배틀 토론, 기능 제안을 나누는 공간입니다.\n\n이렇게 활용해 주세요:\n- 왜 이 곡을 만들었는지, 무엇을 시도했는지 이야기하기\n- 결과를 바꾼 프롬프트 실험 공유하기\n- 배틀 매치업과 투표 이유 이야기하기\n- NEX를 더 재미있게 만들 기능 제안하기\n\n구체적이고 건설적이며 창작자에게 도움이 되는 글을 부탁드립니다.",
     bodyEn:
-      "Welcome to the new NEX Community. This is the place to share tracks, compare prompt ideas, talk about battle results, and suggest what NEX should build next.\n\nHow to use this space:\n- Share one track and explain the idea behind it\n- Post prompt experiments that changed your result\n- React to battle matchups and why you voted that way\n- Suggest product ideas that would make NEX more fun\n\nPlease keep posts specific, constructive, and creator-friendly.",
+      "Welcome to the NEX Community. Register tracks from Submit Track in the top menu. This space is for creative intent, prompt experiments, battle discussion, and product ideas.\n\nHow to use this space:\n- Explain why you made a track and what you tried\n- Post prompt experiments that changed your result\n- React to battle matchups and why you voted that way\n- Suggest product ideas that would make NEX more fun\n\nPlease keep posts specific, constructive, and creator-friendly.",
   },
   {
     postId: 2,
