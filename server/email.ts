@@ -37,6 +37,10 @@ export function emailFromPreview(): string {
   return match?.[1] ?? raw;
 }
 
+export function isSandboxEmailFrom(): boolean {
+  return /@resend\.dev$/i.test(emailFromPreview());
+}
+
 export type ResendProbeResult =
   | { ok: true; domains: number }
   | { ok: false; reason: "disabled" | "unauthorized" | "error"; detail?: string };

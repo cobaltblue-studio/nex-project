@@ -5,9 +5,15 @@
 import "dotenv/config";
 import { sql } from "drizzle-orm";
 import { db } from "../server/db";
-import { emailFromPreview, isEmailEnabled, probeResendApiKey, sendTestEmail } from "../server/email";
+import { emailFromPreview, isEmailEnabled, isSandboxEmailFrom, probeResendApiKey, sendTestEmail } from "../server/email";
 
-const tables = ["notifications", "battle_win_emails", "creator_engagement_emails"] as const;
+const tables = [
+  "notifications",
+  "battle_win_emails",
+  "creator_engagement_emails",
+  "announcement_email_deliveries",
+  "announcement_email_campaign_runs",
+] as const;
 
 async function main() {
   console.log("NEX email readiness\n");
@@ -21,6 +27,7 @@ async function main() {
   console.log(`\nRESEND_API_KEY: ${isEmailEnabled() ? "set" : "NOT SET"}`);
   console.log(`NEX_EMAIL_FROM: ${process.env.NEX_EMAIL_FROM?.trim() || "(default onboarding@resend.dev)"}`);
   console.log(`from preview: ${emailFromPreview()}`);
+  console.log(`sender mode: ${isSandboxEmailFrom() ? "SANDBOX (external recipients blocked)" : "custom/verified sender"}`);
 
   if (!isEmailEnabled()) {
     console.log("\nSet RESEND_API_KEY on Railway, then redeploy.");

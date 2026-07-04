@@ -49,7 +49,7 @@ import {
 } from "./suno-resolve";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { recordAnalyticsEvents, type AnalyticsEventInput } from "./analytics";
-import { emailFromPreview, isDeliverableEmail, isEmailEnabled, probeResendApiKey, sendTestEmail } from "./email";
+import { emailFromPreview, isDeliverableEmail, isEmailEnabled, isSandboxEmailFrom, probeResendApiKey, sendTestEmail } from "./email";
 import {
   enqueueAnnouncementCampaign,
   listAnnouncementCampaigns,
@@ -2235,14 +2235,21 @@ export async function registerRoutes(
       return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
     }
     const probe = await probeResendApiKey();
-    let dbReady = { notifications: false, battleWinEmails: false, creatorEngagementEmails: false, announcementEmailDeliveries: false };
+    let dbReady = {
+      notifications: false,
+      battleWinEmails: false,
+      creatorEngagementEmails: false,
+      announcementEmailDeliveries: false,
+      announcementEmailCampaignRuns: false,
+    };
     try {
       const rows = await db.execute(sql`
         SELECT
           to_regclass('public.notifications') IS NOT NULL AS notifications,
           to_regclass('public.battle_win_emails') IS NOT NULL AS battle_win_emails,
           to_regclass('public.creator_engagement_emails') IS NOT NULL AS creator_engagement_emails,
-          to_regclass('public.announcement_email_deliveries') IS NOT NULL AS announcement_email_deliveries
+          to_regclass('public.announcement_email_deliveries') IS NOT NULL AS announcement_email_deliveries,
+          to_regclass('public.announcement_email_campaign_runs') IS NOT NULL AS announcement_email_campaign_runs
       `);
       const r = rows.rows[0] as Record<string, boolean> | undefined;
       dbReady = {
@@ -2250,6 +2257,7 @@ export async function registerRoutes(
         battleWinEmails: Boolean(r?.battle_win_emails),
         creatorEngagementEmails: Boolean(r?.creator_engagement_emails),
         announcementEmailDeliveries: Boolean(r?.announcement_email_deliveries),
+        announcementEmailCampaignRuns: Boolean(r?.announcement_email_campaign_runs),
       };
     } catch {
       /* ignore */
@@ -2258,6 +2266,7 @@ export async function registerRoutes(
       enabled: isEmailEnabled(),
       fromConfigured: Boolean(process.env.NEX_EMAIL_FROM?.trim()),
       fromPreview: emailFromPreview(),
+      senderIsSandbox: isSandboxEmailFrom(),
       resend: probe,
       dbReady,
     });

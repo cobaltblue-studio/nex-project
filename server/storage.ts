@@ -4312,6 +4312,23 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  private async clearEngagementEmailReservation(kind: string, dedupeKey: string, recipientUserId: string): Promise<void> {
+    try {
+      await db
+        .delete(creatorEngagementEmails)
+        .where(
+          and(
+            eq(creatorEngagementEmails.kind, kind),
+            eq(creatorEngagementEmails.dedupeKey, dedupeKey),
+            eq(creatorEngagementEmails.recipientUserId, recipientUserId),
+          ),
+        );
+    } catch (err: unknown) {
+      if (isMissingRelationError(err)) return;
+      throw err;
+    }
+  }
+
   private async markBattleWinEmailSent(battleId: number, winnerTrackId: number): Promise<void> {
     try {
       await db
@@ -4413,9 +4430,17 @@ export class DatabaseStorage implements IStorage {
       href: `/track/${trackId}`,
     });
 
-    void this.emailCreator(recipientUserId, (to) =>
-      sendTrackPlayedEmail({ to, trackTitle: title, trackId }),
-    ).catch((err) => console.warn("[email] track play notify failed", err));
+    void this
+      .emailCreator(recipientUserId, (to) => sendTrackPlayedEmail({ to, trackTitle: title, trackId }))
+      .then(async (result) => {
+        if (!result.sent) {
+          await this.clearEngagementEmailReservation("track_play", dedupeKey, recipientUserId);
+        }
+      })
+      .catch(async (err) => {
+        await this.clearEngagementEmailReservation("track_play", dedupeKey, recipientUserId).catch(() => {});
+        console.warn("[email] track play notify failed", err);
+      });
   }
 
   async notifyTrackPlaybackIssue(trackId: number, issueSummary: string): Promise<{
@@ -4453,6 +4478,9 @@ export class DatabaseStorage implements IStorage {
         issueSummary,
       }),
     );
+    if (!email.sent) {
+      await this.clearEngagementEmailReservation("track_playback_issue", dedupeKey, recipientUserId);
+    }
     return { notified: true, email };
   }
 
@@ -4487,13 +4515,23 @@ export class DatabaseStorage implements IStorage {
       href: profilePath,
     });
 
-    void this.emailCreator(recipientUserId, (to) =>
-      sendCreatorFollowedEmail({
-        to,
-        followerDisplayName,
-        creatorProfilePath: profilePath,
-      }),
-    ).catch((err) => console.warn("[email] follow notify failed", err));
+    void this
+      .emailCreator(recipientUserId, (to) =>
+        sendCreatorFollowedEmail({
+          to,
+          followerDisplayName,
+          creatorProfilePath: profilePath,
+        }),
+      )
+      .then(async (result) => {
+        if (!result.sent) {
+          await this.clearEngagementEmailReservation("creator_follow", dedupeKey, recipientUserId);
+        }
+      })
+      .catch(async (err) => {
+        await this.clearEngagementEmailReservation("creator_follow", dedupeKey, recipientUserId).catch(() => {});
+        console.warn("[email] follow notify failed", err);
+      });
   }
 
   async getSnapshotStatus(): Promise<{
