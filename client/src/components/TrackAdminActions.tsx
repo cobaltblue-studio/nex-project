@@ -139,6 +139,7 @@ export type TrackAdminListItem = {
   aiPromptLastEditedAt?: string | null;
   /** From track_metrics when available (list APIs). */
   likesCount?: number | null;
+  commentsCount?: number | null;
   /** When logged in: server says you already liked this track today (UTC day). */
   viewerHasLikedToday?: boolean;
 };

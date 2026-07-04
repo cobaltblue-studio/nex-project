@@ -20,6 +20,7 @@ type Submission = {
   genre: string;
   trackLink: string;
   portfolioLink?: string | null;
+  trackType?: "audio" | "video" | null;
   status: "PENDING" | "SUBMITTED" | "BATTLE_POOL" | "REJECTED" | "CHART" | "MV";
   createdAt: string;
 };

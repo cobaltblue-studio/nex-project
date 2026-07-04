@@ -2,8 +2,14 @@ import type { Profile } from "@shared/schema";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
 
 /** Public track payload sanitizer (keeps artistic intent/prompt for UI storytelling). */
-export function sanitizePublicTrack<T extends Record<string, unknown>>(t: T): T {
-  const out = { ...t };
+type PublicTrackLike = Record<string, unknown> & {
+  audioUrl?: unknown;
+  mvUrl?: unknown;
+  musicVideoUrl?: unknown;
+};
+
+export function sanitizePublicTrack<T extends PublicTrackLike>(t: T): T {
+  const out: PublicTrackLike = { ...t };
   if (typeof out.audioUrl === "string") {
     const n = normalizeStoredTrackLink(out.audioUrl);
     if (n) out.audioUrl = n;

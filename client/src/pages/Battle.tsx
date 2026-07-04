@@ -825,6 +825,14 @@ export function Battle() {
         <p className="text-zinc-500 text-sm mt-2">
           Head-to-head track battles where the community decides the winner.
         </p>
+        <div className="mt-4">
+          <Link
+            href="/community"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-primary transition hover:bg-primary/10 hover:text-white"
+          >
+            Discuss Battles in Community
+          </Link>
+        </div>
       </div>
       <div className="battle-page-container">
       <div className={`mb-2 text-center ${phase === "vote" ? "pt-0" : "pt-1"}`}>

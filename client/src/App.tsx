@@ -30,11 +30,13 @@ import SubmitTrack from "@/pages/SubmitTrack";
 import AdminPanel from "@/pages/AdminPanel";
 import AdminLogin from "@/pages/AdminLogin";
 import NexRadio from "@/pages/Radio";
+import Community from "@/pages/Community";
 import About from "@/pages/About";
 import DataPolicy from "@/pages/DataPolicy";
 import ChartMethodology from "@/pages/ChartMethodology";
 import Auth from "@/pages/Auth";
 import { AnalyticsBootstrap } from "@/components/AnalyticsBootstrap";
+import { CommunityPostDetail } from "@/pages/CommunityPostDetail";
 
 function Router() {
   return (
@@ -56,6 +58,8 @@ function Router() {
         <Route path="/profile/:name" component={ProfileMe} />
         <Route path="/battle" component={Battle} />
         <Route path="/rising" component={Rising} />
+        <Route path="/community" component={Community} />
+        <Route path="/community/:id" component={CommunityPostDetail} />
         <Route path="/submit-track" component={SubmitTrack} />
         <Route path="/radio" component={NexRadio} />
         <Route path="/admin" component={AdminPanel} />

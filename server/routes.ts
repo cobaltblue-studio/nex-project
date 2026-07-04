@@ -53,6 +53,7 @@ import { emailFromPreview, isDeliverableEmail, isEmailEnabled, probeResendApiKey
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
+import { isCommunityCategorySlug } from "@shared/community";
 import { rejectArtisticIntent } from "./artisticIntent";
 import { describePlaybackIssue, inspectTrackPlaybackAvailability } from "./media-availability";
 
@@ -334,6 +335,179 @@ export async function registerRoutes(
     }
     const ok = await storage.markNotificationRead(userId, id);
     if (!ok) return res.status(404).json({ message: apiMsg("알림을 찾을 수 없습니다", "Notification not found") });
+    res.json({ ok: true });
+  });
+
+  app.get("/api/community/posts", async (req: any, res) => {
+    const categoryRaw = typeof req.query.category === "string" ? req.query.category.trim() : "";
+    const sortRaw = typeof req.query.sort === "string" ? req.query.sort.trim() : "";
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const limit = Number(req.query.limit);
+    const viewerUserId = req.user ? getUserId(req) : "";
+    const includeHidden = req.user ? await isAdmin(req) : false;
+    const rows = await storage.listCommunityPosts({
+      category: isCommunityCategorySlug(categoryRaw) ? categoryRaw : undefined,
+      sort: sortRaw === "popular" ? "popular" : "latest",
+      q: q || undefined,
+      limit: Number.isFinite(limit) ? limit : 40,
+      viewerUserId: viewerUserId || null,
+      includeHidden,
+    });
+    res.json(rows);
+  });
+
+  app.post("/api/community/posts", isAuthenticated, async (req: any, res) => {
+    const userId = await persistSessionUser(req);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    const profile = await storage.getProfileByUserId(userId);
+    if (!profile) {
+      return res.status(403).json({
+        message: apiMsg("커뮤니티 글을 쓰려면 프로필이 필요합니다", "A profile is required before posting to the community"),
+      });
+    }
+    const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
+    if (!isCommunityCategorySlug(category)) {
+      return res.status(400).json({
+        message: apiMsg("유효한 커뮤니티 카테고리가 필요합니다", "A valid community category is required"),
+      });
+    }
+    try {
+      const postId = await storage.createCommunityPost({
+        authorUserId: userId,
+        category,
+        title: String(req.body?.title ?? ""),
+        body: String(req.body?.body ?? ""),
+        attachedTrackId: req.body?.attachedTrackId ?? null,
+        externalUrl: req.body?.externalUrl ?? null,
+      });
+      res.status(201).json({ message: apiMsg("커뮤니티 글이 등록되었습니다", "Community post created"), postId });
+    } catch (err: any) {
+      const msg = err?.message;
+      if (msg === "EMPTY_TITLE" || msg === "EMPTY_BODY") {
+        return res.status(400).json({ message: apiMsg("제목과 본문을 입력해 주세요", "Please enter both a title and body") });
+      }
+      if (msg === "TITLE_TOO_LONG") {
+        return res.status(400).json({ message: apiMsg("제목이 너무 깁니다", "Title is too long") });
+      }
+      if (msg === "BODY_TOO_LONG") {
+        return res.status(400).json({ message: apiMsg("본문이 너무 깁니다", "Body is too long") });
+      }
+      if (msg === "INVALID_EXTERNAL_URL") {
+        return res.status(400).json({ message: apiMsg("외부 링크는 유효한 http(s) URL이어야 합니다", "External link must be a valid http(s) URL") });
+      }
+      if (msg === "ATTACHED_TRACK_NOT_FOUND") {
+        return res.status(404).json({ message: apiMsg("첨부할 트랙을 찾을 수 없습니다", "Attached track not found") });
+      }
+      throw err;
+    }
+  });
+
+  app.get("/api/community/posts/:id", async (req: any, res) => {
+    const postId = Number(req.params.id);
+    if (!Number.isFinite(postId)) {
+      return res.status(400).json({ message: apiMsg("잘못된 글 ID입니다", "Invalid post id") });
+    }
+    const viewerUserId = req.user ? getUserId(req) : "";
+    const admin = req.user ? await isAdmin(req) : false;
+    const post = await storage.getCommunityPost(postId, {
+      viewerUserId: viewerUserId || null,
+      includeHidden: true,
+    });
+    if (!post) return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
+    if (post.hiddenAt && !admin && post.authorUserId !== viewerUserId) {
+      return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
+    }
+    res.json(post);
+  });
+
+  app.post("/api/community/posts/:id/like", isAuthenticated, async (req: any, res) => {
+    const userId = await persistSessionUser(req);
+    const postId = Number(req.params.id);
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    if (!Number.isFinite(postId)) {
+      return res.status(400).json({ message: apiMsg("잘못된 글 ID입니다", "Invalid post id") });
+    }
+    try {
+      const result = await storage.toggleCommunityPostLike(userId, postId);
+      res.json({
+        message: result.liked ? apiMsg("좋아요를 반영했습니다", "Post liked") : apiMsg("좋아요를 취소했습니다", "Like removed"),
+        ...result,
+      });
+    } catch (err: any) {
+      if (err?.message === "POST_NOT_FOUND") {
+        return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
+      }
+      throw err;
+    }
+  });
+
+  app.get("/api/community/posts/:id/comments", async (req: any, res) => {
+    const postId = Number(req.params.id);
+    if (!Number.isFinite(postId)) {
+      return res.status(400).json({ message: apiMsg("잘못된 글 ID입니다", "Invalid post id") });
+    }
+    const viewerUserId = req.user ? getUserId(req) : "";
+    const admin = req.user ? await isAdmin(req) : false;
+    const post = await storage.getCommunityPost(postId, {
+      viewerUserId: viewerUserId || null,
+      includeHidden: true,
+    });
+    if (!post) return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
+    if (post.hiddenAt && !admin && post.authorUserId !== viewerUserId) {
+      return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
+    }
+    const rows = await storage.listCommunityComments(postId, { includeHidden: admin });
+    res.json(rows);
+  });
+
+  app.post("/api/community/posts/:id/comments", isAuthenticated, async (req: any, res) => {
+    const userId = await persistSessionUser(req);
+    const postId = Number(req.params.id);
+    const content = req.body?.content;
+    if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
+    if (!Number.isFinite(postId)) {
+      return res.status(400).json({ message: apiMsg("잘못된 글 ID입니다", "Invalid post id") });
+    }
+    if (typeof content !== "string") {
+      return res.status(400).json({ message: apiMsg("댓글 내용이 필요합니다", "Comment content is required") });
+    }
+    try {
+      await storage.addCommunityComment(userId, postId, content);
+      res.status(201).json({ message: apiMsg("댓글이 등록되었습니다", "Comment posted") });
+    } catch (err: any) {
+      const msg = err?.message;
+      if (msg === "POST_NOT_FOUND") return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
+      if (msg === "EMPTY_COMMENT") return res.status(400).json({ message: apiMsg("댓글은 비울 수 없습니다", "Comment cannot be empty") });
+      if (msg === "COMMENT_TOO_LONG") return res.status(400).json({ message: apiMsg("댓글이 너무 깁니다", "Comment too long") });
+      throw err;
+    }
+  });
+
+  app.patch("/api/community/posts/:id/moderate", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const postId = Number(req.params.id);
+    const action = typeof req.body?.action === "string" ? req.body.action.trim() : "";
+    if (!Number.isFinite(postId) || !["hide", "unhide", "pin", "unpin"].includes(action)) {
+      return res.status(400).json({ message: apiMsg("잘못된 요청입니다", "Invalid moderation request") });
+    }
+    const ok = await storage.moderateCommunityPost(postId, action as "hide" | "unhide" | "pin" | "unpin", req.body?.reason ?? null);
+    if (!ok) return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
+    res.json({ ok: true });
+  });
+
+  app.patch("/api/community/comments/:id/moderate", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const commentId = Number(req.params.id);
+    const action = typeof req.body?.action === "string" ? req.body.action.trim() : "";
+    if (!Number.isFinite(commentId) || !["hide", "unhide"].includes(action)) {
+      return res.status(400).json({ message: apiMsg("잘못된 요청입니다", "Invalid moderation request") });
+    }
+    const ok = await storage.moderateCommunityComment(commentId, action as "hide" | "unhide", req.body?.reason ?? null);
+    if (!ok) return res.status(404).json({ message: apiMsg("댓글을 찾을 수 없습니다", "Comment not found") });
     res.json({ ok: true });
   });
 
@@ -2162,7 +2336,7 @@ export async function registerRoutes(
     for (const row of all) {
       if (!byId.has(row.id)) byId.set(row.id, row);
     }
-    const deduped = [...byId.values()];
+    const deduped = Array.from(byId.values());
     deduped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     res.json(deduped);
   });

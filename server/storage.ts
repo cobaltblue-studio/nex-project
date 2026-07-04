@@ -11,6 +11,9 @@ import {
   battleVotes,
   battleListenCompletions,
   comments,
+  communityPosts,
+  communityPostLikes,
+  communityComments,
   notifications,
   battleWinEmails,
   creatorEngagementEmails,
@@ -400,6 +403,103 @@ export interface IStorage {
   listTrackComments(
     trackId: number,
   ): Promise<{ id: number; userId: string; content: string; createdAt: Date; authorName: string | null }[]>;
+  createCommunityPost(input: {
+    authorUserId: string;
+    category: string;
+    title: string;
+    body: string;
+    attachedTrackId?: number | null;
+    externalUrl?: string | null;
+  }): Promise<number>;
+  listCommunityPosts(opts?: {
+    category?: string;
+    sort?: "latest" | "popular";
+    q?: string;
+    limit?: number;
+    viewerUserId?: string | null;
+    includeHidden?: boolean;
+  }): Promise<
+    {
+      id: number;
+      category: string;
+      title: string;
+      body: string;
+      externalUrl: string | null;
+      createdAt: Date;
+      pinnedAt: Date | null;
+      hiddenAt: Date | null;
+      hiddenReason: string | null;
+      authorUserId: string;
+      authorName: string | null;
+      authorProfileId: number | null;
+      authorIsVerified: boolean;
+      attachedTrack: {
+        id: number;
+        title: string;
+        trackType: string;
+        creatorName: string | null;
+      } | null;
+      likeCount: number;
+      commentCount: number;
+      viewerHasLiked: boolean;
+    }[]
+  >;
+  getCommunityPost(
+    postId: number,
+    opts?: { viewerUserId?: string | null; includeHidden?: boolean },
+  ): Promise<{
+    id: number;
+    category: string;
+    title: string;
+    body: string;
+    externalUrl: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    pinnedAt: Date | null;
+    hiddenAt: Date | null;
+    hiddenReason: string | null;
+    authorUserId: string;
+    authorName: string | null;
+    authorProfileId: number | null;
+    authorIsVerified: boolean;
+    attachedTrack: {
+      id: number;
+      title: string;
+      trackType: string;
+      creatorName: string | null;
+    } | null;
+    likeCount: number;
+    commentCount: number;
+    viewerHasLiked: boolean;
+  } | undefined>;
+  toggleCommunityPostLike(userId: string, postId: number): Promise<{ liked: boolean; likeCount: number }>;
+  addCommunityComment(userId: string, postId: number, content: string): Promise<void>;
+  listCommunityComments(
+    postId: number,
+    opts?: { includeHidden?: boolean },
+  ): Promise<
+    {
+      id: number;
+      content: string;
+      createdAt: Date;
+      hiddenAt: Date | null;
+      hiddenReason: string | null;
+      authorUserId: string;
+      authorName: string | null;
+      authorProfileId: number | null;
+      authorIsVerified: boolean;
+    }[]
+  >;
+  moderateCommunityPost(
+    postId: number,
+    action: "hide" | "unhide" | "pin" | "unpin",
+    reason?: string | null,
+  ): Promise<boolean>;
+  moderateCommunityComment(
+    commentId: number,
+    action: "hide" | "unhide",
+    reason?: string | null,
+  ): Promise<boolean>;
   /** Public counts per track (excludes [EDIT REQUEST] admin tickets). */
   getCommentCountsForTracks(trackIds: number[]): Promise<Record<number, number>>;
   listPendingTrackEditRequests(): Promise<
@@ -858,6 +958,17 @@ export class DatabaseStorage implements IStorage {
         await tx.update(battleVotes).set({ userId: toId }).where(eq(battleVotes.userId, fromId));
         await tx.update(battleListenCompletions).set({ userId: toId }).where(eq(battleListenCompletions.userId, fromId));
         await tx.update(comments).set({ userId: toId }).where(eq(comments.userId, fromId));
+        await tx.update(communityPosts).set({ authorUserId: toId }).where(eq(communityPosts.authorUserId, fromId));
+        await tx.execute(sql`
+          DELETE FROM community_post_likes src
+          USING community_post_likes dst
+          WHERE src.user_id = ${fromId}
+            AND dst.user_id = ${toId}
+            AND src.post_id = dst.post_id
+            AND src.id <> dst.id
+        `);
+        await tx.update(communityPostLikes).set({ userId: toId }).where(eq(communityPostLikes.userId, fromId));
+        await tx.update(communityComments).set({ authorUserId: toId }).where(eq(communityComments.authorUserId, fromId));
         await tx.update(notifications).set({ recipientUserId: toId }).where(eq(notifications.recipientUserId, fromId));
         await tx.update(analyticsEvents).set({ userId: toId }).where(eq(analyticsEvents.userId, fromId));
         await tx.update(creatorEngagementEmails).set({ recipientUserId: toId }).where(eq(creatorEngagementEmails.recipientUserId, fromId));
@@ -1975,7 +2086,7 @@ export class DatabaseStorage implements IStorage {
         .select({ id: battles.id })
         .from(battles)
         .where(or(eq(battles.trackAId, trackId), eq(battles.trackBId, trackId), eq(battles.winnerId, trackId)));
-      const battleIds = [...new Set(affectedBattles.map((b) => b.id))];
+      const battleIds = Array.from(new Set(affectedBattles.map((b) => b.id)));
       if (battleIds.length) {
         await tx.delete(battleListenCompletions).where(inArray(battleListenCompletions.battleId, battleIds));
         await tx.delete(battleVotes).where(inArray(battleVotes.battleId, battleIds));
@@ -2081,12 +2192,12 @@ export class DatabaseStorage implements IStorage {
       listenCountByBattle.set(row.battleId, set);
     }
     let latestFullListenBattleId: number | null = null;
-    for (const [battleId, heard] of listenCountByBattle) {
-      if (heard.size < 2) continue;
+    listenCountByBattle.forEach((heard, battleId) => {
+      if (heard.size < 2) return;
       if (latestFullListenBattleId == null || battleId > latestFullListenBattleId) {
         latestFullListenBattleId = battleId;
       }
-    }
+    });
     if (latestFullListenBattleId != null) {
       const [b] = await db
         .select({ trackAId: battles.trackAId, trackBId: battles.trackBId })
@@ -2098,7 +2209,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    return [...exclude];
+    return Array.from(exclude);
   }
 
   async createBattle(
@@ -2270,6 +2381,415 @@ export class DatabaseStorage implements IStorage {
       .where(eq(comments.trackId, trackId))
       .orderBy(desc(comments.createdAt))
       .limit(200);
+  }
+
+  async createCommunityPost(input: {
+    authorUserId: string;
+    category: string;
+    title: string;
+    body: string;
+    attachedTrackId?: number | null;
+    externalUrl?: string | null;
+  }): Promise<number> {
+    const title = String(input.title ?? "").trim();
+    const body = String(input.body ?? "").trim();
+    if (!title) throw new Error("EMPTY_TITLE");
+    if (!body) throw new Error("EMPTY_BODY");
+    if (title.length > 140) throw new Error("TITLE_TOO_LONG");
+    if (body.length > 5000) throw new Error("BODY_TOO_LONG");
+
+    let externalUrl: string | null = null;
+    const rawUrl = String(input.externalUrl ?? "").trim();
+    if (rawUrl) {
+      try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("bad_protocol");
+        externalUrl = rawUrl;
+      } catch {
+        throw new Error("INVALID_EXTERNAL_URL");
+      }
+    }
+
+    const attachedTrackId = Number.isFinite(Number(input.attachedTrackId))
+      ? Number(input.attachedTrackId)
+      : null;
+    if (attachedTrackId) {
+      const [track] = await db.select({ id: tracks.id }).from(tracks).where(and(eq(tracks.id, attachedTrackId), eq(tracks.isDeleted, false))).limit(1);
+      if (!track) throw new Error("ATTACHED_TRACK_NOT_FOUND");
+    }
+
+    const [row] = await db
+      .insert(communityPosts)
+      .values({
+        authorUserId: input.authorUserId,
+        category: input.category,
+        title,
+        body,
+        attachedTrackId,
+        externalUrl,
+      })
+      .returning({ id: communityPosts.id });
+    return row.id;
+  }
+
+  async listCommunityPosts(opts?: {
+    category?: string;
+    sort?: "latest" | "popular";
+    q?: string;
+    limit?: number;
+    viewerUserId?: string | null;
+    includeHidden?: boolean;
+  }): Promise<
+    {
+      id: number;
+      category: string;
+      title: string;
+      body: string;
+      externalUrl: string | null;
+      createdAt: Date;
+      pinnedAt: Date | null;
+      hiddenAt: Date | null;
+      hiddenReason: string | null;
+      authorUserId: string;
+      authorName: string | null;
+      authorProfileId: number | null;
+      authorIsVerified: boolean;
+      attachedTrack: {
+        id: number;
+        title: string;
+        trackType: string;
+        creatorName: string | null;
+      } | null;
+      likeCount: number;
+      commentCount: number;
+      viewerHasLiked: boolean;
+    }[]
+  > {
+    const limit = Math.max(1, Math.min(100, Number(opts?.limit ?? 40)));
+    const q = String(opts?.q ?? "").trim();
+    const viewerUserId = String(opts?.viewerUserId ?? "").trim();
+    const whereParts: any[] = [];
+    if (!opts?.includeHidden) whereParts.push(sql`p.hidden_at IS NULL`);
+    if (opts?.category) whereParts.push(sql`p.category = ${opts.category}`);
+    if (q) whereParts.push(sql`(p.title ILIKE ${`%${q}%`} OR p.body ILIKE ${`%${q}%`})`);
+    const whereSql = whereParts.length ? sql`WHERE ${sql.join(whereParts, sql` AND `)}` : sql``;
+    const orderSql =
+      opts?.sort === "popular"
+        ? sql`ORDER BY p.pinned_at DESC NULLS LAST, (COALESCE(pl.cnt, 0) * 3 + COALESCE(cc.cnt, 0)) DESC, p.created_at DESC`
+        : sql`ORDER BY p.pinned_at DESC NULLS LAST, p.created_at DESC`;
+
+    const rows = await db.execute(sql`
+      SELECT
+        p.id,
+        p.category,
+        p.title,
+        p.body,
+        p.external_url AS "externalUrl",
+        p.created_at AS "createdAt",
+        p.pinned_at AS "pinnedAt",
+        p.hidden_at AS "hiddenAt",
+        p.hidden_reason AS "hiddenReason",
+        p.author_user_id AS "authorUserId",
+        pr.username AS "authorName",
+        pr.id AS "authorProfileId",
+        COALESCE(pr.is_verified, false) AS "authorIsVerified",
+        t.id AS "trackId",
+        t.title AS "trackTitle",
+        t.track_type AS "trackType",
+        COALESCE(t.artist_name, tp.username) AS "trackCreatorName",
+        COALESCE(pl.cnt, 0) AS "likeCount",
+        COALESCE(cc.cnt, 0) AS "commentCount",
+        ${
+          viewerUserId
+            ? sql`EXISTS (SELECT 1 FROM community_post_likes vpl WHERE vpl.post_id = p.id AND vpl.user_id = ${viewerUserId})`
+            : sql`false`
+        } AS "viewerHasLiked"
+      FROM community_posts p
+      LEFT JOIN profiles pr ON pr.user_id = p.author_user_id
+      LEFT JOIN tracks t ON t.id = p.attached_track_id
+      LEFT JOIN profiles tp ON tp.id = t.creator_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt
+        FROM community_post_likes l
+        WHERE l.post_id = p.id
+      ) pl ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt
+        FROM community_comments c
+        WHERE c.post_id = p.id AND c.hidden_at IS NULL
+      ) cc ON true
+      ${whereSql}
+      ${orderSql}
+      LIMIT ${limit}
+    `);
+
+    return (rows.rows as any[]).map((row) => ({
+      id: Number(row.id),
+      category: String(row.category),
+      title: String(row.title),
+      body: String(row.body),
+      externalUrl: row.externalUrl ?? null,
+      createdAt: new Date(row.createdAt),
+      pinnedAt: row.pinnedAt ? new Date(row.pinnedAt) : null,
+      hiddenAt: row.hiddenAt ? new Date(row.hiddenAt) : null,
+      hiddenReason: row.hiddenReason ?? null,
+      authorUserId: String(row.authorUserId),
+      authorName: row.authorName ?? null,
+      authorProfileId: row.authorProfileId != null ? Number(row.authorProfileId) : null,
+      authorIsVerified: Boolean(row.authorIsVerified),
+      attachedTrack:
+        row.trackId != null
+          ? {
+              id: Number(row.trackId),
+              title: String(row.trackTitle),
+              trackType: String(row.trackType),
+              creatorName: row.trackCreatorName ?? null,
+            }
+          : null,
+      likeCount: Number(row.likeCount ?? 0),
+      commentCount: Number(row.commentCount ?? 0),
+      viewerHasLiked: Boolean(row.viewerHasLiked),
+    }));
+  }
+
+  async getCommunityPost(
+    postId: number,
+    opts?: { viewerUserId?: string | null; includeHidden?: boolean },
+  ): Promise<{
+    id: number;
+    category: string;
+    title: string;
+    body: string;
+    externalUrl: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    pinnedAt: Date | null;
+    hiddenAt: Date | null;
+    hiddenReason: string | null;
+    authorUserId: string;
+    authorName: string | null;
+    authorProfileId: number | null;
+    authorIsVerified: boolean;
+    attachedTrack: {
+      id: number;
+      title: string;
+      trackType: string;
+      creatorName: string | null;
+    } | null;
+    likeCount: number;
+    commentCount: number;
+    viewerHasLiked: boolean;
+  } | undefined> {
+    const viewerUserId = String(opts?.viewerUserId ?? "").trim();
+    const whereSql = opts?.includeHidden
+      ? sql`WHERE p.id = ${postId}`
+      : sql`WHERE p.id = ${postId} AND p.hidden_at IS NULL`;
+    const rows = await db.execute(sql`
+      SELECT
+        p.id,
+        p.category,
+        p.title,
+        p.body,
+        p.external_url AS "externalUrl",
+        p.created_at AS "createdAt",
+        p.updated_at AS "updatedAt",
+        p.pinned_at AS "pinnedAt",
+        p.hidden_at AS "hiddenAt",
+        p.hidden_reason AS "hiddenReason",
+        p.author_user_id AS "authorUserId",
+        pr.username AS "authorName",
+        pr.id AS "authorProfileId",
+        COALESCE(pr.is_verified, false) AS "authorIsVerified",
+        t.id AS "trackId",
+        t.title AS "trackTitle",
+        t.track_type AS "trackType",
+        COALESCE(t.artist_name, tp.username) AS "trackCreatorName",
+        COALESCE(pl.cnt, 0) AS "likeCount",
+        COALESCE(cc.cnt, 0) AS "commentCount",
+        ${
+          viewerUserId
+            ? sql`EXISTS (SELECT 1 FROM community_post_likes vpl WHERE vpl.post_id = p.id AND vpl.user_id = ${viewerUserId})`
+            : sql`false`
+        } AS "viewerHasLiked"
+      FROM community_posts p
+      LEFT JOIN profiles pr ON pr.user_id = p.author_user_id
+      LEFT JOIN tracks t ON t.id = p.attached_track_id
+      LEFT JOIN profiles tp ON tp.id = t.creator_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt
+        FROM community_post_likes l
+        WHERE l.post_id = p.id
+      ) pl ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt
+        FROM community_comments c
+        WHERE c.post_id = p.id AND c.hidden_at IS NULL
+      ) cc ON true
+      ${whereSql}
+      LIMIT 1
+    `);
+    const row = (rows.rows as any[])[0];
+    if (!row) return undefined;
+    return {
+      id: Number(row.id),
+      category: String(row.category),
+      title: String(row.title),
+      body: String(row.body),
+      externalUrl: row.externalUrl ?? null,
+      createdAt: new Date(row.createdAt),
+      updatedAt: new Date(row.updatedAt),
+      pinnedAt: row.pinnedAt ? new Date(row.pinnedAt) : null,
+      hiddenAt: row.hiddenAt ? new Date(row.hiddenAt) : null,
+      hiddenReason: row.hiddenReason ?? null,
+      authorUserId: String(row.authorUserId),
+      authorName: row.authorName ?? null,
+      authorProfileId: row.authorProfileId != null ? Number(row.authorProfileId) : null,
+      authorIsVerified: Boolean(row.authorIsVerified),
+      attachedTrack:
+        row.trackId != null
+          ? {
+              id: Number(row.trackId),
+              title: String(row.trackTitle),
+              trackType: String(row.trackType),
+              creatorName: row.trackCreatorName ?? null,
+            }
+          : null,
+      likeCount: Number(row.likeCount ?? 0),
+      commentCount: Number(row.commentCount ?? 0),
+      viewerHasLiked: Boolean(row.viewerHasLiked),
+    };
+  }
+
+  async toggleCommunityPostLike(userId: string, postId: number): Promise<{ liked: boolean; likeCount: number }> {
+    const [post] = await db.select({ id: communityPosts.id, hiddenAt: communityPosts.hiddenAt }).from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
+    if (!post || post.hiddenAt) throw new Error("POST_NOT_FOUND");
+    const [existing] = await db
+      .select({ id: communityPostLikes.id })
+      .from(communityPostLikes)
+      .where(and(eq(communityPostLikes.postId, postId), eq(communityPostLikes.userId, userId)))
+      .limit(1);
+    if (existing) {
+      await db.delete(communityPostLikes).where(eq(communityPostLikes.id, existing.id));
+    } else {
+      await db.insert(communityPostLikes).values({ postId, userId });
+    }
+    const [countRow] = await db
+      .select({ c: count() })
+      .from(communityPostLikes)
+      .where(eq(communityPostLikes.postId, postId));
+    return { liked: !existing, likeCount: Number(countRow?.c ?? 0) };
+  }
+
+  async addCommunityComment(userId: string, postId: number, content: string): Promise<void> {
+    const body = content.trim();
+    if (!body) throw new Error("EMPTY_COMMENT");
+    if (body.length > 2000) throw new Error("COMMENT_TOO_LONG");
+    const [post] = await db
+      .select({ id: communityPosts.id, hiddenAt: communityPosts.hiddenAt })
+      .from(communityPosts)
+      .where(eq(communityPosts.id, postId))
+      .limit(1);
+    if (!post || post.hiddenAt) throw new Error("POST_NOT_FOUND");
+    await db.insert(communityComments).values({ authorUserId: userId, postId, content: body });
+  }
+
+  async listCommunityComments(
+    postId: number,
+    opts?: { includeHidden?: boolean },
+  ): Promise<
+    {
+      id: number;
+      content: string;
+      createdAt: Date;
+      hiddenAt: Date | null;
+      hiddenReason: string | null;
+      authorUserId: string;
+      authorName: string | null;
+      authorProfileId: number | null;
+      authorIsVerified: boolean;
+    }[]
+  > {
+    const whereSql = opts?.includeHidden
+      ? sql`WHERE c.post_id = ${postId}`
+      : sql`WHERE c.post_id = ${postId} AND c.hidden_at IS NULL`;
+    const rows = await db.execute(sql`
+      SELECT
+        c.id,
+        c.content,
+        c.created_at AS "createdAt",
+        c.hidden_at AS "hiddenAt",
+        c.hidden_reason AS "hiddenReason",
+        c.author_user_id AS "authorUserId",
+        p.username AS "authorName",
+        p.id AS "authorProfileId",
+        COALESCE(p.is_verified, false) AS "authorIsVerified"
+      FROM community_comments c
+      LEFT JOIN profiles p ON p.user_id = c.author_user_id
+      ${whereSql}
+      ORDER BY c.created_at ASC
+      LIMIT 300
+    `);
+    return (rows.rows as any[]).map((row) => ({
+      id: Number(row.id),
+      content: String(row.content),
+      createdAt: new Date(row.createdAt),
+      hiddenAt: row.hiddenAt ? new Date(row.hiddenAt) : null,
+      hiddenReason: row.hiddenReason ?? null,
+      authorUserId: String(row.authorUserId),
+      authorName: row.authorName ?? null,
+      authorProfileId: row.authorProfileId != null ? Number(row.authorProfileId) : null,
+      authorIsVerified: Boolean(row.authorIsVerified),
+    }));
+  }
+
+  async moderateCommunityPost(
+    postId: number,
+    action: "hide" | "unhide" | "pin" | "unpin",
+    reason?: string | null,
+  ): Promise<boolean> {
+    const [existing] = await db.select({ id: communityPosts.id }).from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
+    if (!existing) return false;
+    if (action === "hide") {
+      await db
+        .update(communityPosts)
+        .set({ hiddenAt: new Date(), hiddenReason: String(reason ?? "").trim() || "Hidden by admin", updatedAt: new Date() })
+        .where(eq(communityPosts.id, postId));
+      return true;
+    }
+    if (action === "unhide") {
+      await db
+        .update(communityPosts)
+        .set({ hiddenAt: null, hiddenReason: null, updatedAt: new Date() })
+        .where(eq(communityPosts.id, postId));
+      return true;
+    }
+    if (action === "pin") {
+      await db.update(communityPosts).set({ pinnedAt: new Date(), updatedAt: new Date() }).where(eq(communityPosts.id, postId));
+      return true;
+    }
+    await db.update(communityPosts).set({ pinnedAt: null, updatedAt: new Date() }).where(eq(communityPosts.id, postId));
+    return true;
+  }
+
+  async moderateCommunityComment(
+    commentId: number,
+    action: "hide" | "unhide",
+    reason?: string | null,
+  ): Promise<boolean> {
+    const [existing] = await db.select({ id: communityComments.id }).from(communityComments).where(eq(communityComments.id, commentId)).limit(1);
+    if (!existing) return false;
+    if (action === "hide") {
+      await db
+        .update(communityComments)
+        .set({ hiddenAt: new Date(), hiddenReason: String(reason ?? "").trim() || "Hidden by admin" })
+        .where(eq(communityComments.id, commentId));
+      return true;
+    }
+    await db
+      .update(communityComments)
+      .set({ hiddenAt: null, hiddenReason: null })
+      .where(eq(communityComments.id, commentId));
+    return true;
   }
 
   async getCommentCountsForTracks(trackIds: number[]): Promise<Record<number, number>> {

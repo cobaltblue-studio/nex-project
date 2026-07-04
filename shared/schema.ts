@@ -215,6 +215,42 @@ export const comments = pgTable("comments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const communityPosts = pgTable("community_posts", {
+  id: serial("id").primaryKey(),
+  authorUserId: varchar("author_user_id").references(() => users.id).notNull(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  attachedTrackId: integer("attached_track_id").references(() => tracks.id),
+  externalUrl: text("external_url"),
+  pinnedAt: timestamp("pinned_at"),
+  hiddenAt: timestamp("hidden_at"),
+  hiddenReason: text("hidden_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const communityPostLikes = pgTable(
+  "community_post_likes",
+  {
+    id: serial("id").primaryKey(),
+    postId: integer("post_id").references(() => communityPosts.id).notNull(),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("community_post_likes_user_post_unique").on(table.userId, table.postId)],
+);
+
+export const communityComments = pgTable("community_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => communityPosts.id).notNull(),
+  authorUserId: varchar("author_user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  hiddenAt: timestamp("hidden_at"),
+  hiddenReason: text("hidden_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   recipientUserId: varchar("recipient_user_id").references(() => users.id).notNull(),
@@ -310,6 +346,7 @@ export const tracksRelations = relations(tracks, ({ one, many }) => ({
   claimRequests: many(trackClaimRequests),
   boostUsageLogs: many(boostUsageLogs),
   boostStatus: one(boostStatus, { fields: [tracks.id], references: [boostStatus.trackId] }),
+  communityPosts: many(communityPosts),
 }));
 
 export const boostTicketsRelations = relations(boostTickets, ({ one }) => ({
@@ -346,6 +383,23 @@ export const trackPlaysRelations = relations(trackPlays, ({ one }) => ({
 
 export const trackMetricsRelations = relations(trackMetrics, ({ one }) => ({
   track: one(tracks, { fields: [trackMetrics.trackId], references: [tracks.id] }),
+}));
+
+export const communityPostsRelations = relations(communityPosts, ({ one, many }) => ({
+  author: one(users, { fields: [communityPosts.authorUserId], references: [users.id] }),
+  attachedTrack: one(tracks, { fields: [communityPosts.attachedTrackId], references: [tracks.id] }),
+  likes: many(communityPostLikes),
+  comments: many(communityComments),
+}));
+
+export const communityPostLikesRelations = relations(communityPostLikes, ({ one }) => ({
+  post: one(communityPosts, { fields: [communityPostLikes.postId], references: [communityPosts.id] }),
+  user: one(users, { fields: [communityPostLikes.userId], references: [users.id] }),
+}));
+
+export const communityCommentsRelations = relations(communityComments, ({ one }) => ({
+  post: one(communityPosts, { fields: [communityComments.postId], references: [communityPosts.id] }),
+  author: one(users, { fields: [communityComments.authorUserId], references: [users.id] }),
 }));
 
 export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, userId: true, totalScore: true, createdAt: true });
@@ -385,3 +439,6 @@ export type BoostStatusRow = typeof boostStatus.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type BattleWinEmail = typeof battleWinEmails.$inferSelect;
+export type CommunityPost = typeof communityPosts.$inferSelect;
+export type CommunityPostLike = typeof communityPostLikes.$inferSelect;
+export type CommunityComment = typeof communityComments.$inferSelect;

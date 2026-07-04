@@ -28,6 +28,7 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
       p === "/api/tracks" ||
       p === "/api/tracks/new" ||
       p === "/api/tracks/rising" ||
+      p === "/api/community/posts" ||
       p === "/api/creators" ||
       p === "/api/creators/directory" ||
       p === "/api/stats/today" ||
@@ -42,6 +43,8 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
     if (/^\/api\/profiles\/\d+\/tracks$/.test(p)) return true;
     if (/^\/api\/tracks\/\d+$/.test(p)) return true;
     if (/^\/api\/tracks\/\d+\/comments$/.test(p)) return true;
+    if (/^\/api\/community\/posts\/\d+$/.test(p)) return true;
+    if (/^\/api\/community\/posts\/\d+\/comments$/.test(p)) return true;
     if (p === "/api/suno/resolve" || p === "/api/soundcloud/resolve") return true;
     return false;
   }

@@ -547,6 +547,15 @@ export function TrackDetail() {
               </motion.div>
             </AnimatePresence>
 
+            <div className="flex justify-center">
+              <Link
+                href="/community"
+                className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-primary transition hover:bg-primary/10 hover:text-white"
+              >
+                Join the Community Conversation
+              </Link>
+            </div>
+
             {/* TRACK INFORMATION BLOCK */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-y border-white/5 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
               <div className="space-y-1">
