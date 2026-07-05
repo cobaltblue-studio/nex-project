@@ -182,7 +182,6 @@ export default function Community() {
             body: "본문",
             relatedAudioTrack: "관련 곡 — NEW & TOP 100",
             relatedMv: "관련 Music Video",
-            pickPlaceholder: "선택…",
             relatedTrackLoading: "목록 불러오는 중…",
             pickRequired: "관련 곡 또는 뮤직비디오를 선택해 주세요.",
             creatorNote: "크리에이터 노트",
@@ -223,7 +222,6 @@ export default function Community() {
             body: "Body",
             relatedAudioTrack: "Related track — NEW & TOP 100",
             relatedMv: "Related music video",
-            pickPlaceholder: "Select…",
             relatedTrackLoading: "Loading…",
             pickRequired: "Please select a related track or music video.",
             creatorNote: "Creator note",
@@ -405,61 +403,53 @@ export default function Community() {
             </select>
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.title}</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={140}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50"
-            />
-          </label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={140}
+            placeholder={copy.title}
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
+          />
 
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold text-zinc-500">{copy.relatedAudioTrack}</span>
-            <select
-              value={attachedAudioTrackId}
-              onChange={(e) => {
-                const next = e.target.value;
-                setAttachedAudioTrackId(next);
-                if (next) setAttachedMvTrackId("");
-              }}
-              disabled={audioPickLoading && !audioPickOptions}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
-            >
-              <option value="" disabled>
-                {audioPickLoading && !audioPickOptions ? copy.relatedTrackLoading : copy.pickPlaceholder}
+          <select
+            value={attachedAudioTrackId}
+            onChange={(e) => {
+              const next = e.target.value;
+              setAttachedAudioTrackId(next);
+              if (next) setAttachedMvTrackId("");
+            }}
+            disabled={audioPickLoading && !audioPickOptions}
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
+          >
+            <option value="" disabled>
+              {audioPickLoading && !audioPickOptions ? copy.relatedTrackLoading : copy.relatedAudioTrack}
+            </option>
+            {(audioPickOptions ?? []).map((track) => (
+              <option key={track.id} value={track.id}>
+                {formatCommunityTrackPickLabel(track)}
               </option>
-              {(audioPickOptions ?? []).map((track) => (
-                <option key={track.id} value={track.id}>
-                  {formatCommunityTrackPickLabel(track)}
-                </option>
-              ))}
-            </select>
-          </label>
+            ))}
+          </select>
 
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold text-zinc-500">{copy.relatedMv}</span>
-            <select
-              value={attachedMvTrackId}
-              onChange={(e) => {
-                const next = e.target.value;
-                setAttachedMvTrackId(next);
-                if (next) setAttachedAudioTrackId("");
-              }}
-              disabled={mvPickLoading && !mvPickOptions}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
-            >
-              <option value="" disabled>
-                {mvPickLoading && !mvPickOptions ? copy.relatedTrackLoading : copy.pickPlaceholder}
+          <select
+            value={attachedMvTrackId}
+            onChange={(e) => {
+              const next = e.target.value;
+              setAttachedMvTrackId(next);
+              if (next) setAttachedAudioTrackId("");
+            }}
+            disabled={mvPickLoading && !mvPickOptions}
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
+          >
+            <option value="" disabled>
+              {mvPickLoading && !mvPickOptions ? copy.relatedTrackLoading : copy.relatedMv}
+            </option>
+            {(mvPickOptions ?? []).map((track) => (
+              <option key={track.id} value={track.id}>
+                {formatCommunityTrackPickLabel(track)}
               </option>
-              {(mvPickOptions ?? []).map((track) => (
-                <option key={track.id} value={track.id}>
-                  {formatCommunityTrackPickLabel(track)}
-                </option>
-              ))}
-            </select>
-          </label>
+            ))}
+          </select>
 
           <button
             type="button"
