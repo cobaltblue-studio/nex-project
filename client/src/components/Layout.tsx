@@ -132,6 +132,12 @@ export function Layout({ children }: LayoutProps) {
     return [...core, ...tail];
   }, [t, ui]);
 
+  /** Submit / Admin live in the account menu — keep desktop top nav from overflowing in EN. */
+  const desktopNavItems = useMemo(
+    () => navItems.filter((item) => item.path !== "/submit-track" && item.path !== "/admin"),
+    [navItems],
+  );
+
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col relative overflow-x-hidden font-sans">
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -139,7 +145,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-blue-500/5 rounded-full blur-[100px]" />
       </div>
 
-      <header className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50 flex items-center justify-between gap-3 px-4 sm:px-8 md:px-12">
+      <header className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50 flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 xl:px-12">
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2 text-primary font-display font-bold tracking-tighter group border-none shadow-none outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
@@ -148,12 +154,12 @@ export function Layout({ children }: LayoutProps) {
           <span className="text-[1.1rem] md:text-[1.5rem] main-logo-text">NEX</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-x-3 lg:gap-x-5 xl:gap-x-6 ml-4 lg:ml-6 min-w-0 flex-1 justify-start max-w-[min(52rem,100%)] overflow-x-auto [scrollbar-width:thin] px-1">
-          {navItems.map((item) => {
+        <nav className="hidden lg:flex items-center gap-x-1.5 xl:gap-x-3 min-w-0 flex-1 justify-start overflow-x-auto [scrollbar-width:thin] px-0.5">
+          {desktopNavItems.map((item) => {
             const isActive = location === item.path;
             return (
               <Link key={item.path} href={item.path} className={clsx(
-                "text-[10px] xl:text-[11px] font-bold uppercase tracking-[0.2em] xl:tracking-[0.3em] transition-all relative py-2 whitespace-nowrap",
+                "text-[10px] xl:text-[11px] font-bold uppercase tracking-[0.08em] xl:tracking-[0.16em] transition-all relative py-2 whitespace-nowrap shrink-0",
                 isActive ? "text-primary" : "text-zinc-500 hover:text-white"
               )}>
                 {item.label}
@@ -208,19 +214,19 @@ export function Layout({ children }: LayoutProps) {
               {userMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
-                  <div className="absolute right-0 top-[calc(100%+6px)] z-20 bg-[#0A0A0A] border border-white/10 rounded-sm shadow-[0_8px_32px_rgba(0,0,0,0.6)] min-w-[220px] py-2 overflow-hidden">
+                  <div className="absolute right-0 top-[calc(100%+6px)] z-[60] bg-[#0A0A0A] border border-white/10 rounded-sm shadow-[0_8px_32px_rgba(0,0,0,0.6)] min-w-[220px] py-1">
 
                     {/* Role header */}
                     <div className={clsx(
-                      "px-4 py-3 border-b border-white/5",
+                      "px-4 py-3 border-b border-white/5 rounded-t-sm",
                       isAdmin ? "bg-primary/5" : ""
                     )}>
-                      <div className="flex items-center gap-2">
-                        {isAdmin && <ShieldCheck className="w-3 h-3 text-primary" strokeWidth={2} />}
+                      <div className="flex items-center gap-2 min-h-[1rem]">
+                        {isAdmin && <ShieldCheck className="w-3 h-3 text-primary shrink-0" strokeWidth={2} />}
                         <p
                           data-testid="text-dropdown-role"
                           className={clsx(
-                            "text-[11px] font-black uppercase tracking-[0.25em]",
+                            "text-[11px] font-black uppercase tracking-[0.12em] leading-normal",
                             isAdmin ? "text-primary" : "text-white"
                           )}
                         >
@@ -354,7 +360,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </footer>
 
-      <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-4">
+      <nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-2">
         {navItems.map((item) => {
           const isActive = location === item.path;
           return (
