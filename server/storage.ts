@@ -2399,7 +2399,6 @@ export class DatabaseStorage implements IStorage {
     const title = String(input.title ?? "").trim();
     const body = String(input.body ?? "").trim();
     if (!title) throw new Error("EMPTY_TITLE");
-    if (!body) throw new Error("EMPTY_BODY");
     if (title.length > 140) throw new Error("TITLE_TOO_LONG");
     if (body.length > 5000) throw new Error("BODY_TOO_LONG");
 

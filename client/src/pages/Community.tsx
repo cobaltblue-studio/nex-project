@@ -159,7 +159,6 @@ export default function Community() {
   const [writeOpen, setWriteOpen] = useState(false);
   const [category, setCategory] = useState<CommunityCategorySlug>("track-share");
   const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
   const [attachedAudioTrackId, setAttachedAudioTrackId] = useState("");
   const [attachedMvTrackId, setAttachedMvTrackId] = useState("");
   const [trackSearch, setTrackSearch] = useState("");
@@ -191,7 +190,7 @@ export default function Community() {
             relatedAudioTrack: "관련 곡 — NEW & TOP 100",
             relatedMv: "관련 Music Video",
             pickPlaceholder: "선택…",
-            relatedTrackSearch: "곡 제목·크리에이터 검색",
+            relatedTrackSearch: "제목",
             relatedTrackLoading: "목록 불러오는 중…",
             pickRequired: "관련 곡 또는 뮤직비디오를 선택해 주세요.",
             creatorNote: "크리에이터 노트",
@@ -233,7 +232,7 @@ export default function Community() {
             relatedAudioTrack: "Related track — NEW & TOP 100",
             relatedMv: "Related music video",
             pickPlaceholder: "Select…",
-            relatedTrackSearch: "Search track or creator",
+            relatedTrackSearch: "Title",
             relatedTrackLoading: "Loading…",
             pickRequired: "Please select a related track or music video.",
             creatorNote: "Creator note",
@@ -342,14 +341,13 @@ export default function Community() {
       const res = await apiRequest("POST", "/api/community/posts", {
         category,
         title,
-        body,
+        body: "",
         attachedTrackId: Number(attachedTrackId),
       });
       return res.json() as Promise<{ postId: number; message: string }>;
     },
     onSuccess: async (data) => {
       setTitle("");
-      setBody("");
       setAttachedAudioTrackId("");
       setAttachedMvTrackId("");
       setWriteOpen(false);
@@ -418,6 +416,16 @@ export default function Community() {
             </select>
           </label>
 
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.title}</span>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={140}
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50"
+            />
+          </label>
+
           <div className="space-y-3">
             <input
               value={trackSearch}
@@ -473,31 +481,9 @@ export default function Community() {
             </label>
           </div>
 
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.title}</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={140}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.body}</span>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={6}
-              maxLength={5000}
-              placeholder={copy.bodyPlaceholder}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
-            />
-          </label>
-
           <button
             type="button"
-            disabled={createMutation.isPending || !title.trim() || !body.trim() || !attachedTrackId}
+            disabled={createMutation.isPending || !title.trim() || !attachedTrackId}
             onClick={() => {
               if (!attachedTrackId) {
                 toast({ title: copy.pickRequired, variant: "destructive" });

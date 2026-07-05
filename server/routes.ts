@@ -390,8 +390,8 @@ export async function registerRoutes(
       res.status(201).json({ message: apiMsg("커뮤니티 글이 등록되었습니다", "Community post created"), postId });
     } catch (err: any) {
       const msg = err?.message;
-      if (msg === "EMPTY_TITLE" || msg === "EMPTY_BODY") {
-        return res.status(400).json({ message: apiMsg("제목과 본문을 입력해 주세요", "Please enter both a title and body") });
+      if (msg === "EMPTY_TITLE") {
+        return res.status(400).json({ message: apiMsg("제목을 입력해 주세요", "Please enter a title") });
       }
       if (msg === "TITLE_TOO_LONG") {
         return res.status(400).json({ message: apiMsg("제목이 너무 깁니다", "Title is too long") });
