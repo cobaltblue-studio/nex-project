@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { optimisticToggleLike, rollbackLike } from "@/lib/communityOptimistic";
 import { CommunityPostPanel, type CommunityPost } from "@/components/CommunityPostPanel";
 import {
   Dialog,
@@ -326,10 +327,17 @@ export default function Community() {
       const res = await apiRequest("POST", `/api/community/posts/${postId}/like`);
       return res.json() as Promise<{ liked: boolean }>;
     },
-    onSuccess: async () => {
-      await invalidateCommunityQueries();
+    onMutate: async (postId) => {
+      const snapshot = await optimisticToggleLike(queryClient, postId);
+      return snapshot;
     },
-    onError: (err: any) => toast({ title: String(err?.message ?? "Failed to update like"), variant: "destructive" }),
+    onError: (err: any, _postId, snapshot) => {
+      if (snapshot) rollbackLike(queryClient, snapshot);
+      toast({ title: String(err?.message ?? "Failed to update like"), variant: "destructive" });
+    },
+    onSettled: () => {
+      void invalidateCommunityQueries();
+    },
   });
 
   const moderateMutation = useMutation({
@@ -559,7 +567,7 @@ export default function Community() {
                     <div className="flex shrink-0 flex-col items-center gap-0.5 pt-1">
                       <button
                         type="button"
-                        disabled={!isAuthenticated || likeMutation.isPending || post.id <= 0}
+                        disabled={!isAuthenticated || post.id <= 0}
                         onClick={() => likeMutation.mutate(post.id)}
                         className={`rounded-md p-0.5 transition hover:bg-primary/10 ${
                           post.viewerHasLiked ? "text-primary" : "text-zinc-500 hover:text-primary"
@@ -573,7 +581,7 @@ export default function Community() {
                       </span>
                       <button
                         type="button"
-                        disabled={!isAuthenticated || likeMutation.isPending || !post.viewerHasLiked || post.id <= 0}
+                        disabled={!isAuthenticated || !post.viewerHasLiked || post.id <= 0}
                         onClick={() => post.viewerHasLiked && likeMutation.mutate(post.id)}
                         className="rounded-md p-0.5 text-zinc-600 transition hover:bg-white/5 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
                         aria-label="Downvote"
@@ -630,7 +638,7 @@ export default function Community() {
                       <div className="mt-3 flex flex-wrap items-center gap-1">
                         <button
                           type="button"
-                          disabled={!isAuthenticated || likeMutation.isPending || post.id <= 0}
+                          disabled={!isAuthenticated || post.id <= 0}
                           onClick={() => likeMutation.mutate(post.id)}
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
                             post.viewerHasLiked

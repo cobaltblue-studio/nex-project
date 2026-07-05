@@ -23,6 +23,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { optimisticAddComment, optimisticToggleLike, rollbackComment, rollbackLike } from "@/lib/communityOptimistic";
 
 export type CommunityPost = {
   id: number;
@@ -92,6 +93,12 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [comment, setComment] = useState("");
+
+  const { data: myProfile } = useQuery<{ id: number; username: string } | null>({
+    queryKey: ["/api/profiles/me"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   const copy = useMemo(
     () =>
@@ -174,25 +181,49 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
       const res = await apiRequest("POST", `/api/community/posts/${postId}/like`);
       return res.json();
     },
-    onSuccess: async () => {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: [postUrl] }), invalidateCommunityPostLists()]);
+    onMutate: async () => {
+      return optimisticToggleLike(queryClient, postId);
     },
-    onError: (err: any) => toast({ title: String(err?.message ?? "Failed to update like"), variant: "destructive" }),
+    onError: (err: any, _vars, snapshot) => {
+      if (snapshot) rollbackLike(queryClient, snapshot);
+      toast({ title: String(err?.message ?? "Failed to update like"), variant: "destructive" });
+    },
+    onSettled: () => {
+      void Promise.all([queryClient.invalidateQueries({ queryKey: [postUrl] }), invalidateCommunityPostLists()]);
+    },
   });
 
   const commentMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", `/api/community/posts/${postId}/comments`, { content: comment });
+    mutationFn: async (content: string) => {
+      await apiRequest("POST", `/api/community/posts/${postId}/comments`, { content });
     },
-    onSuccess: async () => {
+    onMutate: async (content) => {
+      const draft = {
+        id: -Date.now(),
+        content,
+        createdAt: new Date().toISOString(),
+        hiddenAt: null,
+        hiddenReason: null,
+        authorUserId: user?.id ?? "",
+        authorName: myProfile?.username ?? user?.email ?? "you",
+        authorProfileId: myProfile?.id ?? null,
+        authorIsVerified: false,
+      };
+      const snapshot = await optimisticAddComment(queryClient, postId, commentsUrl, postUrl, draft);
       setComment("");
-      await Promise.all([
+      return snapshot;
+    },
+    onError: (err: any, _content, snapshot) => {
+      if (snapshot) rollbackComment(queryClient, snapshot);
+      toast({ title: String(err?.message ?? "Failed to post comment"), variant: "destructive" });
+    },
+    onSettled: () => {
+      void Promise.all([
         queryClient.invalidateQueries({ queryKey: [postUrl] }),
         queryClient.invalidateQueries({ queryKey: [commentsUrl] }),
         invalidateCommunityPostLists(),
       ]);
     },
-    onError: (err: any) => toast({ title: String(err?.message ?? "Failed to post comment"), variant: "destructive" }),
   });
 
   const postModerationMutation = useMutation({
@@ -263,7 +294,7 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
           <div className="flex shrink-0 flex-col items-center gap-0.5 pt-1">
             <button
               type="button"
-              disabled={!isAuthenticated || likeMutation.isPending}
+              disabled={!isAuthenticated}
               onClick={() => likeMutation.mutate()}
               className={`rounded-md p-1 transition hover:bg-primary/10 ${
                 post.viewerHasLiked ? "text-primary" : "text-zinc-500 hover:text-primary"
@@ -277,7 +308,7 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
             </span>
             <button
               type="button"
-              disabled={!isAuthenticated || likeMutation.isPending || !post.viewerHasLiked}
+              disabled={!isAuthenticated || !post.viewerHasLiked}
               onClick={() => post.viewerHasLiked && likeMutation.mutate()}
               className="rounded-md p-1 text-zinc-600 transition hover:bg-white/5 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
               aria-label="Downvote"
@@ -344,7 +375,7 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
             <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
               <button
                 type="button"
-                disabled={!isAuthenticated || likeMutation.isPending}
+                disabled={!isAuthenticated}
                 onClick={() => likeMutation.mutate()}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                   post.viewerHasLiked
@@ -410,8 +441,11 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
             />
             <button
               type="button"
-              disabled={commentMutation.isPending || !comment.trim()}
-              onClick={() => commentMutation.mutate()}
+              disabled={!comment.trim()}
+              onClick={() => {
+                const text = comment.trim();
+                if (text) commentMutation.mutate(text);
+              }}
               className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-5 py-2 text-sm font-bold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {commentMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
