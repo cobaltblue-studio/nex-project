@@ -40,21 +40,30 @@ export const MAX_CREATOR_AI_PROMPT_EDITS = 2;
 /** Hours that must pass after the previous creator edit before the next aiPrompt change is allowed (edits 2+). */
 export const HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS = 48;
 
-/** Canonical NEX founder account (Google OAuth email). Override on server with NEX_FOUNDER_ADMIN_EMAIL. */
-export const NEX_FOUNDER_ADMIN_EMAIL = "d9ckoblack@gmail.com";
+/** Canonical NEX founder account (Google OAuth email). Override on server with NEX_FOUNDER_ADMIN_EMAIL (comma-separated). */
+export const NEX_FOUNDER_ADMIN_EMAIL = "d9ckoblack@gmail.com,kidpink003@gmail.com";
 
 export function normalizeAuthEmail(email: string | null | undefined): string {
   return (email ?? "").trim().toLowerCase();
 }
 
-/** True when the authenticated user's email is the platform founder (sole admin in production). */
+/** Parse founder admin emails from env or default constant. */
+export function parseFounderAdminEmails(configured?: string | null): string[] {
+  const raw = (configured ?? NEX_FOUNDER_ADMIN_EMAIL).trim();
+  if (!raw) return [];
+  return [...new Set(raw.split(",").map(normalizeAuthEmail).filter(Boolean))];
+}
+
+/** True when the authenticated user's email is a platform founder (sole admin in production). */
 export function isFounderAdminEmail(
   email: string | null | undefined,
   configured?: string | null,
 ): boolean {
-  const expected = normalizeAuthEmail(configured ?? NEX_FOUNDER_ADMIN_EMAIL);
-  if (!expected) return false;
-  return normalizeAuthEmail(email) === expected;
+  const list = parseFounderAdminEmails(configured);
+  if (!list.length) return false;
+  const normalized = normalizeAuthEmail(email);
+  if (!normalized) return false;
+  return list.includes(normalized);
 }
 
 /** Strict RBAC: only `creator` is creator-tier. */
