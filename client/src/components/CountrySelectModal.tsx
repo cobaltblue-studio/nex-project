@@ -25,6 +25,7 @@ interface Profile {
   id: number;
   country: string | null;
   username: string;
+  role?: string;
 }
 
 export function CountrySelectModal() {
@@ -75,7 +76,8 @@ export function CountrySelectModal() {
     isAuthenticated &&
     profile !== undefined &&
     profile !== null &&
-    profile.country === null;
+    profile.role !== "admin" &&
+    !profile.country;
 
   if (!isVisible) return null;
 
