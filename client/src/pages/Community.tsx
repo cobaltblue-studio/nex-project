@@ -367,7 +367,7 @@ export default function Community() {
               <option value="">{trackOptionsLoading && !trackOptions ? copy.relatedTrackLoading : copy.noRelatedTrack}</option>
               {(trackOptions ?? []).map((track) => (
                 <option key={track.id} value={track.id}>
-                  {track.title} · {track.creatorName} · {track.trackType}
+                  {track.title} · {track.creatorName}
                 </option>
               ))}
             </select>
