@@ -132,9 +132,9 @@ export function Layout({ children }: LayoutProps) {
     return [...core, ...tail];
   }, [t, ui]);
 
-  /** Submit / Admin live in the account menu — keep desktop top nav from overflowing in EN. */
+  /** Submit lives in account menu; admin panel stays in top nav for admins. */
   const desktopNavItems = useMemo(
-    () => navItems.filter((item) => item.path !== "/submit-track" && item.path !== "/admin"),
+    () => navItems.filter((item) => item.path !== "/submit-track"),
     [navItems],
   );
 
@@ -145,21 +145,21 @@ export function Layout({ children }: LayoutProps) {
         <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-blue-500/5 rounded-full blur-[100px]" />
       </div>
 
-      <header className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50 flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 xl:px-12">
+      <header className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-12">
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2 text-primary font-display font-bold tracking-tighter group border-none shadow-none outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+          className="flex shrink-0 items-center gap-2 justify-self-start text-primary font-display font-bold tracking-tighter group border-none shadow-none outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
         >
           <Disc3 className="w-5 h-5 md:w-8 md:h-8 main-logo-icon animate-[spin_8s_linear_infinite]" />
           <span className="text-[1.1rem] md:text-[1.5rem] main-logo-text">NEX</span>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-x-1.5 xl:gap-x-3 min-w-0 flex-1 justify-start overflow-x-auto [scrollbar-width:thin] px-0.5">
+        <nav className="hidden md:flex items-center justify-center gap-x-2 lg:gap-x-3 xl:gap-x-4 max-w-full overflow-x-auto [scrollbar-width:thin] px-1">
           {desktopNavItems.map((item) => {
             const isActive = location === item.path;
             return (
               <Link key={item.path} href={item.path} className={clsx(
-                "text-[10px] xl:text-[11px] font-bold uppercase tracking-[0.08em] xl:tracking-[0.16em] transition-all relative py-2 whitespace-nowrap shrink-0",
+                "text-[10px] xl:text-[11px] font-bold uppercase tracking-[0.1em] xl:tracking-[0.18em] transition-all relative py-2 whitespace-nowrap shrink-0",
                 isActive ? "text-primary" : "text-zinc-500 hover:text-white"
               )}>
                 {item.label}
@@ -174,7 +174,7 @@ export function Layout({ children }: LayoutProps) {
           })}
         </nav>
 
-        <div className="flex items-center shrink-0 gap-2 md:gap-3">
+        <div className="flex items-center shrink-0 justify-self-end gap-2 md:gap-3">
           <div className="block">
             <LanguageSwitcher />
           </div>
@@ -360,7 +360,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </footer>
 
-      <nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-2">
+      <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-4">
         {navItems.map((item) => {
           const isActive = location === item.path;
           return (
