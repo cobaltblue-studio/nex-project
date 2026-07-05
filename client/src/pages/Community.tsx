@@ -50,7 +50,11 @@ type CommunityPost = {
 };
 
 type MeProfile = { id: number; username: string; role?: string } | null;
-type PickTrack = { id: number; title: string; trackType: string; creatorName: string };
+type PickTrack = { id: number; title: string; creatorName: string };
+
+function formatCommunityTrackPickLabel(track: PickTrack): string {
+  return `${track.title.trim()} · ${track.creatorName.trim()}`;
+}
 
 const CATEGORY_ICONS: Record<CommunityCategorySlug, typeof MessageSquare> = {
   "track-share": BookOpen,
@@ -367,7 +371,7 @@ export default function Community() {
               <option value="">{trackOptionsLoading && !trackOptions ? copy.relatedTrackLoading : copy.noRelatedTrack}</option>
               {(trackOptions ?? []).map((track) => (
                 <option key={track.id} value={track.id}>
-                  {track.title} · {track.creatorName}
+                  {formatCommunityTrackPickLabel(track)}
                 </option>
               ))}
             </select>
