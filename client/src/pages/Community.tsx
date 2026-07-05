@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { MessageSquare, Heart, Pin, Loader2, Sparkles, Swords, Lightbulb, ExternalLink, PenLine, Search, BookOpen, Music2 } from "lucide-react";
@@ -99,6 +99,12 @@ export default function Community() {
   const [body, setBody] = useState("");
   const [attachedTrackId, setAttachedTrackId] = useState("");
   const [trackSearch, setTrackSearch] = useState("");
+  const [debouncedTrackSearch, setDebouncedTrackSearch] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedTrackSearch(trackSearch.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [trackSearch]);
 
   const copy = useMemo(
     () =>
@@ -120,7 +126,9 @@ export default function Community() {
             relatedTrack: "관련 곡 선택",
             noRelatedTrack: "관련 곡 없음",
             relatedTrackSearch: "곡 제목·크리에이터 검색",
-            relatedTrackHint: "NEX에 올라온 어떤 곡이든 선택할 수 있습니다. 업로더의 첫 글은 해당 곡 글 맨 위에 고정됩니다.",
+            relatedTrackHint: "NEX에 올라온 어떤 곡이든 선택할 수 있습니다. 검색으로 목록을 좁힐 수 있어요. 업로더의 첫 글은 해당 곡 글 맨 위에 고정됩니다.",
+            relatedTrackLoading: "곡 목록 불러오는 중…",
+            relatedTrackCount: (n: number) => `${n}곡`,
             creatorNote: "크리에이터 노트",
             publish: "글 올리기",
             feedTitle: "커뮤니티 피드",
@@ -161,7 +169,9 @@ export default function Community() {
             relatedTrack: "Related track",
             noRelatedTrack: "No related track",
             relatedTrackSearch: "Search track or creator",
-            relatedTrackHint: "Pick any track on NEX. The uploader's first note stays pinned at the top for that track.",
+            relatedTrackHint: "Pick any track on NEX. Use search to narrow the list. The uploader's first note stays pinned at the top for that track.",
+            relatedTrackLoading: "Loading tracks…",
+            relatedTrackCount: (n: number) => `${n} tracks`,
             creatorNote: "Creator note",
             publish: "Publish post",
             feedTitle: "Community feed",
@@ -205,13 +215,12 @@ export default function Community() {
   });
 
   const trackPickUrl = useMemo(() => {
-    const params = new URLSearchParams({ limit: "40", sortBy: "createdAt" });
-    const q = trackSearch.trim();
-    if (q) params.set("q", q);
+    const params = new URLSearchParams({ limit: "5000", sortBy: "createdAt" });
+    if (debouncedTrackSearch) params.set("q", debouncedTrackSearch);
     return `/api/tracks?${params.toString()}`;
-  }, [trackSearch]);
+  }, [debouncedTrackSearch]);
 
-  const { data: trackOptions } = useQuery<PickTrack[]>({
+  const { data: trackOptions, isFetching: trackOptionsLoading } = useQuery<PickTrack[]>({
     queryKey: [trackPickUrl],
     enabled: writeOpen,
     retry: false,
@@ -312,6 +321,7 @@ export default function Community() {
   const openWriteDialog = () => {
     setCategory(selectedCategory);
     setTrackSearch("");
+    setDebouncedTrackSearch("");
     setAttachedTrackId("");
     setWriteOpen(true);
   };
@@ -350,16 +360,20 @@ export default function Community() {
             <select
               value={attachedTrackId}
               onChange={(e) => setAttachedTrackId(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50"
+              disabled={trackOptionsLoading && !trackOptions}
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
             >
-              <option value="">{copy.noRelatedTrack}</option>
+              <option value="">{trackOptionsLoading && !trackOptions ? copy.relatedTrackLoading : copy.noRelatedTrack}</option>
               {(trackOptions ?? []).map((track) => (
                 <option key={track.id} value={track.id}>
                   {track.title} · {track.creatorName} · {track.trackType}
                 </option>
               ))}
             </select>
-            <p className="mt-1.5 text-xs leading-5 text-zinc-500">{copy.relatedTrackHint}</p>
+            <p className="mt-1.5 text-xs leading-5 text-zinc-500">
+              {copy.relatedTrackHint}
+              {trackOptions && trackOptions.length > 0 ? ` (${copy.relatedTrackCount(trackOptions.length)})` : ""}
+            </p>
           </label>
 
           <label className="block">
