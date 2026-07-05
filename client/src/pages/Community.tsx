@@ -267,10 +267,12 @@ export default function Community() {
     retry: false,
   });
 
+  const prefetchTrackPicks = isAuthenticated && Boolean(myProfile);
+
   const { data: audioPickOptions, isFetching: audioPickLoading } = useQuery<PickTrack[]>({
     queryKey: ["/api/community/pick/audio"],
     queryFn: () => fetchCommunityAudioPickOptions(""),
-    enabled: writeOpen,
+    enabled: prefetchTrackPicks,
     retry: false,
     staleTime: 15_000,
   });
@@ -278,7 +280,7 @@ export default function Community() {
   const { data: mvPickOptions, isFetching: mvPickLoading } = useQuery<PickTrack[]>({
     queryKey: ["/api/community/pick/mv"],
     queryFn: () => fetchCommunityMvPickOptions(""),
-    enabled: writeOpen,
+    enabled: prefetchTrackPicks,
     retry: false,
     staleTime: 15_000,
   });
