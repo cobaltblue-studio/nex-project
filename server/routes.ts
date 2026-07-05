@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, computeMvChartLiveScore } from "./storage";
+import { storage, computeMvChartLiveScore, NEW_FEED_TRACK_LIMIT } from "./storage";
 import { seed } from "./seed";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
@@ -1113,7 +1113,11 @@ export async function registerRoutes(
 
   app.get("/api/tracks/new", async (req, res) => {
     const q = (req.query.q as string) || undefined;
-    const ts = await storage.getNewFeedTracks(250, q);
+    const limitRaw = Number(req.query.limit);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.max(1, Math.min(NEW_FEED_TRACK_LIMIT, limitRaw))
+      : NEW_FEED_TRACK_LIMIT;
+    const ts = await storage.getNewFeedTracks(limit, q);
     const trackIds = ts.map((t) => t.id);
     const [battleStats, commentCounts] = await Promise.all([
       storage.getBattleStatsForTracks(trackIds),

@@ -75,6 +75,9 @@ const MV_RANKING_WEIGHT_COMMENTS = 0.25;
 
 const MV_CHART_STATUSES_SQL = sql`${tracks.status} IN ('MV', 'CHART', 'BATTLE_POOL', 'PUBLISHED', 'APPROVED')`;
 
+/** Max slots on the NEW chart; community track picker uses the same pool. */
+export const NEW_FEED_TRACK_LIMIT = 100;
+
 /** Same pool as `/api/tracks/new` (audio only; not MV/video). */
 function battleEligibleTracksFilter() {
   return and(
@@ -1305,7 +1308,7 @@ export class DatabaseStorage implements IStorage {
    * NEW feed: same eligibility as the battle pool + `/api/tracks` default list,
    * but audio-only and sorted by recent activity (not upload date alone).
    */
-  async getNewFeedTracks(limit = 500, searchQuery?: string): Promise<any[]> {
+  async getNewFeedTracks(limit = NEW_FEED_TRACK_LIMIT, searchQuery?: string): Promise<any[]> {
     const filters = [
       eq(tracks.isDeleted, false),
       eq(tracks.trackType, "audio"),

@@ -126,7 +126,7 @@ export default function Community() {
             relatedTrack: "관련 곡 선택",
             noRelatedTrack: "관련 곡 없음",
             relatedTrackSearch: "곡 제목·크리에이터 검색",
-            relatedTrackHint: "NEX에 올라온 어떤 곡이든 선택할 수 있습니다. 검색으로 목록을 좁힐 수 있어요. 업로더의 첫 글은 해당 곡 글 맨 위에 고정됩니다.",
+            relatedTrackHint: "신곡(NEW) 차트에 있는 곡 중에서 선택할 수 있습니다. 검색으로 목록을 좁힐 수 있어요. 업로더의 첫 글은 해당 곡 글 맨 위에 고정됩니다.",
             relatedTrackLoading: "곡 목록 불러오는 중…",
             relatedTrackCount: (n: number) => `${n}곡`,
             creatorNote: "크리에이터 노트",
@@ -169,7 +169,7 @@ export default function Community() {
             relatedTrack: "Related track",
             noRelatedTrack: "No related track",
             relatedTrackSearch: "Search track or creator",
-            relatedTrackHint: "Pick any track on NEX. Use search to narrow the list. The uploader's first note stays pinned at the top for that track.",
+            relatedTrackHint: "Choose from tracks on the NEW chart. Use search to narrow the list. The uploader's first note stays pinned at the top for that track.",
             relatedTrackLoading: "Loading tracks…",
             relatedTrackCount: (n: number) => `${n} tracks`,
             creatorNote: "Creator note",
@@ -215,9 +215,10 @@ export default function Community() {
   });
 
   const trackPickUrl = useMemo(() => {
-    const params = new URLSearchParams({ limit: "5000", sortBy: "createdAt" });
-    if (debouncedTrackSearch) params.set("q", debouncedTrackSearch);
-    return `/api/tracks?${params.toString()}`;
+    if (debouncedTrackSearch) {
+      return `/api/tracks/new?q=${encodeURIComponent(debouncedTrackSearch)}`;
+    }
+    return "/api/tracks/new";
   }, [debouncedTrackSearch]);
 
   const { data: trackOptions, isFetching: trackOptionsLoading } = useQuery<PickTrack[]>({
