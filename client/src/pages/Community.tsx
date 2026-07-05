@@ -1,11 +1,26 @@
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { MessageSquare, Heart, Pin, Loader2, Sparkles, Swords, Lightbulb, ExternalLink, PenLine, Search, BookOpen, Music2 } from "lucide-react";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Heart,
+  Lightbulb,
+  Loader2,
+  MessageSquare,
+  Music2,
+  PenLine,
+  Pin,
+  Share2,
+  Sparkles,
+  Swords,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { CommunityPostPanel, type CommunityPost } from "@/components/CommunityPostPanel";
 import {
   Dialog,
   DialogContent,
@@ -21,32 +36,6 @@ import {
   getCommunitySystemSeed,
   type CommunityCategorySlug,
 } from "@shared/community";
-
-type CommunityPost = {
-  id: number;
-  category: CommunityCategorySlug;
-  title: string;
-  body: string;
-  externalUrl: string | null;
-  createdAt: string;
-  pinnedAt: string | null;
-  hiddenAt: string | null;
-  hiddenReason: string | null;
-  authorUserId: string;
-  authorName: string | null;
-  authorProfileId: number | null;
-  authorIsVerified: boolean;
-  attachedTrack: {
-    id: number;
-    title: string;
-    trackType: string;
-    creatorName: string | null;
-  } | null;
-  likeCount: number;
-  commentCount: number;
-  viewerHasLiked: boolean;
-  isTrackCreatorPost?: boolean;
-};
 
 type MeProfile = { id: number; username: string; role?: string } | null;
 type PickTrack = { id: number; title: string; creatorName: string };
@@ -122,22 +111,20 @@ const CATEGORY_ICONS: Record<CommunityCategorySlug, typeof MessageSquare> = {
   "help-ideas": Lightbulb,
 };
 
-function formatTime(value: string, locale: string) {
-  return new Date(value).toLocaleString(locale.startsWith("ko") ? "ko-KR" : "en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+function formatRelativeTime(value: string, locale: string) {
+  const diff = Date.now() - new Date(value).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return locale.startsWith("ko") ? "방금" : "now";
+  if (minutes < 60) return locale.startsWith("ko") ? `${minutes}분 전` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return locale.startsWith("ko") ? `${hours}시간 전` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return locale.startsWith("ko") ? `${days}일 전` : `${days}d`;
 }
 
-function excerpt(text: string, max = 220) {
+function excerpt(text: string, max = 280) {
   if (text.length <= max) return text;
-  return `${text.slice(0, max).trim()}...`;
-}
-
-function isExcerpted(text: string, max = 220) {
-  return text.length > max;
+  return `${text.slice(0, max).trim()}…`;
 }
 
 function invalidateCommunityQueries() {
@@ -153,9 +140,12 @@ export default function Community() {
   const locale = i18n.language || "en";
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [matchPost, postParams] = useRoute("/community/:id");
+  const detailPostId = matchPost && postParams?.id ? Number(postParams.id) : null;
+  const detailOpen = detailPostId !== null && Number.isFinite(detailPostId) && detailPostId > 0;
+
   const [selectedCategory, setSelectedCategory] = useState<CommunityCategorySlug>("track-share");
-  const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
-  const [search, setSearch] = useState("");
   const [writeOpen, setWriteOpen] = useState(false);
   const [category, setCategory] = useState<CommunityCategorySlug>("track-share");
   const [title, setTitle] = useState("");
@@ -169,69 +159,52 @@ export default function Community() {
     () =>
       isKorean
         ? {
-            pageEyebrow: "NEX 커뮤니티",
-            pageTitle: "커뮤니티",
-            pageBody: "트랙 등록은 '트랙 제출'에서 하세요. 여기서는 제작 의도, 과정, 고민을 나누고 댓글로 의견을 주고받는 공간입니다.",
             createTitle: "새 글 쓰기",
             bodyPlaceholder: "내용",
             loginNeeded: "글 작성과 좋아요, 댓글은 로그인 후 사용할 수 있습니다.",
             category: "카테고리",
-            sortLatest: "최신순",
-            sortPopular: "인기순",
-            search: "제목/본문 검색",
             title: "제목",
-            body: "본문",
             relatedAudioTrack: "관련곡 — NEW & TOP 100",
             relatedMv: "관련 Music Video",
             relatedTrackLoading: "목록 불러오는 중…",
             pickRequired: "관련 곡 또는 뮤직비디오를 선택해 주세요.",
             creatorNote: "크리에이터 노트",
             publish: "글 올리기",
-            feedTitle: "커뮤니티 피드",
-            emptyFeed: "아직 글이 없습니다. 첫 번째 대화를 시작해 보세요.",
+            emptyFeed: "아직 글이 없습니다. 첫 글을 작성해 보세요.",
             like: "좋아요",
             comments: "댓글",
-            open: "열기",
+            share: "공유",
             pinned: "고정",
             hidden: "숨김",
             moderateHide: "숨기기",
             moderateUnhide: "숨김 해제",
-            moderatePin: "상단 고정",
+            moderatePin: "고정",
             moderateUnpin: "고정 해제",
             openTrack: "관련 곡",
-            viewExternal: "외부 링크 열기",
             needProfile: "커뮤니티 글을 쓰려면 먼저 프로필이 있어야 합니다.",
-            loadingFeed: "커뮤니티 피드를 불러오는 중...",
-            feedSyncing: "최신 글을 가져오는 중입니다.",
-            topics: "주제",
+            loadingFeed: "불러오는 중…",
+            topics: "카테고리",
             writePost: "글쓰기",
-            readMore: "더보기",
             postSuccess: "글이 등록되었습니다.",
+            shareCopied: "링크를 복사했습니다.",
+            latest: "최신순",
           }
         : {
-            pageEyebrow: "NEX COMMUNITY",
-            pageTitle: "COMMUNITY",
-            pageBody: "Use Submit Track to register music. This space is for creative intent, process notes, and discussion through comments.",
-            createTitle: "Start a post",
+            createTitle: "Create post",
             bodyPlaceholder: "Content",
             loginNeeded: "Login is required to post, like, and comment.",
             category: "Category",
-            sortLatest: "Latest",
-            sortPopular: "Popular",
-            search: "Search title or body",
             title: "Title",
-            body: "Body",
             relatedAudioTrack: "Related track — NEW & TOP 100",
             relatedMv: "Related music video",
             relatedTrackLoading: "Loading…",
             pickRequired: "Please select a related track or music video.",
             creatorNote: "Creator note",
-            publish: "Publish post",
-            feedTitle: "Community feed",
-            emptyFeed: "No posts yet. Start the first conversation.",
-            like: "Likes",
+            publish: "Post",
+            emptyFeed: "No posts yet. Be the first to write.",
+            like: "Like",
             comments: "Comments",
-            open: "Open",
+            share: "Share",
             pinned: "Pinned",
             hidden: "Hidden",
             moderateHide: "Hide",
@@ -239,14 +212,13 @@ export default function Community() {
             moderatePin: "Pin",
             moderateUnpin: "Unpin",
             openTrack: "Related track",
-            viewExternal: "Open external link",
-            needProfile: "Create your profile first to post in the community.",
-            loadingFeed: "Loading community feed...",
-            feedSyncing: "Refreshing latest posts...",
-            topics: "Topics",
-            writePost: "Write",
-            readMore: "Read more",
+            needProfile: "Create your profile first to post.",
+            loadingFeed: "Loading…",
+            topics: "Categories",
+            writePost: "Create post",
             postSuccess: "Post published.",
+            shareCopied: "Link copied.",
+            latest: "New",
           },
     [isKorean],
   );
@@ -256,7 +228,6 @@ export default function Community() {
       COMMUNITY_CATEGORIES.map((item) => ({
         ...item,
         label: isKorean ? item.titleKo : item.title,
-        description: isKorean ? item.descriptionKo : item.description,
       })),
     [isKorean],
   );
@@ -288,11 +259,10 @@ export default function Community() {
   const postsUrl = useMemo(() => {
     const params = new URLSearchParams();
     params.set("category", selectedCategory);
-    params.set("sort", sortBy);
-    if (search.trim()) params.set("q", search.trim());
-    params.set("limit", "60");
+    params.set("sort", "latest");
+    params.set("limit", "80");
     return `/api/community/posts?${params.toString()}`;
-  }, [search, selectedCategory, sortBy]);
+  }, [selectedCategory]);
 
   const { data: posts, isLoading } = useQuery<CommunityPost[]>({
     queryKey: [postsUrl],
@@ -302,7 +272,7 @@ export default function Community() {
 
   const fallbackPosts = useMemo<CommunityPost[]>(
     () =>
-      COMMUNITY_SYSTEM_SEED_POSTS.map((seed, index) => ({
+      COMMUNITY_SYSTEM_SEED_POSTS.filter((seed) => seed.category === selectedCategory).map((seed, index) => ({
         id: seed.postId ?? -(index + 1),
         category: seed.category,
         title: formatCommunitySeedTitle(seed, isKorean),
@@ -321,7 +291,7 @@ export default function Community() {
         commentCount: 0,
         viewerHasLiked: false,
       })),
-    [isKorean],
+    [isKorean, selectedCategory],
   );
 
   const postsCount = posts?.length ?? 0;
@@ -345,7 +315,6 @@ export default function Community() {
       setAttachedMvTrackId("");
       setWriteOpen(false);
       setSelectedCategory(category);
-      setSortBy("latest");
       await invalidateCommunityQueries();
       toast({ title: data.message || copy.postSuccess });
     },
@@ -375,7 +344,6 @@ export default function Community() {
 
   const admin = user?.role === "admin";
   const activeCategory = categoryOptions.find((item) => item.slug === selectedCategory);
-  const feedDescription = activeCategory?.description;
 
   const openWriteDialog = () => {
     setCategory(selectedCategory);
@@ -386,12 +354,35 @@ export default function Community() {
     setWriteOpen(true);
   };
 
+  const openPost = (postId: number) => {
+    if (postId <= 0) return;
+    setLocation(`/community/${postId}`);
+  };
+
+  const closePost = () => {
+    setLocation("/community");
+  };
+
+  const sharePost = async (postId: number, postTitle: string) => {
+    const url = `${window.location.origin}/community/${postId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: postTitle, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast({ title: copy.shareCopied });
+    } catch {
+      /* user cancelled share */
+    }
+  };
+
   const writeForm = (
     <>
       {!isAuthenticated ? (
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-zinc-200">{copy.loginNeeded}</div>
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-zinc-200">{copy.loginNeeded}</div>
       ) : !myProfile ? (
-        <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">{copy.needProfile}</div>
+        <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">{copy.needProfile}</div>
       ) : (
         <div className="space-y-3">
           <label className="block">
@@ -476,7 +467,7 @@ export default function Community() {
               }
               createMutation.mutate();
             }}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-sm font-bold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-primary/30 bg-primary px-5 py-3 text-sm font-bold text-black transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {copy.publish}
@@ -487,223 +478,205 @@ export default function Community() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl pb-12">
-      <div className="mb-8">
-        <div className="mb-2 flex items-center gap-3">
-          <MessageSquare className="h-5 w-5 text-primary" />
-          <h1 className="text-[11px] font-bold uppercase tracking-[0.4em] text-primary">{copy.pageEyebrow}</h1>
-        </div>
-        <h2 className="font-display text-3xl font-bold uppercase tracking-tight text-white neon-text-strong neon-text-green md:text-4xl">
-          {copy.pageTitle}
-        </h2>
-        <p className="mt-2 text-sm text-zinc-500">{copy.pageBody}</p>
-      </div>
+    <div className="mx-auto max-w-6xl pb-16 pt-2">
+      <div className="grid items-start gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* Left sidebar — categories + write */}
+        <aside className="lg:sticky lg:top-24">
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/80 p-2">
+            <p className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">{copy.topics}</p>
+            <nav className="space-y-0.5">
+              {categoryOptions.map((item) => {
+                const active = selectedCategory === item.slug;
+                const Icon = CATEGORY_ICONS[item.slug];
+                return (
+                  <button
+                    key={item.slug}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(item.slug);
+                      setCategory(item.slug);
+                      closePost();
+                    }}
+                    className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      active
+                        ? "bg-white/10 font-bold text-white"
+                        : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 shrink-0 ${active ? "text-primary" : "text-zinc-500"}`} />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
 
-      <section className="grid items-start gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <aside className="rounded-2xl border border-white/10 bg-black/30 p-3 lg:sticky lg:top-28">
-          <p className="px-2 pb-2 text-[11px] font-bold uppercase tracking-[0.28em] text-zinc-500">{copy.topics}</p>
-          <nav className="space-y-1">
-            {categoryOptions.map((item) => {
-              const active = selectedCategory === item.slug;
-              const Icon = CATEGORY_ICONS[item.slug];
-              return (
-                <button
-                  key={item.slug}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(item.slug);
-                    setCategory(item.slug);
-                  }}
-                  className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                    active
-                      ? "border border-primary/40 bg-primary/10 font-bold text-primary"
-                      : "border border-transparent text-zinc-300 hover:border-white/10 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 shrink-0 ${active ? "text-primary" : "text-zinc-500"}`} />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+            <button
+              type="button"
+              onClick={openWriteDialog}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-black transition hover:bg-primary/90"
+            >
+              <PenLine className="h-4 w-4" />
+              {copy.writePost}
+            </button>
+          </div>
         </aside>
 
-        <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-7">
-          <div className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0">
-              <h2 className="text-xl font-black text-white md:text-2xl">{activeCategory?.label}</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">{feedDescription}</p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 md:justify-end">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as "latest" | "popular")}
-                className="rounded-sm border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-primary/40"
-              >
-                <option value="latest">{copy.sortLatest}</option>
-                <option value="popular">{copy.sortPopular}</option>
-              </select>
-
-              <div className="relative min-w-[12rem]">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={copy.search}
-                  className="w-full rounded-sm border border-white/10 bg-black/40 py-2 pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-primary/40"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={openWriteDialog}
-                className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary/20"
-              >
-                <PenLine className="h-4 w-4" />
-                {copy.writePost}
-              </button>
-            </div>
+        {/* Right feed */}
+        <main className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+            <h1 className="text-lg font-black text-white md:text-xl">{activeCategory?.label}</h1>
+            <span className="text-xs font-semibold text-zinc-500">{copy.latest}</span>
           </div>
 
           {showLoadingState && (
-            <div className="mt-6 flex items-center gap-3 text-sm text-zinc-400">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/50 px-5 py-8 text-sm text-zinc-400">
               <Loader2 className="h-4 w-4 animate-spin" />
               {copy.loadingFeed}
             </div>
           )}
 
-          {!showLoadingState && posts && posts.length === 0 ? (
-            <div className="mt-8 rounded-2xl border border-dashed border-white/10 p-10 text-center text-sm text-zinc-500">{copy.emptyFeed}</div>
+          {!showLoadingState && posts && posts.length === 0 && fallbackPosts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/10 px-5 py-12 text-center text-sm text-zinc-500">{copy.emptyFeed}</div>
           ) : (
-            <div className="mt-6 space-y-4">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60">
               {renderedPosts.map((post) => {
                 const categoryItem = categoryOptions.find((item) => item.slug === post.category);
-                const Icon = CATEGORY_ICONS[post.category];
                 const seed = getCommunitySystemSeed(post.category, post.authorUserId);
                 const displayTitle = seed ? formatCommunitySeedTitle(seed, isKorean) : post.title;
                 const displayBody = seed ? formatCommunitySeedBody(seed, isKorean) : post.body;
-                const truncated = isExcerpted(displayBody);
-                const openLabel = truncated ? copy.readMore : copy.open;
                 const trackHref = post.attachedTrack
                   ? post.attachedTrack.trackType === "video"
                     ? `/mv/${post.attachedTrack.id}`
                     : `/track/${post.attachedTrack.id}`
                   : null;
+
                 return (
-                  <article key={post.id} className="rounded-2xl border border-white/10 bg-black/30 p-5">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary">
-                        <Icon className="h-3 w-3" />
-                        {categoryItem?.label}
-                      </span>
-                      {post.isTrackCreatorPost && post.attachedTrack ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-cyan-100">
-                          <Pin className="h-3 w-3" />
-                          {copy.creatorNote}
-                        </span>
-                      ) : post.pinnedAt ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1 text-yellow-200">
-                          <Pin className="h-3 w-3" />
-                          {copy.pinned}
-                        </span>
-                      ) : null}
-                        {post.hiddenAt && (
-                        <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-red-200">{copy.hidden}</span>
-                      )}
-                    </div>
-
-                    {post.attachedTrack && trackHref && (
-                      <Link
-                        href={trackHref}
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                  <article
+                    key={post.id}
+                    className="flex gap-2 border-b border-white/10 px-3 py-3 transition last:border-b-0 hover:bg-white/[0.02] md:gap-3 md:px-4 md:py-4"
+                  >
+                    {/* Vote column */}
+                    <div className="flex shrink-0 flex-col items-center gap-0.5 pt-1">
+                      <button
+                        type="button"
+                        disabled={!isAuthenticated || likeMutation.isPending || post.id <= 0}
+                        onClick={() => likeMutation.mutate(post.id)}
+                        className={`rounded-md p-0.5 transition hover:bg-primary/10 ${
+                          post.viewerHasLiked ? "text-primary" : "text-zinc-500 hover:text-primary"
+                        } disabled:cursor-not-allowed disabled:opacity-40`}
+                        aria-label="Upvote"
                       >
-                        <Music2 className="h-3.5 w-3.5" />
-                        {copy.openTrack}: {post.attachedTrack.title}
-                      </Link>
-                    )}
-
-                    {post.id > 0 ? (
-                      <h3 className="mt-3 text-lg font-black text-white md:text-xl">
-                        <Link href={`/community/${post.id}`} className="hover:text-primary">
-                          {displayTitle}
-                        </Link>
-                      </h3>
-                    ) : (
-                      <h3 className="mt-3 text-lg font-black text-white md:text-xl">{displayTitle}</h3>
-                    )}
-
-                    <p className="mt-2 text-sm leading-7 text-zinc-300 whitespace-pre-wrap">{excerpt(displayBody)}</p>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
-                      <span>@{post.authorName ?? "unknown"}</span>
-                      <span>{formatTime(post.createdAt, locale)}</span>
+                        <ChevronUp className={`h-5 w-5 md:h-6 md:w-6 ${post.viewerHasLiked ? "fill-current" : ""}`} strokeWidth={2.5} />
+                      </button>
+                      <span className={`text-[11px] font-bold tabular-nums md:text-xs ${post.viewerHasLiked ? "text-primary" : "text-zinc-400"}`}>
+                        {post.likeCount}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!isAuthenticated || likeMutation.isPending || !post.viewerHasLiked || post.id <= 0}
+                        onClick={() => post.viewerHasLiked && likeMutation.mutate(post.id)}
+                        className="rounded-md p-0.5 text-zinc-600 transition hover:bg-white/5 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Downvote"
+                      >
+                        <ChevronDown className="h-5 w-5 md:h-6 md:w-6" strokeWidth={2.5} />
+                      </button>
                     </div>
 
-                    {(post.externalUrl) && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {post.externalUrl && (
-                          <a
-                            href={post.externalUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-200 transition hover:border-primary/40 hover:text-primary"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            {copy.viewExternal}
-                          </a>
+                    {/* Content */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500 md:text-xs">
+                        <span className="font-semibold text-zinc-300">{categoryItem?.label}</span>
+                        <span>·</span>
+                        <span>@{post.authorName ?? "unknown"}</span>
+                        <span>·</span>
+                        <span>{formatRelativeTime(post.createdAt, locale)}</span>
+                        {post.pinnedAt && (
+                          <span className="inline-flex items-center gap-0.5 text-yellow-300">
+                            <Pin className="h-3 w-3" />
+                            {copy.pinned}
+                          </span>
+                        )}
+                        {post.isTrackCreatorPost && (
+                          <span className="text-cyan-300">{copy.creatorNote}</span>
                         )}
                       </div>
-                    )}
 
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                      <div className="flex flex-wrap items-center gap-2">
+                      {post.id > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => openPost(post.id)}
+                          className="mt-1 block w-full text-left text-base font-bold leading-snug text-zinc-100 hover:text-primary md:text-lg"
+                        >
+                          {displayTitle}
+                        </button>
+                      ) : (
+                        <h3 className="mt-1 text-base font-bold leading-snug text-zinc-100 md:text-lg">{displayTitle}</h3>
+                      )}
+
+                      {post.attachedTrack && trackHref && (
+                        <Link
+                          href={trackHref}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          <Music2 className="h-3.5 w-3.5" />
+                          {copy.openTrack}: {post.attachedTrack.title}
+                        </Link>
+                      )}
+
+                      <p className="mt-2 line-clamp-3 text-sm leading-6 text-zinc-400">{excerpt(displayBody)}</p>
+
+                      {/* Action bar */}
+                      <div className="mt-3 flex flex-wrap items-center gap-1">
                         <button
                           type="button"
                           disabled={!isAuthenticated || likeMutation.isPending || post.id <= 0}
                           onClick={() => likeMutation.mutate(post.id)}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
                             post.viewerHasLiked
-                              ? "border-primary/30 bg-primary/10 text-primary"
-                              : "border-white/10 bg-white/5 text-zinc-300 hover:border-primary/40 hover:text-primary"
-                          } disabled:cursor-not-allowed disabled:opacity-60`}
+                              ? "bg-primary/10 text-primary"
+                              : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                          } disabled:cursor-not-allowed disabled:opacity-50`}
                         >
                           <Heart className={`h-3.5 w-3.5 ${post.viewerHasLiked ? "fill-current" : ""}`} />
-                          {copy.like} {post.likeCount}
+                          {copy.like}
                         </button>
+
                         {post.id > 0 ? (
-                          <Link
-                            href={`/community/${post.id}`}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-primary/40 hover:text-primary"
+                          <button
+                            type="button"
+                            onClick={() => openPost(post.id)}
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300"
                           >
                             <MessageSquare className="h-3.5 w-3.5" />
-                            {copy.comments} {post.commentCount}
-                          </Link>
+                            {post.commentCount} {copy.comments}
+                          </button>
                         ) : null}
-                      </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {post.id > 0 && truncated ? (
-                          <Link
-                            href={`/community/${post.id}`}
-                            className="text-xs font-semibold text-primary hover:underline"
+                        {post.id > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => void sharePost(post.id, displayTitle)}
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300"
                           >
-                            {openLabel}
-                          </Link>
+                            <Share2 className="h-3.5 w-3.5" />
+                            {copy.share}
+                          </button>
                         ) : null}
-                        {admin && (
+
+                        {admin && post.id > 0 && (
                           <>
                             <button
                               type="button"
                               onClick={() => moderateMutation.mutate({ postId: post.id, action: post.hiddenAt ? "unhide" : "hide" })}
-                              className="rounded-full border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-xs text-red-200 transition hover:bg-red-500/10"
+                              className="rounded-full px-2 py-1 text-[10px] text-red-300 hover:bg-red-500/10"
                             >
                               {post.hiddenAt ? copy.moderateUnhide : copy.moderateHide}
                             </button>
                             <button
                               type="button"
                               onClick={() => moderateMutation.mutate({ postId: post.id, action: post.pinnedAt ? "unpin" : "pin" })}
-                              className="rounded-full border border-yellow-500/20 bg-yellow-500/5 px-3 py-1.5 text-xs text-yellow-100 transition hover:bg-yellow-500/10"
+                              className="rounded-full px-2 py-1 text-[10px] text-yellow-200 hover:bg-yellow-500/10"
                             >
                               {post.pinnedAt ? copy.moderateUnpin : copy.moderatePin}
                             </button>
@@ -716,11 +689,10 @@ export default function Community() {
               })}
             </div>
           )}
+        </main>
+      </div>
 
-          {showLoadingState ? <p className="mt-4 text-xs text-zinc-500">{copy.feedSyncing}</p> : null}
-        </div>
-      </section>
-
+      {/* Write modal */}
       <Dialog open={writeOpen} onOpenChange={setWriteOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto border-white/10 bg-zinc-950 text-white sm:max-w-lg">
           <DialogHeader>
@@ -729,7 +701,13 @@ export default function Community() {
           {writeForm}
         </DialogContent>
       </Dialog>
+
+      {/* Post detail popup — Reddit style */}
+      <Dialog open={detailOpen} onOpenChange={(open) => !open && closePost()}>
+        <DialogContent className="max-h-[92vh] w-[95vw] max-w-3xl overflow-y-auto border-white/10 bg-zinc-950 p-0 text-white sm:rounded-2xl">
+          {detailPostId ? <CommunityPostPanel postId={detailPostId} layout="modal" onClose={closePost} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
