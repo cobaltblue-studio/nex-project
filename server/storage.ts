@@ -2515,12 +2515,16 @@ export class DatabaseStorage implements IStorage {
     if (opts?.category) whereParts.push(sql`p.category = ${opts.category}`);
     if (q) whereParts.push(sql`(p.title ILIKE ${`%${q}%`} OR p.body ILIKE ${`%${q}%`})`);
     const whereSql = whereParts.length ? sql`WHERE ${sql.join(whereParts, sql` AND `)}` : sql``;
-    const trackThreadOrder = sql`
-      p.attached_track_id NULLS LAST,
+    const feedOrder = sql`
+      CASE
+        WHEN p.pinned_at IS NOT NULL AND p.attached_track_id IS NULL THEN 0
+        WHEN p.attached_track_id IS NOT NULL THEN 1
+        ELSE 2
+      END,
       (
         SELECT MAX(p2.created_at)
         FROM community_posts p2
-        WHERE p2.attached_track_id = p.attached_track_id
+        WHERE p2.attached_track_id IS NOT DISTINCT FROM p.attached_track_id
           AND p2.hidden_at IS NULL
       ) DESC NULLS LAST,
       p.pinned_at DESC NULLS LAST,
@@ -2528,8 +2532,13 @@ export class DatabaseStorage implements IStorage {
     `;
     const orderSql =
       opts?.sort === "popular"
-        ? sql`ORDER BY p.attached_track_id NULLS LAST, p.pinned_at DESC NULLS LAST, (COALESCE(pl.cnt, 0) * 3 + COALESCE(cc.cnt, 0)) DESC, p.created_at DESC`
-        : sql`ORDER BY ${trackThreadOrder}`;
+        ? sql`ORDER BY
+          CASE WHEN p.pinned_at IS NOT NULL AND p.attached_track_id IS NULL THEN 0 ELSE 1 END,
+          p.attached_track_id NULLS LAST,
+          p.pinned_at DESC NULLS LAST,
+          (COALESCE(pl.cnt, 0) * 3 + COALESCE(cc.cnt, 0)) DESC,
+          p.created_at DESC`
+        : sql`ORDER BY ${feedOrder}`;
 
     const rows = await db.execute(sql`
       SELECT
