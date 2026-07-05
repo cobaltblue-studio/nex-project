@@ -159,6 +159,7 @@ export default function Community() {
   const [writeOpen, setWriteOpen] = useState(false);
   const [category, setCategory] = useState<CommunityCategorySlug>("track-share");
   const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
   const [attachedAudioTrackId, setAttachedAudioTrackId] = useState("");
   const [attachedMvTrackId, setAttachedMvTrackId] = useState("");
 
@@ -172,7 +173,7 @@ export default function Community() {
             pageTitle: "커뮤니티",
             pageBody: "트랙 등록은 '트랙 제출'에서 하세요. 여기서는 제작 의도, 과정, 고민을 나누고 댓글로 의견을 주고받는 공간입니다.",
             createTitle: "새 글 쓰기",
-            bodyPlaceholder: "예: 이 곡은 ○○ 분위기를 목표로 만들었고, 프롬프트에서 ○○를 바꿨더니 훅이 달라졌습니다...",
+            bodyPlaceholder: "내용",
             loginNeeded: "글 작성과 좋아요, 댓글은 로그인 후 사용할 수 있습니다.",
             category: "카테고리",
             sortLatest: "최신순",
@@ -180,7 +181,7 @@ export default function Community() {
             search: "제목/본문 검색",
             title: "제목",
             body: "본문",
-            relatedAudioTrack: "관련 곡 — NEW & TOP 100",
+            relatedAudioTrack: "관련곡 — NEW & TOP 100",
             relatedMv: "관련 Music Video",
             relatedTrackLoading: "목록 불러오는 중…",
             pickRequired: "관련 곡 또는 뮤직비디오를 선택해 주세요.",
@@ -212,7 +213,7 @@ export default function Community() {
             pageTitle: "COMMUNITY",
             pageBody: "Use Submit Track to register music. This space is for creative intent, process notes, and discussion through comments.",
             createTitle: "Start a post",
-            bodyPlaceholder: "Example: I aimed for a ○○ mood. Changing ○○ in the prompt shifted the hook...",
+            bodyPlaceholder: "Content",
             loginNeeded: "Login is required to post, like, and comment.",
             category: "Category",
             sortLatest: "Latest",
@@ -330,13 +331,14 @@ export default function Community() {
       const res = await apiRequest("POST", "/api/community/posts", {
         category,
         title,
-        body: "",
+        body,
         attachedTrackId: Number(attachedTrackId),
       });
       return res.json() as Promise<{ postId: number; message: string }>;
     },
     onSuccess: async (data) => {
       setTitle("");
+      setBody("");
       setAttachedAudioTrackId("");
       setAttachedMvTrackId("");
       setWriteOpen(false);
@@ -375,6 +377,8 @@ export default function Community() {
 
   const openWriteDialog = () => {
     setCategory(selectedCategory);
+    setTitle("");
+    setBody("");
     setAttachedAudioTrackId("");
     setAttachedMvTrackId("");
     setWriteOpen(true);
@@ -402,14 +406,6 @@ export default function Community() {
               ))}
             </select>
           </label>
-
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={140}
-            placeholder={copy.title}
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
-          />
 
           <select
             value={attachedAudioTrackId}
@@ -450,6 +446,23 @@ export default function Community() {
               </option>
             ))}
           </select>
+
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={140}
+            placeholder={copy.title}
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
+          />
+
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={5}
+            maxLength={5000}
+            placeholder={copy.bodyPlaceholder}
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
+          />
 
           <button
             type="button"
