@@ -2524,13 +2524,13 @@ export class DatabaseStorage implements IStorage {
         WHEN p.attached_track_id IS NOT NULL THEN 1
         ELSE 2
       END,
+      p.pinned_at DESC NULLS LAST,
       (
         SELECT MAX(p2.created_at)
         FROM community_posts p2
         WHERE p2.attached_track_id IS NOT DISTINCT FROM p.attached_track_id
           AND p2.hidden_at IS NULL
       ) DESC NULLS LAST,
-      p.pinned_at DESC NULLS LAST,
       p.created_at DESC
     `;
     const orderSql =

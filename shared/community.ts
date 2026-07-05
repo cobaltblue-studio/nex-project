@@ -48,7 +48,7 @@ export const COMMUNITY_SYSTEM_SEED_POSTS = [
   {
     postId: 2,
     category: "prompts",
-    pinned: false,
+    pinned: true,
     titleKo: "프롬프트 교환 시작 글",
     titleEn: "Prompt Exchange Starter Thread",
     bodyKo:
@@ -59,7 +59,7 @@ export const COMMUNITY_SYSTEM_SEED_POSTS = [
   {
     postId: 3,
     category: "battle-talk",
-    pinned: false,
+    pinned: true,
     titleKo: "배틀 토크: 왜 이 곡이 이겼을까?",
     titleEn: "Battle Talk: Why did this track win?",
     bodyKo:
