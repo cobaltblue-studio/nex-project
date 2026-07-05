@@ -442,6 +442,7 @@ export interface IStorage {
       likeCount: number;
       commentCount: number;
       viewerHasLiked: boolean;
+      isTrackCreatorPost: boolean;
     }[]
   >;
   getCommunityPost(
@@ -462,6 +463,7 @@ export interface IStorage {
     authorName: string | null;
     authorProfileId: number | null;
     authorIsVerified: boolean;
+    isTrackCreatorPost: boolean;
     attachedTrack: {
       id: number;
       title: string;
@@ -2415,17 +2417,11 @@ export class DatabaseStorage implements IStorage {
       : null;
     if (attachedTrackId) {
       const [track] = await db
-        .select({ id: tracks.id, creatorId: tracks.creatorId })
+        .select({ id: tracks.id })
         .from(tracks)
         .where(and(eq(tracks.id, attachedTrackId), eq(tracks.isDeleted, false)))
         .limit(1);
       if (!track) throw new Error("ATTACHED_TRACK_NOT_FOUND");
-      const [profile] = await db
-        .select({ id: profiles.id })
-        .from(profiles)
-        .where(eq(profiles.userId, input.authorUserId))
-        .limit(1);
-      if (!profile || profile.id !== track.creatorId) throw new Error("ATTACHED_TRACK_NOT_OWNED");
     }
 
     const [row] = await db
@@ -2439,6 +2435,41 @@ export class DatabaseStorage implements IStorage {
         externalUrl,
       })
       .returning({ id: communityPosts.id });
+
+    if (attachedTrackId) {
+      const [ownerNote] = await db.execute(sql`
+        SELECT p.id
+        FROM community_posts p
+        INNER JOIN tracks t ON t.id = p.attached_track_id
+        INNER JOIN profiles owner_pr ON owner_pr.id = t.creator_id
+        WHERE p.attached_track_id = ${attachedTrackId}
+          AND p.author_user_id = owner_pr.user_id
+          AND p.id <> ${row.id}
+          AND p.hidden_at IS NULL
+        LIMIT 1
+      `);
+      const [authorProfile] = await db
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.userId, input.authorUserId))
+        .limit(1);
+      const [trackOwner] = await db
+        .select({ creatorId: tracks.creatorId })
+        .from(tracks)
+        .where(eq(tracks.id, attachedTrackId))
+        .limit(1);
+      const isOwnerFirstNote =
+        authorProfile?.id != null &&
+        trackOwner?.creatorId === authorProfile.id &&
+        ((ownerNote.rows as { id: number }[] | undefined)?.length ?? 0) === 0;
+      if (isOwnerFirstNote) {
+        await db
+          .update(communityPosts)
+          .set({ pinnedAt: new Date(), updatedAt: new Date() })
+          .where(eq(communityPosts.id, row.id));
+      }
+    }
+
     return row.id;
   }
 
@@ -2473,6 +2504,7 @@ export class DatabaseStorage implements IStorage {
       likeCount: number;
       commentCount: number;
       viewerHasLiked: boolean;
+      isTrackCreatorPost: boolean;
     }[]
   > {
     const limit = Math.max(1, Math.min(100, Number(opts?.limit ?? 40)));
@@ -2483,10 +2515,21 @@ export class DatabaseStorage implements IStorage {
     if (opts?.category) whereParts.push(sql`p.category = ${opts.category}`);
     if (q) whereParts.push(sql`(p.title ILIKE ${`%${q}%`} OR p.body ILIKE ${`%${q}%`})`);
     const whereSql = whereParts.length ? sql`WHERE ${sql.join(whereParts, sql` AND `)}` : sql``;
+    const trackThreadOrder = sql`
+      p.attached_track_id NULLS LAST,
+      (
+        SELECT MAX(p2.created_at)
+        FROM community_posts p2
+        WHERE p2.attached_track_id = p.attached_track_id
+          AND p2.hidden_at IS NULL
+      ) DESC NULLS LAST,
+      p.pinned_at DESC NULLS LAST,
+      p.created_at DESC
+    `;
     const orderSql =
       opts?.sort === "popular"
-        ? sql`ORDER BY p.pinned_at DESC NULLS LAST, (COALESCE(pl.cnt, 0) * 3 + COALESCE(cc.cnt, 0)) DESC, p.created_at DESC`
-        : sql`ORDER BY p.pinned_at DESC NULLS LAST, p.created_at DESC`;
+        ? sql`ORDER BY p.attached_track_id NULLS LAST, p.pinned_at DESC NULLS LAST, (COALESCE(pl.cnt, 0) * 3 + COALESCE(cc.cnt, 0)) DESC, p.created_at DESC`
+        : sql`ORDER BY ${trackThreadOrder}`;
 
     const rows = await db.execute(sql`
       SELECT
@@ -2507,6 +2550,7 @@ export class DatabaseStorage implements IStorage {
         t.title AS "trackTitle",
         t.track_type AS "trackType",
         COALESCE(t.artist_name, tp.username) AS "trackCreatorName",
+        (pr.id IS NOT NULL AND t.creator_id IS NOT NULL AND pr.id = t.creator_id) AS "isTrackCreatorPost",
         COALESCE(pl.cnt, 0) AS "likeCount",
         COALESCE(cc.cnt, 0) AS "commentCount",
         ${
@@ -2547,6 +2591,7 @@ export class DatabaseStorage implements IStorage {
       authorName: row.authorName ?? null,
       authorProfileId: row.authorProfileId != null ? Number(row.authorProfileId) : null,
       authorIsVerified: Boolean(row.authorIsVerified),
+      isTrackCreatorPost: Boolean(row.isTrackCreatorPost),
       attachedTrack:
         row.trackId != null
           ? {
@@ -2614,6 +2659,7 @@ export class DatabaseStorage implements IStorage {
         t.title AS "trackTitle",
         t.track_type AS "trackType",
         COALESCE(t.artist_name, tp.username) AS "trackCreatorName",
+        (pr.id IS NOT NULL AND t.creator_id IS NOT NULL AND pr.id = t.creator_id) AS "isTrackCreatorPost",
         COALESCE(pl.cnt, 0) AS "likeCount",
         COALESCE(cc.cnt, 0) AS "commentCount",
         ${
@@ -2655,6 +2701,7 @@ export class DatabaseStorage implements IStorage {
       authorName: row.authorName ?? null,
       authorProfileId: row.authorProfileId != null ? Number(row.authorProfileId) : null,
       authorIsVerified: Boolean(row.authorIsVerified),
+      isTrackCreatorPost: Boolean(row.isTrackCreatorPost),
       attachedTrack:
         row.trackId != null
           ? {

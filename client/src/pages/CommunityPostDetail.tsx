@@ -38,6 +38,7 @@ type CommunityPost = {
   likeCount: number;
   commentCount: number;
   viewerHasLiked: boolean;
+  isTrackCreatorPost?: boolean;
 };
 
 type CommunityComment = {
@@ -85,6 +86,7 @@ export function CommunityPostDetail() {
         ? {
             back: "커뮤니티로 돌아가기",
             pinned: "고정",
+            creatorNote: "크리에이터 노트",
             comments: "댓글",
             loginNeeded: "좋아요와 댓글은 로그인 후 사용할 수 있습니다.",
             commentPlaceholder: "대화에 참여해 보세요",
@@ -106,6 +108,7 @@ export function CommunityPostDetail() {
         : {
             back: "Back to community",
             pinned: "Pinned",
+            creatorNote: "Creator note",
             comments: "Comments",
             loginNeeded: "Login is required to like or comment.",
             commentPlaceholder: "Join the conversation",
@@ -237,12 +240,17 @@ export function CommunityPostDetail() {
           <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary">
             {categoryMap.get(post.category)}
           </span>
-          {post.pinnedAt && (
+          {post.isTrackCreatorPost && post.attachedTrack ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-cyan-100">
+              <Pin className="h-3 w-3" />
+              {copy.creatorNote}
+            </span>
+          ) : post.pinnedAt ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1 text-yellow-100">
               <Pin className="h-3 w-3" />
               {copy.pinned}
             </span>
-          )}
+          ) : null}
           {post.hiddenAt && (
             <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-red-200">{copy.hidden}</span>
           )}

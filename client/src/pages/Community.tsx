@@ -46,10 +46,11 @@ type CommunityPost = {
   likeCount: number;
   commentCount: number;
   viewerHasLiked: boolean;
+  isTrackCreatorPost?: boolean;
 };
 
 type MeProfile = { id: number; username: string; role?: string } | null;
-type MyTrack = { id: number; title: string; trackType: string; status: string };
+type PickTrack = { id: number; title: string; trackType: string; creatorName: string };
 
 const CATEGORY_ICONS: Record<CommunityCategorySlug, typeof MessageSquare> = {
   "track-share": BookOpen,
@@ -97,6 +98,7 @@ export default function Community() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [attachedTrackId, setAttachedTrackId] = useState("");
+  const [trackSearch, setTrackSearch] = useState("");
 
   const copy = useMemo(
     () =>
@@ -117,7 +119,9 @@ export default function Community() {
             body: "본문",
             relatedTrack: "관련 곡 선택",
             noRelatedTrack: "관련 곡 없음",
-            relatedTrackHint: "이미 NEX에 올린 본인 곡만 선택할 수 있습니다. 새 곡 등록은 '트랙 제출'에서 하세요.",
+            relatedTrackSearch: "곡 제목·크리에이터 검색",
+            relatedTrackHint: "NEX에 올라온 어떤 곡이든 선택할 수 있습니다. 업로더의 첫 글은 해당 곡 글 맨 위에 고정됩니다.",
+            creatorNote: "크리에이터 노트",
             publish: "글 올리기",
             feedTitle: "커뮤니티 피드",
             emptyFeed: "아직 글이 없습니다. 첫 번째 대화를 시작해 보세요.",
@@ -156,7 +160,9 @@ export default function Community() {
             body: "Body",
             relatedTrack: "Related track",
             noRelatedTrack: "No related track",
-            relatedTrackHint: "Choose one of your tracks already on NEX. Use Submit Track to upload new music.",
+            relatedTrackSearch: "Search track or creator",
+            relatedTrackHint: "Pick any track on NEX. The uploader's first note stays pinned at the top for that track.",
+            creatorNote: "Creator note",
             publish: "Publish post",
             feedTitle: "Community feed",
             emptyFeed: "No posts yet. Start the first conversation.",
@@ -198,11 +204,18 @@ export default function Community() {
     retry: false,
   });
 
-  const tracksUrl = myProfile?.id ? `/api/tracks?creatorId=${myProfile.id}` : "";
-  const { data: myTracks } = useQuery<MyTrack[]>({
-    queryKey: [tracksUrl],
-    enabled: Boolean(tracksUrl),
+  const trackPickUrl = useMemo(() => {
+    const params = new URLSearchParams({ limit: "40", sortBy: "createdAt" });
+    const q = trackSearch.trim();
+    if (q) params.set("q", q);
+    return `/api/tracks?${params.toString()}`;
+  }, [trackSearch]);
+
+  const { data: trackOptions } = useQuery<PickTrack[]>({
+    queryKey: [trackPickUrl],
+    enabled: writeOpen,
     retry: false,
+    staleTime: 15_000,
   });
 
   const postsUrl = useMemo(() => {
@@ -298,6 +311,8 @@ export default function Community() {
 
   const openWriteDialog = () => {
     setCategory(selectedCategory);
+    setTrackSearch("");
+    setAttachedTrackId("");
     setWriteOpen(true);
   };
 
@@ -326,15 +341,21 @@ export default function Community() {
 
           <label className="block">
             <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.relatedTrack}</span>
+            <input
+              value={trackSearch}
+              onChange={(e) => setTrackSearch(e.target.value)}
+              placeholder={copy.relatedTrackSearch}
+              className="mb-2 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
+            />
             <select
               value={attachedTrackId}
               onChange={(e) => setAttachedTrackId(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50"
             >
               <option value="">{copy.noRelatedTrack}</option>
-              {(myTracks ?? []).map((track) => (
+              {(trackOptions ?? []).map((track) => (
                 <option key={track.id} value={track.id}>
-                  {track.title} · {track.trackType}
+                  {track.title} · {track.creatorName} · {track.trackType}
                 </option>
               ))}
             </select>
@@ -488,13 +509,18 @@ export default function Community() {
                         <Icon className="h-3 w-3" />
                         {categoryItem?.label}
                       </span>
-                      {post.pinnedAt && (
+                      {post.isTrackCreatorPost && post.attachedTrack ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-cyan-100">
+                          <Pin className="h-3 w-3" />
+                          {copy.creatorNote}
+                        </span>
+                      ) : post.pinnedAt ? (
                         <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1 text-yellow-200">
                           <Pin className="h-3 w-3" />
                           {copy.pinned}
                         </span>
-                      )}
-                      {post.hiddenAt && (
+                      ) : null}
+                        {post.hiddenAt && (
                         <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-red-200">{copy.hidden}</span>
                       )}
                     </div>
