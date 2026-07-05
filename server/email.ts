@@ -308,16 +308,16 @@ export async function sendTrackLikedEmail(opts: {
     headlineEn: "Your track got a new like",
     headlineKo: "새 좋아요가 도착했어요",
     englishHtml: `<p style="margin:0;">Someone liked <strong style="color:#fff;">${title}</strong> on NEX today.</p>
-      <p style="margin:12px 0 0;">Visit NEX to check the reaction and launch another battle.</p>
+      <p style="margin:12px 0 0;">Visit NEX to check the reaction and launch another battle. While you're there, listen to other creators' tracks and leave a like.</p>
       <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">View track</a></p>`,
     koreanHtml: `<p style="margin:0;">누군가 오늘 NEX에서 <strong style="color:#fff;">${title}</strong>에 좋아요를 남겼습니다.</p>
-      <p style="margin:12px 0 0;">지금 NEX에 들어와 반응을 확인하고, 다른 배틀에도 참여해 보세요.</p>
+      <p style="margin:12px 0 0;">지금 NEX에 들어와 반응을 확인하고 배틀에도 참여해 보세요. 다른 크리에이터의 곡도 들어보시고 좋아요도 부탁드려요.</p>
       <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">트랙 보기</a></p>`,
     ctaLabelEn: "Open NEX Battle",
     ctaLabelKo: "NEX 배틀 열기",
     ctaHref: battleHref,
-    textEn: `Someone liked "${opts.trackTitle}" on NEX today.\nVisit NEX to check the reaction and launch another battle.\nTrack: ${trackHref}\nBattle: ${battleHref}`,
-    textKo: `누군가 오늘 NEX에서 "${opts.trackTitle}"에 좋아요를 남겼습니다.\n지금 NEX에 들어와 반응을 확인하고 다른 배틀에도 참여해 보세요.\n트랙 보기: ${trackHref}\n배틀 바로가기: ${battleHref}`,
+    textEn: `Someone liked "${opts.trackTitle}" on NEX today.\nVisit NEX to check the reaction and launch another battle. While you're there, listen to other creators' tracks and leave a like.\nTrack: ${trackHref}\nBattle: ${battleHref}`,
+    textKo: `누군가 오늘 NEX에서 "${opts.trackTitle}"에 좋아요를 남겼습니다.\n지금 NEX에 들어와 반응을 확인하고 배틀에도 참여해 보세요. 다른 크리에이터의 곡도 들어보시고 좋아요도 부탁드려요.\n트랙 보기: ${trackHref}\n배틀 바로가기: ${battleHref}`,
   });
   return sendEmail({ to: opts.to, ...msg });
 }
@@ -392,16 +392,16 @@ export async function sendTrackPlayedEmail(opts: {
     headlineEn: "Someone played your track",
     headlineKo: "누군가 당신의 곡을 들었어요",
     englishHtml: `<p style="margin:0;"><strong style="color:#fff;">${title}</strong> received a new play on NEX.</p>
-      <p style="margin:12px 0 0;">Visit NEX to check the reaction and join another battle.</p>
+      <p style="margin:12px 0 0;">Visit NEX to check the reaction and join another battle. While you're there, listen to other creators' tracks and leave a like.</p>
       <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">View track</a></p>`,
     koreanHtml: `<p style="margin:0;"><strong style="color:#fff;">${title}</strong>에 새 재생이 기록되었습니다.</p>
-      <p style="margin:12px 0 0;">지금 NEX에 들어와 반응을 확인하고, 다른 배틀에도 참여해 보세요.</p>
+      <p style="margin:12px 0 0;">지금 NEX에 들어와 반응을 확인하고 배틀에도 참여해 보세요. 다른 크리에이터의 곡도 들어보시고 좋아요도 부탁드려요.</p>
       <p style="margin:12px 0 0;"><a href="${trackHref}" style="color:#67e8f9;">트랙 보기</a></p>`,
     ctaLabelEn: "Open NEX Battle",
     ctaLabelKo: "NEX 배틀 열기",
     ctaHref: battleHref,
-    textEn: `Someone played "${opts.trackTitle}" on NEX.\nVisit NEX to check the reaction and join another battle.\nTrack: ${trackHref}\nBattle: ${battleHref}`,
-    textKo: `누군가 NEX에서 "${opts.trackTitle}"을(를) 재생했습니다.\n지금 NEX에 들어와 반응을 확인하고 다른 배틀에도 참여해 보세요.\n트랙 보기: ${trackHref}\n배틀 바로가기: ${battleHref}`,
+    textEn: `Someone played "${opts.trackTitle}" on NEX.\nVisit NEX to check the reaction and join another battle. While you're there, listen to other creators' tracks and leave a like.\nTrack: ${trackHref}\nBattle: ${battleHref}`,
+    textKo: `누군가 NEX에서 "${opts.trackTitle}"을(를) 재생했습니다.\n지금 NEX에 들어와 반응을 확인하고 배틀에도 참여해 보세요. 다른 크리에이터의 곡도 들어보시고 좋아요도 부탁드려요.\n트랙 보기: ${trackHref}\n배틀 바로가기: ${battleHref}`,
   });
   return sendEmail({ to: opts.to, ...msg });
 }
