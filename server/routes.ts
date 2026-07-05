@@ -405,6 +405,11 @@ export async function registerRoutes(
       if (msg === "ATTACHED_TRACK_NOT_FOUND") {
         return res.status(404).json({ message: apiMsg("첨부할 트랙을 찾을 수 없습니다", "Attached track not found") });
       }
+      if (msg === "ATTACHED_TRACK_REQUIRED") {
+        return res.status(400).json({
+          message: apiMsg("관련 곡 또는 뮤직비디오를 선택해 주세요", "Please select a related track or music video"),
+        });
+      }
       throw err;
     }
   });

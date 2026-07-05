@@ -2418,6 +2418,7 @@ export class DatabaseStorage implements IStorage {
     const attachedTrackId = Number.isFinite(Number(input.attachedTrackId))
       ? Number(input.attachedTrackId)
       : null;
+    if (!attachedTrackId) throw new Error("ATTACHED_TRACK_REQUIRED");
     if (attachedTrackId) {
       const [track] = await db
         .select({ id: tracks.id })

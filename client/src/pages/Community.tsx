@@ -9,7 +9,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -51,6 +50,66 @@ type CommunityPost = {
 
 type MeProfile = { id: number; username: string; role?: string } | null;
 type PickTrack = { id: number; title: string; creatorName: string };
+
+function toPickTrack(raw: { id: number; title: string; creatorName?: string }): PickTrack {
+  return {
+    id: raw.id,
+    title: String(raw.title ?? "").trim(),
+    creatorName: String(raw.creatorName ?? "").trim() || "?",
+  };
+}
+
+function mergeAudioPickTracks(chartRows: PickTrack[], newRows: PickTrack[]): PickTrack[] {
+  const seen = new Set<number>();
+  const merged: PickTrack[] = [];
+  for (const track of chartRows) {
+    if (seen.has(track.id)) continue;
+    seen.add(track.id);
+    merged.push(track);
+  }
+  for (const track of newRows) {
+    if (seen.has(track.id)) continue;
+    seen.add(track.id);
+    merged.push(track);
+  }
+  return merged;
+}
+
+async function fetchCommunityAudioPickOptions(search: string): Promise<PickTrack[]> {
+  const q = search.trim();
+  const chartParams = new URLSearchParams({
+    sortBy: "rankingScore",
+    limit: "100",
+    trackType: "audio",
+  });
+  if (!q) chartParams.set("status", "CHART");
+  else chartParams.set("q", q);
+
+  const newUrl = q ? `/api/tracks/new?q=${encodeURIComponent(q)}` : "/api/tracks/new";
+  const [chartRes, newRes] = await Promise.all([
+    fetch(`/api/tracks?${chartParams.toString()}`),
+    fetch(newUrl),
+  ]);
+  if (!chartRes.ok || !newRes.ok) throw new Error("Failed to load tracks");
+  const chartRows = (await chartRes.json()) as { id: number; title: string; creatorName?: string }[];
+  const newRows = (await newRes.json()) as { id: number; title: string; creatorName?: string }[];
+  return mergeAudioPickTracks(chartRows.map(toPickTrack), newRows.map(toPickTrack));
+}
+
+async function fetchCommunityMvPickOptions(search: string): Promise<PickTrack[]> {
+  const q = search.trim();
+  const params = new URLSearchParams({
+    sortBy: "rankingScore",
+    limit: "100",
+    trackType: "video",
+  });
+  if (!q) params.set("status", "MV");
+  else params.set("q", q);
+  const res = await fetch(`/api/tracks?${params.toString()}`);
+  if (!res.ok) throw new Error("Failed to load music videos");
+  const rows = (await res.json()) as { id: number; title: string; creatorName?: string }[];
+  return rows.map(toPickTrack);
+}
 
 function formatCommunityTrackPickLabel(track: PickTrack): string {
   return `${track.title.trim()} · ${track.creatorName.trim()}`;
@@ -101,9 +160,12 @@ export default function Community() {
   const [category, setCategory] = useState<CommunityCategorySlug>("track-share");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [attachedTrackId, setAttachedTrackId] = useState("");
+  const [attachedAudioTrackId, setAttachedAudioTrackId] = useState("");
+  const [attachedMvTrackId, setAttachedMvTrackId] = useState("");
   const [trackSearch, setTrackSearch] = useState("");
   const [debouncedTrackSearch, setDebouncedTrackSearch] = useState("");
+
+  const attachedTrackId = attachedAudioTrackId || attachedMvTrackId;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedTrackSearch(trackSearch.trim()), 300);
@@ -118,7 +180,6 @@ export default function Community() {
             pageTitle: "커뮤니티",
             pageBody: "트랙 등록은 '트랙 제출'에서 하세요. 여기서는 제작 의도, 과정, 고민을 나누고 댓글로 의견을 주고받는 공간입니다.",
             createTitle: "새 글 쓰기",
-            createHint: "곡을 왜 만들었는지, 무엇을 시도했는지, 어디서 막혔는지 적어 주세요. 트랙 등록·링크 공유는 '트랙 제출'을 이용해 주세요.",
             bodyPlaceholder: "예: 이 곡은 ○○ 분위기를 목표로 만들었고, 프롬프트에서 ○○를 바꿨더니 훅이 달라졌습니다...",
             loginNeeded: "글 작성과 좋아요, 댓글은 로그인 후 사용할 수 있습니다.",
             category: "카테고리",
@@ -127,12 +188,12 @@ export default function Community() {
             search: "제목/본문 검색",
             title: "제목",
             body: "본문",
-            relatedTrack: "관련 곡 선택",
-            noRelatedTrack: "관련 곡 없음",
+            relatedAudioTrack: "관련 곡 — NEW & TOP 100",
+            relatedMv: "관련 Music Video",
+            pickPlaceholder: "선택…",
             relatedTrackSearch: "곡 제목·크리에이터 검색",
-            relatedTrackHint: "신곡(NEW) 차트에 있는 곡 중에서 선택할 수 있습니다. 검색으로 목록을 좁힐 수 있어요. 업로더의 첫 글은 해당 곡 글 맨 위에 고정됩니다.",
-            relatedTrackLoading: "곡 목록 불러오는 중…",
-            relatedTrackCount: (n: number) => `${n}곡`,
+            relatedTrackLoading: "목록 불러오는 중…",
+            pickRequired: "관련 곡 또는 뮤직비디오를 선택해 주세요.",
             creatorNote: "크리에이터 노트",
             publish: "글 올리기",
             feedTitle: "커뮤니티 피드",
@@ -161,7 +222,6 @@ export default function Community() {
             pageTitle: "COMMUNITY",
             pageBody: "Use Submit Track to register music. This space is for creative intent, process notes, and discussion through comments.",
             createTitle: "Start a post",
-            createHint: "Write why you made a track, what you tried, and where you got stuck. Use Submit Track for uploads and links.",
             bodyPlaceholder: "Example: I aimed for a ○○ mood. Changing ○○ in the prompt shifted the hook...",
             loginNeeded: "Login is required to post, like, and comment.",
             category: "Category",
@@ -170,12 +230,12 @@ export default function Community() {
             search: "Search title or body",
             title: "Title",
             body: "Body",
-            relatedTrack: "Related track",
-            noRelatedTrack: "No related track",
+            relatedAudioTrack: "Related track — NEW & TOP 100",
+            relatedMv: "Related music video",
+            pickPlaceholder: "Select…",
             relatedTrackSearch: "Search track or creator",
-            relatedTrackHint: "Choose from tracks on the NEW chart. Use search to narrow the list. The uploader's first note stays pinned at the top for that track.",
-            relatedTrackLoading: "Loading tracks…",
-            relatedTrackCount: (n: number) => `${n} tracks`,
+            relatedTrackLoading: "Loading…",
+            pickRequired: "Please select a related track or music video.",
             creatorNote: "Creator note",
             publish: "Publish post",
             feedTitle: "Community feed",
@@ -218,15 +278,17 @@ export default function Community() {
     retry: false,
   });
 
-  const trackPickUrl = useMemo(() => {
-    if (debouncedTrackSearch) {
-      return `/api/tracks/new?q=${encodeURIComponent(debouncedTrackSearch)}`;
-    }
-    return "/api/tracks/new";
-  }, [debouncedTrackSearch]);
+  const { data: audioPickOptions, isFetching: audioPickLoading } = useQuery<PickTrack[]>({
+    queryKey: ["/api/community/pick/audio", debouncedTrackSearch],
+    queryFn: () => fetchCommunityAudioPickOptions(debouncedTrackSearch),
+    enabled: writeOpen,
+    retry: false,
+    staleTime: 15_000,
+  });
 
-  const { data: trackOptions, isFetching: trackOptionsLoading } = useQuery<PickTrack[]>({
-    queryKey: [trackPickUrl],
+  const { data: mvPickOptions, isFetching: mvPickLoading } = useQuery<PickTrack[]>({
+    queryKey: ["/api/community/pick/mv", debouncedTrackSearch],
+    queryFn: () => fetchCommunityMvPickOptions(debouncedTrackSearch),
     enabled: writeOpen,
     retry: false,
     staleTime: 15_000,
@@ -281,14 +343,15 @@ export default function Community() {
         category,
         title,
         body,
-        attachedTrackId: attachedTrackId ? Number(attachedTrackId) : null,
+        attachedTrackId: Number(attachedTrackId),
       });
       return res.json() as Promise<{ postId: number; message: string }>;
     },
     onSuccess: async (data) => {
       setTitle("");
       setBody("");
-      setAttachedTrackId("");
+      setAttachedAudioTrackId("");
+      setAttachedMvTrackId("");
       setWriteOpen(false);
       setSelectedCategory(category);
       setSortBy("latest");
@@ -327,7 +390,8 @@ export default function Community() {
     setCategory(selectedCategory);
     setTrackSearch("");
     setDebouncedTrackSearch("");
-    setAttachedTrackId("");
+    setAttachedAudioTrackId("");
+    setAttachedMvTrackId("");
     setWriteOpen(true);
   };
 
@@ -354,32 +418,60 @@ export default function Community() {
             </select>
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.relatedTrack}</span>
+          <div className="space-y-3">
             <input
               value={trackSearch}
               onChange={(e) => setTrackSearch(e.target.value)}
               placeholder={copy.relatedTrackSearch}
-              className="mb-2 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-primary/50"
             />
-            <select
-              value={attachedTrackId}
-              onChange={(e) => setAttachedTrackId(e.target.value)}
-              disabled={trackOptionsLoading && !trackOptions}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
-            >
-              <option value="">{trackOptionsLoading && !trackOptions ? copy.relatedTrackLoading : copy.noRelatedTrack}</option>
-              {(trackOptions ?? []).map((track) => (
-                <option key={track.id} value={track.id}>
-                  {formatCommunityTrackPickLabel(track)}
+
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.relatedAudioTrack}</span>
+              <select
+                value={attachedAudioTrackId}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setAttachedAudioTrackId(next);
+                  if (next) setAttachedMvTrackId("");
+                }}
+                disabled={audioPickLoading && !audioPickOptions}
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
+              >
+                <option value="" disabled>
+                  {audioPickLoading && !audioPickOptions ? copy.relatedTrackLoading : copy.pickPlaceholder}
                 </option>
-              ))}
-            </select>
-            <p className="mt-1.5 text-xs leading-5 text-zinc-500">
-              {copy.relatedTrackHint}
-              {trackOptions && trackOptions.length > 0 ? ` (${copy.relatedTrackCount(trackOptions.length)})` : ""}
-            </p>
-          </label>
+                {(audioPickOptions ?? []).map((track) => (
+                  <option key={track.id} value={track.id}>
+                    {formatCommunityTrackPickLabel(track)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.relatedMv}</span>
+              <select
+                value={attachedMvTrackId}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setAttachedMvTrackId(next);
+                  if (next) setAttachedAudioTrackId("");
+                }}
+                disabled={mvPickLoading && !mvPickOptions}
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none transition focus:border-primary/50 disabled:opacity-60"
+              >
+                <option value="" disabled>
+                  {mvPickLoading && !mvPickOptions ? copy.relatedTrackLoading : copy.pickPlaceholder}
+                </option>
+                {(mvPickOptions ?? []).map((track) => (
+                  <option key={track.id} value={track.id}>
+                    {formatCommunityTrackPickLabel(track)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
           <label className="block">
             <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">{copy.title}</span>
@@ -405,8 +497,14 @@ export default function Community() {
 
           <button
             type="button"
-            disabled={createMutation.isPending || !title.trim() || !body.trim()}
-            onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending || !title.trim() || !body.trim() || !attachedTrackId}
+            onClick={() => {
+              if (!attachedTrackId) {
+                toast({ title: copy.pickRequired, variant: "destructive" });
+                return;
+              }
+              createMutation.mutate();
+            }}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-sm font-bold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -656,7 +754,6 @@ export default function Community() {
         <DialogContent className="max-h-[90vh] overflow-y-auto border-white/10 bg-zinc-950 text-white sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-white">{copy.createTitle}</DialogTitle>
-            <DialogDescription className="text-zinc-400">{copy.createHint}</DialogDescription>
           </DialogHeader>
           {writeForm}
         </DialogContent>
