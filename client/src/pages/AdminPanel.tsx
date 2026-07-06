@@ -7,11 +7,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, CheckCircle, XCircle, ExternalLink,
   Clock, RefreshCw, Loader2, UserPlus, Handshake, Trash2, BarChart3, AlertTriangle,
-  Download, Database, FileJson, Users,
+  Download, Database, FileJson, Users, MessageSquare,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+import { COMMUNITY_CATEGORIES } from "@shared/community";
 
 type Submission = {
   id: number;
@@ -93,6 +94,52 @@ type UserActivityRow = {
   signedUpAt: string | null;
   activityStatus: "active" | "inactive";
 };
+
+type AdminCommunityOverview = {
+  generatedAt: string;
+  totals: {
+    posts: number;
+    visiblePosts: number;
+    hiddenPosts: number;
+    pinnedPosts: number;
+    withTrack: number;
+    uniqueAuthors: number;
+    likes: number;
+    comments: number;
+    hiddenComments: number;
+  };
+  today: {
+    posts: number;
+    likes: number;
+    comments: number;
+  };
+  byCategory: { category: string; posts: number; likes: number; comments: number }[];
+  recentPosts: {
+    id: number;
+    category: string;
+    title: string;
+    authorName: string | null;
+    createdAt: string;
+    likeCount: number;
+    commentCount: number;
+    hiddenAt: string | null;
+    pinnedAt: string | null;
+    attachedTrackTitle: string | null;
+  }[];
+  topPosts: {
+    id: number;
+    category: string;
+    title: string;
+    authorName: string | null;
+    likeCount: number;
+    commentCount: number;
+    engagement: number;
+  }[];
+};
+
+const COMMUNITY_CATEGORY_LABELS = Object.fromEntries(
+  COMMUNITY_CATEGORIES.map((item) => [item.slug, item.titleKo]),
+) as Record<string, string>;
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING:     "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
@@ -263,6 +310,17 @@ export default function AdminPanel() {
     refetch: refetchUserActivity,
   } = useQuery<UserActivityRow[]>({
     queryKey: ["/api/admin/user-activity"],
+    enabled: isAdmin,
+    retry: false,
+    staleTime: 0,
+  });
+
+  const {
+    data: communityOverview,
+    isLoading: communityLoading,
+    refetch: refetchCommunity,
+  } = useQuery<AdminCommunityOverview>({
+    queryKey: ["/api/admin/community-overview"],
     enabled: isAdmin,
     retry: false,
     staleTime: 0,
@@ -458,6 +516,7 @@ export default function AdminPanel() {
           onClick={() => {
             void refetchInsights();
             void refetchUserActivity();
+            void refetchCommunity();
             void refetch();
             void refetchCreatorApps();
             void refetchClaimReq();
@@ -509,6 +568,173 @@ export default function AdminPanel() {
               </>
             )}
         </div>
+      </div>
+
+      <div className="mb-10">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <MessageSquare className="w-4 h-4 text-sky-300" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-sky-300">
+              Community
+            </p>
+          </div>
+          <Link
+            href="/community"
+            className="text-[9px] font-bold uppercase tracking-widest text-primary hover:underline"
+          >
+            Open community
+          </Link>
+        </div>
+        {communityLoading || !communityOverview ? (
+          <div className="border border-white/5 rounded-sm p-8 flex justify-center">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : (
+          <>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-3">
+              Snapshot: {fmt(communityOverview.generatedAt)}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20">
+                <p className="text-[9px] text-zinc-500 uppercase">Posts</p>
+                <p className="text-xl font-black text-white">{communityOverview.totals.visiblePosts}</p>
+                <p className="text-[8px] text-zinc-600 mt-1">Hidden {communityOverview.totals.hiddenPosts}</p>
+              </div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20">
+                <p className="text-[9px] text-zinc-500 uppercase">Likes</p>
+                <p className="text-xl font-black text-white">{communityOverview.totals.likes}</p>
+              </div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20">
+                <p className="text-[9px] text-zinc-500 uppercase">Comments</p>
+                <p className="text-xl font-black text-white">{communityOverview.totals.comments}</p>
+                <p className="text-[8px] text-zinc-600 mt-1">Hidden {communityOverview.totals.hiddenComments}</p>
+              </div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20">
+                <p className="text-[9px] text-zinc-500 uppercase">Authors</p>
+                <p className="text-xl font-black text-white">{communityOverview.totals.uniqueAuthors}</p>
+                <p className="text-[8px] text-zinc-600 mt-1">With track {communityOverview.totals.withTrack}</p>
+              </div>
+              <div className="border border-white/5 rounded-sm p-3 bg-black/20">
+                <p className="text-[9px] text-zinc-500 uppercase">Pinned</p>
+                <p className="text-xl font-black text-white">{communityOverview.totals.pinnedPosts}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mt-3">
+              <div className="border border-sky-400/20 rounded-sm p-3 bg-sky-400/5">
+                <p className="text-[9px] text-sky-300 uppercase">Today posts</p>
+                <p className="text-lg font-black text-white">{communityOverview.today.posts}</p>
+              </div>
+              <div className="border border-sky-400/20 rounded-sm p-3 bg-sky-400/5">
+                <p className="text-[9px] text-sky-300 uppercase">Today likes</p>
+                <p className="text-lg font-black text-white">{communityOverview.today.likes}</p>
+              </div>
+              <div className="border border-sky-400/20 rounded-sm p-3 bg-sky-400/5">
+                <p className="text-[9px] text-sky-300 uppercase">Today comments</p>
+                <p className="text-lg font-black text-white">{communityOverview.today.comments}</p>
+              </div>
+            </div>
+
+            {communityOverview.byCategory.length > 0 && (
+              <div className="mt-4 border border-white/5 rounded-sm overflow-hidden">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-white/[0.03] text-[9px] uppercase tracking-widest text-zinc-500">
+                    <tr>
+                      <th className="px-3 py-2 font-bold">Category</th>
+                      <th className="px-3 py-2 font-bold">Posts</th>
+                      <th className="px-3 py-2 font-bold">Likes</th>
+                      <th className="px-3 py-2 font-bold">Comments</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {communityOverview.byCategory.map((row) => (
+                      <tr key={row.category} className="border-t border-white/5">
+                        <td className="px-3 py-2 text-zinc-200">
+                          {COMMUNITY_CATEGORY_LABELS[row.category] ?? row.category}
+                        </td>
+                        <td className="px-3 py-2 text-white font-semibold">{row.posts}</td>
+                        <td className="px-3 py-2 text-zinc-300">{row.likes}</td>
+                        <td className="px-3 py-2 text-zinc-300">{row.comments}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {communityOverview.topPosts.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Top engagement</p>
+                <div className="space-y-2">
+                  {communityOverview.topPosts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="flex flex-wrap items-center justify-between gap-2 border border-white/5 rounded-sm px-3 py-2 bg-black/20"
+                    >
+                      <div className="min-w-0">
+                        <Link href={`/community/${post.id}`} className="text-sm font-semibold text-white hover:text-primary truncate block">
+                          {post.title}
+                        </Link>
+                        <p className="text-[10px] text-zinc-500">
+                          {COMMUNITY_CATEGORY_LABELS[post.category] ?? post.category} · @{post.authorName ?? "unknown"}
+                        </p>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 shrink-0">
+                        ♥ {post.likeCount} · 💬 {post.commentCount} · score {post.engagement}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 border border-white/5 rounded-sm overflow-x-auto">
+              <p className="px-3 py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500 border-b border-white/5">
+                Recent posts
+              </p>
+              <table className="w-full text-left text-[11px] min-w-[640px]">
+                <thead className="bg-white/[0.03] text-[9px] uppercase tracking-widest text-zinc-500">
+                  <tr>
+                    <th className="px-3 py-2 font-bold">Title</th>
+                    <th className="px-3 py-2 font-bold">Author</th>
+                    <th className="px-3 py-2 font-bold">Category</th>
+                    <th className="px-3 py-2 font-bold">♥ / 💬</th>
+                    <th className="px-3 py-2 font-bold">Status</th>
+                    <th className="px-3 py-2 font-bold">When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {communityOverview.recentPosts.map((post) => (
+                    <tr key={post.id} className="border-t border-white/5 hover:bg-white/[0.02]">
+                      <td className="px-3 py-2 max-w-[220px]">
+                        <Link href={`/community/${post.id}`} className="text-zinc-100 hover:text-primary font-medium line-clamp-2">
+                          {post.title}
+                        </Link>
+                        {post.attachedTrackTitle && (
+                          <p className="text-[9px] text-zinc-600 mt-0.5 truncate">🎵 {post.attachedTrackTitle}</p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-400">@{post.authorName ?? "unknown"}</td>
+                      <td className="px-3 py-2 text-zinc-400">{COMMUNITY_CATEGORY_LABELS[post.category] ?? post.category}</td>
+                      <td className="px-3 py-2 text-zinc-300 whitespace-nowrap">
+                        {post.likeCount} / {post.commentCount}
+                      </td>
+                      <td className="px-3 py-2">
+                        {post.hiddenAt ? (
+                          <span className="text-[9px] font-bold uppercase text-red-300">Hidden</span>
+                        ) : post.pinnedAt ? (
+                          <span className="text-[9px] font-bold uppercase text-yellow-300">Pinned</span>
+                        ) : (
+                          <span className="text-[9px] font-bold uppercase text-zinc-500">Live</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-500 whitespace-nowrap">{fmt(post.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mb-10">

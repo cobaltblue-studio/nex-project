@@ -505,6 +505,47 @@ export interface IStorage {
     action: "hide" | "unhide",
     reason?: string | null,
   ): Promise<boolean>;
+  getAdminCommunityOverview(): Promise<{
+    generatedAt: string;
+    totals: {
+      posts: number;
+      visiblePosts: number;
+      hiddenPosts: number;
+      pinnedPosts: number;
+      withTrack: number;
+      uniqueAuthors: number;
+      likes: number;
+      comments: number;
+      hiddenComments: number;
+    };
+    today: {
+      posts: number;
+      likes: number;
+      comments: number;
+    };
+    byCategory: { category: string; posts: number; likes: number; comments: number }[];
+    recentPosts: {
+      id: number;
+      category: string;
+      title: string;
+      authorName: string | null;
+      createdAt: string;
+      likeCount: number;
+      commentCount: number;
+      hiddenAt: string | null;
+      pinnedAt: string | null;
+      attachedTrackTitle: string | null;
+    }[];
+    topPosts: {
+      id: number;
+      category: string;
+      title: string;
+      authorName: string | null;
+      likeCount: number;
+      commentCount: number;
+      engagement: number;
+    }[];
+  }>;
   /** Public counts per track (excludes [EDIT REQUEST] admin tickets). */
   getCommentCountsForTracks(trackIds: number[]): Promise<Record<number, number>>;
   listPendingTrackEditRequests(): Promise<
@@ -2859,6 +2900,112 @@ export class DatabaseStorage implements IStorage {
       .set({ hiddenAt: null, hiddenReason: null })
       .where(eq(communityComments.id, commentId));
     return true;
+  }
+
+  async getAdminCommunityOverview() {
+    const todayStartUtc = new Date();
+    todayStartUtc.setUTCHours(0, 0, 0, 0);
+
+    const totalsResult = await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS posts,
+        COUNT(*) FILTER (WHERE hidden_at IS NULL)::int AS visible_posts,
+        COUNT(*) FILTER (WHERE hidden_at IS NOT NULL)::int AS hidden_posts,
+        COUNT(*) FILTER (WHERE pinned_at IS NOT NULL)::int AS pinned_posts,
+        COUNT(*) FILTER (WHERE attached_track_id IS NOT NULL)::int AS with_track,
+        COUNT(DISTINCT author_user_id)::int AS unique_authors
+      FROM community_posts
+    `);
+    const totalsRaw = totalsResult.rows[0] as any;
+
+    const [likesRow, commentsRow, hiddenCommentsRow, todayPostsRow, todayLikesRow, todayCommentsRow] =
+      await Promise.all([
+        db.select({ c: count() }).from(communityPostLikes),
+        db.select({ c: count() }).from(communityComments),
+        db.select({ c: count() }).from(communityComments).where(isNotNull(communityComments.hiddenAt)),
+        db.select({ c: count() }).from(communityPosts).where(gte(communityPosts.createdAt, todayStartUtc)),
+        db.select({ c: count() }).from(communityPostLikes).where(gte(communityPostLikes.createdAt, todayStartUtc)),
+        db.select({ c: count() }).from(communityComments).where(gte(communityComments.createdAt, todayStartUtc)),
+      ]);
+
+    const categoryRows = await db.execute(sql`
+      SELECT
+        p.category,
+        COUNT(*)::int AS posts,
+        COALESCE(SUM(pl.cnt), 0)::int AS likes,
+        COALESCE(SUM(cc.cnt), 0)::int AS comments
+      FROM community_posts p
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt FROM community_post_likes l WHERE l.post_id = p.id
+      ) pl ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt
+        FROM community_comments c
+        WHERE c.post_id = p.id AND c.hidden_at IS NULL
+      ) cc ON true
+      WHERE p.hidden_at IS NULL
+      GROUP BY p.category
+      ORDER BY posts DESC
+    `);
+
+    const recentRows = await this.listCommunityPosts({
+      includeHidden: true,
+      sort: "latest",
+      limit: 40,
+    });
+
+    const popularRows = await this.listCommunityPosts({
+      includeHidden: true,
+      sort: "popular",
+      limit: 10,
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      totals: {
+        posts: Number(totalsRaw?.posts ?? 0),
+        visiblePosts: Number(totalsRaw?.visible_posts ?? 0),
+        hiddenPosts: Number(totalsRaw?.hidden_posts ?? 0),
+        pinnedPosts: Number(totalsRaw?.pinned_posts ?? 0),
+        withTrack: Number(totalsRaw?.with_track ?? 0),
+        uniqueAuthors: Number(totalsRaw?.unique_authors ?? 0),
+        likes: Number(likesRow[0]?.c ?? 0),
+        comments: Number(commentsRow[0]?.c ?? 0),
+        hiddenComments: Number(hiddenCommentsRow[0]?.c ?? 0),
+      },
+      today: {
+        posts: Number(todayPostsRow[0]?.c ?? 0),
+        likes: Number(todayLikesRow[0]?.c ?? 0),
+        comments: Number(todayCommentsRow[0]?.c ?? 0),
+      },
+      byCategory: (categoryRows.rows as any[]).map((row) => ({
+        category: String(row.category),
+        posts: Number(row.posts ?? 0),
+        likes: Number(row.likes ?? 0),
+        comments: Number(row.comments ?? 0),
+      })),
+      recentPosts: recentRows.map((post) => ({
+        id: post.id,
+        category: post.category,
+        title: post.title,
+        authorName: post.authorName,
+        createdAt: post.createdAt.toISOString(),
+        likeCount: post.likeCount,
+        commentCount: post.commentCount,
+        hiddenAt: post.hiddenAt ? post.hiddenAt.toISOString() : null,
+        pinnedAt: post.pinnedAt ? post.pinnedAt.toISOString() : null,
+        attachedTrackTitle: post.attachedTrack?.title ?? null,
+      })),
+      topPosts: popularRows.map((post) => ({
+        id: post.id,
+        category: post.category,
+        title: post.title,
+        authorName: post.authorName,
+        likeCount: post.likeCount,
+        commentCount: post.commentCount,
+        engagement: post.likeCount * 3 + post.commentCount,
+      })),
+    };
   }
 
   async getCommentCountsForTracks(trackIds: number[]): Promise<Record<number, number>> {

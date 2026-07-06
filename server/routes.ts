@@ -2387,6 +2387,14 @@ export async function registerRoutes(
     res.json(rows);
   });
 
+  app.get("/api/admin/community-overview", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+    const out = await storage.getAdminCommunityOverview();
+    res.json(out);
+  });
+
   app.post("/api/activity/visit", isAuthenticated, async (req: any, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: apiMsg("인증이 필요합니다", "Unauthorized") });
