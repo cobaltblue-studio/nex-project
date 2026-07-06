@@ -816,23 +816,23 @@ export function Battle() {
             </span>
           </button>
         </div>
-        <h2
-          className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
-          data-testid="text-battle-arena-title"
-        >
-          BATTLE ARENA
-        </h2>
-        <p className="text-zinc-500 text-sm mt-2">
-          Head-to-head track battles where the community decides the winner.
-        </p>
-        <div className="mt-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h2
+            className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
+            data-testid="text-battle-arena-title"
+          >
+            BATTLE ARENA
+          </h2>
           <Link
             href="/community"
-            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-primary transition hover:bg-primary/10 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-primary transition hover:bg-primary/10 hover:text-white md:px-4 md:py-2 md:text-[10px] md:tracking-[0.25em]"
           >
             Discuss Battles in Community
           </Link>
         </div>
+        <p className="text-zinc-500 text-sm mt-2">
+          Head-to-head track battles where the community decides the winner.
+        </p>
       </div>
       <div className="battle-page-container">
       <div className={`mb-2 text-center ${phase === "vote" ? "pt-0" : "pt-1"}`}>
