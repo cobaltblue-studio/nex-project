@@ -7,7 +7,7 @@ import { parseFounderAdminEmails } from "../shared/constants";
  * Repair founder login:
  * - Remove founder email wrongly attached to seed artist `min_soo`
  * - Drop empty orphan OAuth rows blocking re-login
- * - Promote known founder Google accounts to admin
+ * - Promote the canonical founder Google account to admin
  */
 async function main() {
   const founderEmails = parseFounderAdminEmails(process.env.NEX_FOUNDER_ADMIN_EMAIL);
@@ -28,6 +28,17 @@ async function main() {
         updated_at = NOW()
     WHERE id = 'artist_min_soo'
       AND lower(coalesce(email, '')) = 'd9ckoblack@gmail.com'
+  `);
+
+  await db.execute(sql`
+    DELETE FROM user_activity_stats uas
+    WHERE EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = uas.user_id
+        AND u.email IS NULL
+        AND u.id ~ '^[0-9]+$'
+        AND NOT EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id)
+    )
   `);
 
   await db.execute(sql`
@@ -58,7 +69,7 @@ async function main() {
     SELECT u.id, u.email, p.username, p.role
     FROM users u
     LEFT JOIN profiles p ON p.user_id = u.id
-    WHERE lower(coalesce(u.email, '')) IN ('d9ckoblack@gmail.com', 'kidpink003@gmail.com')
+    WHERE lower(coalesce(u.email, '')) = 'd9ckoblack@gmail.com'
        OR u.id = 'artist_min_soo'
     ORDER BY u.id
   `);

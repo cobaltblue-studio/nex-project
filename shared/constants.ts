@@ -40,8 +40,8 @@ export const MAX_CREATOR_AI_PROMPT_EDITS = 2;
 /** Hours that must pass after the previous creator edit before the next aiPrompt change is allowed (edits 2+). */
 export const HOURS_BETWEEN_CREATOR_AI_PROMPT_EDITS = 48;
 
-/** Canonical NEX founder account (Google OAuth email). Override on server with NEX_FOUNDER_ADMIN_EMAIL (comma-separated). */
-export const NEX_FOUNDER_ADMIN_EMAIL = "d9ckoblack@gmail.com,kidpink003@gmail.com";
+/** Canonical NEX founder account (Google OAuth email). Only this mailbox is admin in production. Override with NEX_FOUNDER_ADMIN_EMAIL. */
+export const NEX_FOUNDER_ADMIN_EMAIL = "d9ckoblack@gmail.com";
 
 export function normalizeAuthEmail(email: string | null | undefined): string {
   return (email ?? "").trim().toLowerCase();

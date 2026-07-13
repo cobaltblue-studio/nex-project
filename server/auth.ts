@@ -222,6 +222,8 @@ async function resolvePostLoginRedirect(user: SessionUser): Promise<string> {
 async function sessionUserMayAccessAdmin(user: SessionUser): Promise<boolean> {
   if (!user.id) return false;
   if (isFounderAdminEmail(user.email, founderEmailForEnv())) return true;
+  // In production only the founder mailbox is admin (same rule as routes.isAdmin).
+  if (process.env.NODE_ENV === "production") return false;
   const profile = await storage.getProfileByUserId(String(user.id));
   return profile?.role === "admin";
 }
@@ -455,9 +457,15 @@ export function registerAuthRoutes(app: Express) {
 
       void (async () => {
         try {
+          const oauthEmail = (user.email ?? "").trim().toLowerCase();
+          if (!oauthEmail) {
+            console.error("[auth] Google account returned no email; refusing session for sub=", user.id);
+            return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_email_required`);
+          }
+
           await storage.upsertOAuthUser({
             id: user.id,
-            email: user.email,
+            email: oauthEmail,
             firstName: user.firstName,
             lastName: user.lastName,
             profileImageUrl: user.profileImageUrl,
