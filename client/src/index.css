@@ -258,6 +258,79 @@
   width: 100%;
 }
 
+/*
+ * NEXI companion — fixed to the viewport, never nested inside a card.
+ * See client/src/components/NexiCompanion.tsx for why (v1 postmortem).
+ * z-index 60: .mobile-bottom-nav actually renders at z-50 (h-20 = 80px tall,
+ * see client/src/components/Layout.tsx), so NEXI must sit above that,
+ * below Radix dialogs/sheets (which mount their own much higher stacking context).
+ */
+.nexi-companion {
+  position: fixed;
+  right: 16px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.nexi-companion-avatar {
+  pointer-events: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+}
+
+.nexi-companion-img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+}
+
+.nexi-speech-bubble {
+  pointer-events: none;
+  max-width: 200px;
+  background: rgba(10, 12, 20, 0.92);
+  border: 1px solid hsla(189, 100%, 60%, 0.35);
+  color: #e2e8f0;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+@media (min-width: 768px) {
+  .nexi-companion {
+    right: 24px;
+    bottom: 24px;
+    gap: 10px;
+  }
+  .nexi-companion-img {
+    width: 84px;
+    height: 84px;
+  }
+  .nexi-speech-bubble {
+    font-size: 12px;
+    max-width: 220px;
+  }
+}
+
+/* Clear the fixed mobile bottom nav (h-20 = 80px + safe area) so NEXI doesn't overlap it. */
+@media (max-width: 768px) {
+  .nexi-companion {
+    bottom: calc(80px + env(safe-area-inset-bottom) + 14px);
+  }
+}
+
 .battle-reveal-text {
   filter: blur(0);
   opacity: 1;

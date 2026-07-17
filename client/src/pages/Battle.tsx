@@ -34,6 +34,7 @@ import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
 import { useTranslation } from "react-i18next";
 import { hasPublicCount } from "@/lib/displayStats";
+import { NexiCompanion, type NexiMood } from "@/components/NexiCompanion";
 
 type Phase =
   | "genre-select"
@@ -42,6 +43,22 @@ type Phase =
   | "track-b"
   | "vote"
   | "result";
+
+function nexiMoodForPhase(phase: Phase): NexiMood {
+  switch (phase) {
+    case "loading":
+      return "curious";
+    case "track-a":
+    case "track-b":
+      return "listening";
+    case "vote":
+      return "waiting";
+    case "result":
+      return "excited";
+    default:
+      return "idle";
+  }
+}
 
 interface BattleTrack {
   id: number;
@@ -778,6 +795,7 @@ export function Battle() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <NexiCompanion mood={nexiMoodForPhase(phase)} />
       <div className="mb-6">
         <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
