@@ -261,7 +261,7 @@
 .nexi-peek-layer {
   position: absolute;
   top: 6%;
-  z-index: 12;
+  z-index: 30;
   pointer-events: none;
   display: flex;
   align-items: flex-start;
@@ -306,21 +306,21 @@
 
 .nexi-victory-dance {
   display: inline-flex;
-  align-items: flex-end;
-  margin-left: 6px;
+  align-items: center;
+  margin-left: 8px;
 }
 
 .nexi-dance-img {
-  width: 30px;
+  width: 46px;
   height: auto;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
   user-select: none;
 }
 
 .nexi-thumbs-up {
-  font-size: 15px;
+  font-size: 19px;
   margin-left: 2px;
-  transform: translateY(-3px);
+  transform: translateY(-6px);
 }
 
 @media (max-width: 768px) {
