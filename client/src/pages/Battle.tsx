@@ -34,12 +34,6 @@ import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
 import { useTranslation } from "react-i18next";
 import { hasPublicCount } from "@/lib/displayStats";
-import {
-  NexiPeek,
-  NexiVictoryDance,
-  NEXI_TRACK_A_LINES,
-  NEXI_TRACK_B_LINES,
-} from "@/components/NexiCompanion";
 
 type Phase =
   | "genre-select"
@@ -451,8 +445,6 @@ export function Battle() {
   });
   const [showSharePopup, setShowSharePopup] = useState(false);
   const countedImpressionsRef = useRef<Set<string>>(new Set());
-  const [nexiPeekVisible, setNexiPeekVisible] = useState(false);
-  const [nexiMessage, setNexiMessage] = useState("");
 
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
     queryKey: ["/api/battles/daily-count"],
@@ -691,23 +683,6 @@ export function Battle() {
       setPhase("result");
     }
   }, [phase, votedId, voteResult]);
-
-  /** NEXI peeks in from the side when each track starts playing, then hides itself. */
-  useEffect(() => {
-    if (phase !== "track-a" && phase !== "track-b") {
-      setNexiPeekVisible(false);
-      return;
-    }
-    const pool = phase === "track-a" ? NEXI_TRACK_A_LINES : NEXI_TRACK_B_LINES;
-    setNexiMessage(pool[Math.floor(Math.random() * pool.length)]);
-    setNexiPeekVisible(false);
-    const showTimer = setTimeout(() => setNexiPeekVisible(true), 450);
-    const hideTimer = setTimeout(() => setNexiPeekVisible(false), 5200);
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-    };
-  }, [phase, battle?.id]);
 
   useEffect(() => {
     if (!battle) return;
@@ -995,7 +970,6 @@ export function Battle() {
                 onEnded={onBattleTrackAEnded}
               />
             </div>
-            <NexiPeek active={nexiPeekVisible} side="right" message={nexiMessage} />
           </motion.div>
         )}
 
@@ -1029,7 +1003,6 @@ export function Battle() {
                 onEnded={onBattleTrackBEnded}
               />
             </div>
-            <NexiPeek active={nexiPeekVisible} side="left" message={nexiMessage} />
           </motion.div>
         )}
 
@@ -1118,7 +1091,6 @@ export function Battle() {
           const totalVotes = voteResult.trackAVotes + voteResult.trackBVotes;
           const pctA = totalVotes > 0 ? Math.round((voteResult.trackAVotes / totalVotes) * 100) : 50;
           const pctB = totalVotes > 0 ? 100 - pctA : 50;
-          const nexiWin = votedId != null && votedId === voteResult.winnerId;
           return (
           <motion.div
             key="result"
@@ -1169,10 +1141,7 @@ export function Battle() {
                       </span>
                     )}
                   </div>
-                  <span className="text-sm font-bold text-white inline-flex items-center" data-testid="text-result-pct-a">
-                    {pctA}%
-                    {nexiWin && voteResult.winnerId === battle.trackAId && <NexiVictoryDance />}
-                  </span>
+                  <span className="text-sm font-bold text-white" data-testid="text-result-pct-a">{pctA}%</span>
                 </div>
                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                   <motion.div
@@ -1197,10 +1166,7 @@ export function Battle() {
                       </span>
                     )}
                   </div>
-                  <span className="text-sm font-bold text-white inline-flex items-center" data-testid="text-result-pct-b">
-                    {pctB}%
-                    {nexiWin && voteResult.winnerId === battle.trackBId && <NexiVictoryDance />}
-                  </span>
+                  <span className="text-sm font-bold text-white" data-testid="text-result-pct-b">{pctB}%</span>
                 </div>
                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                   <motion.div
