@@ -258,6 +258,87 @@
   width: 100%;
 }
 
+.nexi-peek-layer {
+  position: absolute;
+  top: 38%;
+  z-index: 40;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nexi-peek-right {
+  right: -14px;
+  flex-direction: row-reverse;
+}
+
+.nexi-peek-left {
+  left: -14px;
+}
+
+.nexi-peek-img {
+  width: 72px;
+  height: auto;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+  user-select: none;
+}
+
+.nexi-peek-right .nexi-peek-img {
+  transform: scaleX(-1);
+}
+
+.nexi-speech-bubble {
+  background: hsla(240, 10%, 8%, 0.95);
+  border: 1px solid hsla(189, 100%, 50%, 0.4);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 8px 12px;
+  border-radius: 14px;
+  max-width: 130px;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 16px hsla(189, 100%, 50%, 0.15);
+  white-space: normal;
+}
+
+.nexi-victory-dance {
+  display: inline-flex;
+  align-items: flex-end;
+  margin-left: 6px;
+}
+
+.nexi-dance-img {
+  width: 30px;
+  height: auto;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+  user-select: none;
+}
+
+.nexi-thumbs-up {
+  font-size: 15px;
+  margin-left: 2px;
+  transform: translateY(-3px);
+}
+
+@media (max-width: 768px) {
+  .nexi-peek-img {
+    width: 52px;
+  }
+  .nexi-speech-bubble {
+    font-size: 9.5px;
+    max-width: 96px;
+    padding: 6px 9px;
+  }
+  .nexi-peek-right {
+    right: -8px;
+  }
+  .nexi-peek-left {
+    left: -8px;
+  }
+}
+
 .battle-reveal-text {
   filter: blur(0);
   opacity: 1;
