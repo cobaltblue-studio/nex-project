@@ -1,7 +1,11 @@
 import { motion, AnimatePresence } from "framer-motion";
 
-/** Base NEXI character art (confirmed front-facing pose). Reused across all appearances for now. */
-const NEXI_IMG = "/nexi/nexi-front.png";
+const NEXI_FRONT_IMG = "/nexi/nexi-front.png";
+/** Dedicated peeking-around-the-edge poses (not mirrored, so the NEXI wordmark stays readable). */
+const NEXI_PEEK_IMG: Record<"left" | "right", string> = {
+  left: "/nexi/nexi-peek-left.png",
+  right: "/nexi/nexi-peek-right.png",
+};
 
 export const NEXI_TRACK_A_LINES = [
   "오, 이 트랙 분위기 있는데?",
@@ -23,7 +27,7 @@ interface NexiPeekProps {
   message: string;
 }
 
-/** NEXI peeking in from the edge of the battle stage with a one-line speech bubble. */
+/** NEXI popping up from behind the battle frame's edge, gripping it, with an idle wobble so it feels alive. */
 export function NexiPeek({ active, side, message }: NexiPeekProps) {
   return (
     <AnimatePresence>
@@ -31,14 +35,27 @@ export function NexiPeek({ active, side, message }: NexiPeekProps) {
         <motion.div
           key={`${side}-${message}`}
           className={`nexi-peek-layer nexi-peek-${side}`}
-          initial={{ x: side === "right" ? 70 : -70, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: side === "right" ? 70 : -70, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 260, damping: 22 }}
+          initial={{ y: 46, opacity: 0, rotate: side === "right" ? 8 : -8 }}
+          animate={{
+            y: [46, -6, 0, -4, 0],
+            opacity: 1,
+            rotate: [side === "right" ? 8 : -8, 0, -3, 2, 0],
+          }}
+          exit={{ y: 46, opacity: 0, transition: { duration: 0.22, ease: "easeIn" } }}
+          transition={{
+            y: { duration: 0.9, times: [0, 0.45, 0.65, 0.85, 1], ease: "easeOut" },
+            rotate: { duration: 1.6, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" },
+            opacity: { duration: 0.25 },
+          }}
           aria-hidden
         >
           <div className="nexi-speech-bubble">{message}</div>
-          <img src={NEXI_IMG} alt="" className="nexi-peek-img" draggable={false} />
+          <img
+            src={NEXI_PEEK_IMG[side]}
+            alt=""
+            className="nexi-peek-img"
+            draggable={false}
+          />
         </motion.div>
       )}
     </AnimatePresence>
@@ -55,7 +72,7 @@ export function NexiVictoryDance() {
       transition={{ type: "spring", stiffness: 320, damping: 16 }}
     >
       <motion.img
-        src={NEXI_IMG}
+        src={NEXI_FRONT_IMG}
         alt="NEXI"
         className="nexi-dance-img"
         draggable={false}

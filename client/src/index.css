@@ -260,32 +260,33 @@
 
 .nexi-peek-layer {
   position: absolute;
-  top: 38%;
-  z-index: 40;
+  top: 6%;
+  z-index: 12;
   pointer-events: none;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.battle-player-container {
+  position: relative;
+  z-index: 20;
 }
 
 .nexi-peek-right {
-  right: -14px;
+  right: -34px;
   flex-direction: row-reverse;
 }
 
 .nexi-peek-left {
-  left: -14px;
+  left: -34px;
 }
 
 .nexi-peek-img {
-  width: 72px;
+  width: 118px;
   height: auto;
   filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
   user-select: none;
-}
-
-.nexi-peek-right .nexi-peek-img {
-  transform: scaleX(-1);
 }
 
 .nexi-speech-bubble {
@@ -324,7 +325,7 @@
 
 @media (max-width: 768px) {
   .nexi-peek-img {
-    width: 52px;
+    width: 76px;
   }
   .nexi-speech-bubble {
     font-size: 9.5px;
@@ -332,10 +333,10 @@
     padding: 6px 9px;
   }
   .nexi-peek-right {
-    right: -8px;
+    right: -20px;
   }
   .nexi-peek-left {
-    left: -8px;
+    left: -20px;
   }
 }
 
