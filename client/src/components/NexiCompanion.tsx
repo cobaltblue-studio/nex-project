@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
 /**
@@ -21,6 +22,14 @@ import { AnimatePresence, motion } from "framer-motion";
  *     cannot be clipped by a parent again. This also makes it trivial to reuse on
  *     any other page later (Upload, Comments, 404, etc.) — see CBSU-HOME-076 /
  *     the NEXI Character Bible for the "NEXI is everywhere" concept this scaffolds.
+ *
+ * v2.1 fix (same day, after first live check on nexmusic.ai/battle): `position:fixed`
+ * was still rendering tiny and clipped at the right edge. Root cause: Layout.tsx's
+ * root wrapper is `min-h-screen relative overflow-x-hidden` — an `overflow-x:hidden`
+ * ancestor can visually clip `fixed` descendants in real browsers even though the
+ * CSS spec says only transform/filter/perspective/contain create a new containing
+ * block for them. Fix: mount via a React portal straight into `document.body`, so
+ * NEXI's DOM node is never a descendant of that wrapper at all.
  *
  * Scope for this pass: Battle screen only, wired via the `mood` prop. NEXI does not
  * explain features or judge tracks — per the NEXI golden rule, it is a small witness
@@ -68,7 +77,7 @@ export function NexiCompanion({ mood = "idle" }: { mood?: NexiMood }) {
 
   const excited = mood === "excited";
 
-  return (
+  return createPortal(
     <div className="nexi-companion">
       <AnimatePresence>
         {bubbleVisible && (
@@ -116,6 +125,7 @@ export function NexiCompanion({ mood = "idle" }: { mood?: NexiMood }) {
           draggable={false}
         />
       </motion.button>
-    </div>
+    </div>,
+    document.body,
   );
 }
