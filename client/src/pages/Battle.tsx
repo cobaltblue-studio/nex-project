@@ -30,7 +30,7 @@ import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamin
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
-import { NexiCompanion, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
+import { NexiCompanion, type NexiAnchor, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
 import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
 import { useTranslation } from "react-i18next";
@@ -449,14 +449,26 @@ export function Battle() {
 
   /**
    * NEXI companion cue system — fires a short on/off-stage "beat" at meaningful
-   * phase transitions instead of showing a persistently-visible widget. See
-   * client/src/components/NexiCompanion.tsx for the performance/pseudo-language design.
+   * phase transitions instead of showing a persistently-visible widget. Each beat
+   * is anchored to whatever's actually happening on screen (the VS label, the
+   * player card, the winning percentage) rather than a fixed corner — see
+   * client/src/components/NexiCompanion.tsx for the performance/anchoring design.
    */
   const [nexiCue, setNexiCue] = useState<NexiCue | null>(null);
   const nexiNonceRef = useRef(0);
-  const fireNexiCue = useCallback((type: NexiCueType) => {
+  const vsLabelRef = useRef<HTMLDivElement | null>(null);
+  const trackStageRef = useRef<HTMLDivElement | null>(null);
+  const pctARef = useRef<HTMLSpanElement | null>(null);
+  const pctBRef = useRef<HTMLSpanElement | null>(null);
+
+  const fireNexiCue = useCallback((type: NexiCueType, targetEl?: HTMLElement | null) => {
     nexiNonceRef.current += 1;
-    setNexiCue({ type, nonce: nexiNonceRef.current });
+    let anchor: NexiAnchor | undefined;
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      anchor = { x: rect.right, y: rect.top };
+    }
+    setNexiCue({ type, nonce: nexiNonceRef.current, anchor });
   }, []);
 
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
@@ -701,10 +713,16 @@ export function Battle() {
   useEffect(() => {
     if (phase === "genre-select") fireNexiCue("hello");
     else if (phase === "loading") fireNexiCue("curious");
-    else if (phase === "track-a" || phase === "track-b") fireNexiCue("listening");
-    else if (phase === "vote") fireNexiCue("unlock");
-    else if (phase === "result") fireNexiCue("victory");
+    else if (phase === "track-a" || phase === "track-b") fireNexiCue("listening", trackStageRef.current);
+    else if (phase === "vote") fireNexiCue("unlock", vsLabelRef.current);
   }, [phase, fireNexiCue]);
+
+  /** Victory beat needs voteResult to know which side won, so it's a separate effect. */
+  useEffect(() => {
+    if (phase !== "result" || !voteResult || !battle) return;
+    const winnerEl = voteResult.winnerId === battle.trackAId ? pctARef.current : pctBRef.current;
+    fireNexiCue("victory", winnerEl);
+  }, [phase, voteResult, battle, fireNexiCue]);
 
   useEffect(() => {
     if (!battle) return;
@@ -983,7 +1001,7 @@ export function Battle() {
                 </div>
               ) : null;
             })()}
-            <div className="battle-stage-frame">
+            <div className="battle-stage-frame" ref={trackStageRef}>
               <BattleTrackPlayer
                 key={`battle-${battle.id}-a-${listenReplayA}`}
                 track={battle.trackA}
@@ -997,7 +1015,7 @@ export function Battle() {
         )}
 
         {phase === "vote" && (
-          <div className="flex justify-center items-center my-1 md:my-3">
+          <div className="flex justify-center items-center my-1 md:my-3" ref={vsLabelRef}>
             <div
               className="text-xl md:text-3xl font-display font-black italic text-primary tracking-wider cursor-default select-none vs-glitch"
               data-testid="text-vs-label"
@@ -1016,7 +1034,7 @@ export function Battle() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35 }}
           >
-            <div className="battle-stage-frame">
+            <div className="battle-stage-frame" ref={trackStageRef}>
               <BattleTrackPlayer
                 key={`battle-${battle.id}-b-${listenReplayB}`}
                 track={battle.trackB}
@@ -1164,7 +1182,7 @@ export function Battle() {
                       </span>
                     )}
                   </div>
-                  <span className="text-sm font-bold text-white" data-testid="text-result-pct-a">{pctA}%</span>
+                  <span className="text-sm font-bold text-white" data-testid="text-result-pct-a" ref={pctARef}>{pctA}%</span>
                 </div>
                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                   <motion.div
@@ -1189,7 +1207,7 @@ export function Battle() {
                       </span>
                     )}
                   </div>
-                  <span className="text-sm font-bold text-white" data-testid="text-result-pct-b">{pctB}%</span>
+                  <span className="text-sm font-bold text-white" data-testid="text-result-pct-b" ref={pctBRef}>{pctB}%</span>
                 </div>
                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                   <motion.div
