@@ -30,6 +30,7 @@ import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamin
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { NexiCompanion, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
 import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
 import { useTranslation } from "react-i18next";
@@ -446,6 +447,18 @@ export function Battle() {
   const [showSharePopup, setShowSharePopup] = useState(false);
   const countedImpressionsRef = useRef<Set<string>>(new Set());
 
+  /**
+   * NEXI companion cue system — fires a short on/off-stage "beat" at meaningful
+   * phase transitions instead of showing a persistently-visible widget. See
+   * client/src/components/NexiCompanion.tsx for the performance/pseudo-language design.
+   */
+  const [nexiCue, setNexiCue] = useState<NexiCue | null>(null);
+  const nexiNonceRef = useRef(0);
+  const fireNexiCue = useCallback((type: NexiCueType) => {
+    nexiNonceRef.current += 1;
+    setNexiCue({ type, nonce: nexiNonceRef.current });
+  }, []);
+
   const { data: dailyCount } = useQuery<{ count: number; dailyMax: number }>({
     queryKey: ["/api/battles/daily-count"],
     enabled: isAuthenticated,
@@ -684,6 +697,15 @@ export function Battle() {
     }
   }, [phase, votedId, voteResult]);
 
+  /** NEXI beat triggers — one short performance per meaningful phase transition, never a loop. */
+  useEffect(() => {
+    if (phase === "genre-select") fireNexiCue("hello");
+    else if (phase === "loading") fireNexiCue("curious");
+    else if (phase === "track-a" || phase === "track-b") fireNexiCue("listening");
+    else if (phase === "vote") fireNexiCue("unlock");
+    else if (phase === "result") fireNexiCue("victory");
+  }, [phase, fireNexiCue]);
+
   useEffect(() => {
     if (!battle) return;
     const visibleTrackId =
@@ -778,6 +800,7 @@ export function Battle() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <NexiCompanion cue={nexiCue} />
       <div className="mb-6">
         <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">

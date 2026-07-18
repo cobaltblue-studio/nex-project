@@ -318,6 +318,100 @@
   }
 }
 
+/* ---------------------------------------------------------------------- */
+/* NEXI companion — event-driven beat stage (see NexiCompanion.tsx).      */
+/* Rendered via React Portal into document.body to escape Layout.tsx's    */
+/* overflow-x:hidden wrapper, which visually clips position:fixed         */
+/* descendants in real browsers. pointer-events:none throughout so NEXI   */
+/* can never block a tap on a vote card underneath it.                   */
+/* ---------------------------------------------------------------------- */
+.nexi-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.nexi-stage-actor {
+  position: absolute;
+  right: 14px;
+  bottom: calc(65px + env(safe-area-inset-bottom) + 14px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform-origin: center bottom;
+}
+
+.nexi-stage-img {
+  width: 88px;
+  height: auto;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+  will-change: transform;
+}
+
+.nexi-burst-text {
+  font-family: var(--font-display, inherit);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: #05070a;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transform: rotate(-3deg);
+}
+
+.nexi-burst-hello {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+.nexi-burst-curious {
+  background: #d6f5ff;
+  color: #043a4a;
+}
+
+.nexi-burst-listening {
+  background: #eaffea;
+  color: #0f3d1a;
+}
+
+.nexi-burst-unlock {
+  background: hsl(189, 100%, 55%);
+  color: #04222a;
+  transform: rotate(3deg);
+}
+
+.nexi-burst-victory {
+  background: linear-gradient(90deg, #ffd23f, #ff9f43);
+  color: #3a1a00;
+  font-size: 15px;
+  transform: rotate(-4deg);
+}
+
+@media (min-width: 768px) {
+  .nexi-stage-actor {
+    right: 28px;
+    bottom: 28px;
+  }
+
+  .nexi-stage-img {
+    width: 150px;
+  }
+
+  .nexi-burst-text {
+    font-size: 16px;
+    padding: 5px 14px;
+  }
+
+  .nexi-burst-victory {
+    font-size: 19px;
+  }
+}
+
 @media (max-width: 768px) {
   h1, h2 {
     font-size: 70%;
