@@ -1,5 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { apiMsg } from "./api-i18n";
 import { canonicalHostRedirect } from "./canonicalHost";
 import { registerNexFaviconRoutes } from "./favicon";
@@ -8,6 +10,57 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
+const isProductionBoot = process.env.NODE_ENV === "production";
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // SPA + third-party players; tighten later
+    crossOriginEmbedderPolicy: false,
+    hsts: isProductionBoot ? { maxAge: 15552000, includeSubDomains: true } : false,
+  }),
+);
+
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 180,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many requests. Please try again later." },
+});
+const authLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many auth attempts. Please try again later." },
+});
+const resolveLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many resolve requests. Please try again later." },
+});
+const writeLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many writes. Please try again later." },
+});
+app.use("/api/", apiLimiter);
+app.use("/api/auth/", authLimiter);
+app.use("/api/login", authLimiter);
+app.use("/api/suno/resolve", resolveLimiter);
+app.use("/api/soundcloud/resolve", resolveLimiter);
+app.use("/api/analytics/event", writeLimiter);
+app.use("/api/boost/increment-impression", writeLimiter);
+app.use((req, res, next) => {
+  if (req.method === "POST" && /\/api\/tracks\/[^/]+\/claim-instant\/?$/.test(req.path)) {
+    return writeLimiter(req, res, next);
+  }
+  next();
+});
 
 /** Must run before static — blocks legacy Replit /favicon.ico in dist. */
 registerNexFaviconRoutes(app);
@@ -51,6 +104,7 @@ declare module "http" {
 
 app.use(
   express.json({
+    limit: "256kb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },

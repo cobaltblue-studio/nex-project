@@ -129,13 +129,16 @@ async function directLoginForLocalDev(
     const lastName = typeof req.query.lastName === "string" ? req.query.lastName.trim() : "Developer";
     const email = `${uid}@local.dev`;
 
-    await storage.upsertOAuthUser({
-      id: uid,
-      email,
-      firstName,
-      lastName,
-      profileImageUrl: null,
-    });
+    await storage.upsertOAuthUser(
+      {
+        id: uid,
+        email,
+        firstName,
+        lastName,
+        profileImageUrl: null,
+      },
+      { mergeEmailConflicts: true },
+    );
     void storage.recordUserLogin(uid).catch(() => {});
     const profile = await ensureDevProfile(uid, role);
     const persistedUser = await storage.getUserById(uid);
@@ -221,8 +224,15 @@ async function resolvePostLoginRedirect(user: SessionUser): Promise<string> {
 
 async function sessionUserMayAccessAdmin(user: SessionUser): Promise<boolean> {
   if (!user.id) return false;
+  const adminSubs = new Set(
+    (process.env.NEX_FOUNDER_ADMIN_USER_IDS || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+  if (adminSubs.has(String(user.id))) return true;
   if (isFounderAdminEmail(user.email, founderEmailForEnv())) return true;
-  // In production only the founder mailbox is admin (same rule as routes.isAdmin).
+  // In production only the founder mailbox / sub allowlist is admin (same rule as routes.isAdmin).
   if (process.env.NODE_ENV === "production") return false;
   const profile = await storage.getProfileByUserId(String(user.id));
   return profile?.role === "admin";
@@ -463,13 +473,16 @@ export function registerAuthRoutes(app: Express) {
             return res.redirect(`${getPublicOrigin(req)}/?authError=oauth_email_required`);
           }
 
-          await storage.upsertOAuthUser({
-            id: user.id,
-            email: oauthEmail,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            profileImageUrl: user.profileImageUrl,
-          });
+          await storage.upsertOAuthUser(
+            {
+              id: user.id,
+              email: oauthEmail,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              profileImageUrl: user.profileImageUrl,
+            },
+            { mergeEmailConflicts: true },
+          );
           void storage.recordUserLogin(user.id).catch(() => {});
 
           // Session fixation: regenerate once, then req.login + persist session before redirect.

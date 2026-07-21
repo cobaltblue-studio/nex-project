@@ -93,10 +93,11 @@ export async function fetchSunoSongDurationSeconds(songUuid: string): Promise<nu
   try {
     const res = await fetch(`https://suno.com/song/${uuid}`, {
       method: "GET",
-      redirect: "follow",
+      redirect: "manual",
       signal: controller.signal,
       headers: SUNO_FETCH_HEADERS,
     });
+    if (res.status >= 300 && res.status < 400) return null;
     if (!res.ok) return null;
     const html = await res.text();
     return parseSunoDurationSecondsFromHtml(html);
@@ -107,18 +108,51 @@ export async function fetchSunoSongDurationSeconds(songUuid: string): Promise<nu
   }
 }
 
+async function fetchSunoAllowlisted(
+  startUrl: string,
+  signal: AbortSignal,
+): Promise<{ finalUrl: string; html: string } | null> {
+  let current = startUrl;
+  for (let hop = 0; hop < 5; hop++) {
+    const res = await fetch(current, {
+      method: "GET",
+      redirect: "manual",
+      signal,
+      headers: SUNO_FETCH_HEADERS,
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) return null;
+      let nextUrl: URL;
+      try {
+        nextUrl = new URL(loc, current);
+      } catch {
+        return null;
+      }
+      if (nextUrl.protocol !== "https:") return null;
+      if (!isAllowedSunoFetchHost(nextUrl.hostname)) return null;
+      current = nextUrl.href;
+      continue;
+    }
+    if (!res.ok) return null;
+    const html = await res.text();
+    return { finalUrl: res.url || current, html };
+  }
+  return null;
+}
+
 export async function resolveSunoShareToSongUuid(inputUrl: string): Promise<string | null> {
   let parsed: URL;
   try {
     const raw = inputUrl.trim();
     if (!raw) return null;
-    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const normalized = (/^https?:\/\//i.test(raw) ? raw : `https://${raw}`).replace(/^http:\/\//i, "https://");
     parsed = new URL(normalized);
   } catch {
     return null;
   }
 
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  if (parsed.protocol !== "https:") return null;
   if (!isAllowedSunoFetchHost(parsed.hostname)) return null;
 
   const cacheKey = parsed.href.trim().toLowerCase();
@@ -134,19 +168,14 @@ export async function resolveSunoShareToSongUuid(inputUrl: string): Promise<stri
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
-    const res = await fetch(parsed.href, {
-      method: "GET",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: SUNO_FETCH_HEADERS,
-    });
-    const fromFinalUrl = extractSunoSongUuidFromUrlString(res.url);
+    const fetched = await fetchSunoAllowlisted(parsed.href, controller.signal);
+    if (!fetched) return null;
+    const fromFinalUrl = extractSunoSongUuidFromUrlString(fetched.finalUrl);
     if (fromFinalUrl) {
       cacheResolvedUuid(cacheKey, fromFinalUrl);
       return fromFinalUrl;
     }
-    const html = await res.text();
-    const fromHtml = parseSunoSongUuidFromHtml(html);
+    const fromHtml = parseSunoSongUuidFromHtml(fetched.html);
     if (fromHtml) cacheResolvedUuid(cacheKey, fromHtml);
     return fromHtml;
   } catch {

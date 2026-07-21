@@ -16,3 +16,4 @@ vite.config.ts.*
 ngrok.zip
 .cursor/
 exports/
+.vercel

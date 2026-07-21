@@ -64,6 +64,24 @@ import { isCommunityCategorySlug } from "@shared/community";
 import { rejectArtisticIntent } from "./artisticIntent";
 import { describePlaybackIssue, inspectTrackPlaybackAvailability } from "./media-availability";
 
+
+function stripCommunityAuthorUserId<T extends { authorUserId?: unknown }>(
+  row: T,
+  keep: boolean,
+): Omit<T, "authorUserId"> | T {
+  if (keep) return row;
+  const { authorUserId: _a, ...rest } = row as T & { authorUserId?: unknown };
+  return rest as Omit<T, "authorUserId">;
+}
+
+const PUBLIC_TRACK_VIEW_STATUSES = new Set([
+  "MV",
+  "BATTLE_POOL",
+  "PUBLISHED",
+  "APPROVED",
+  "CHART",
+]);
+
 function getUserId(req: any): string {
   return String(req.user?.id ?? req.user?.claims?.sub ?? "");
 }
@@ -77,8 +95,10 @@ function getPostgresSqlStateFromErr(err: unknown): string | undefined {
   return undefined;
 }
 
-/** Ensure `users` row exists before likes/plays (avoids FK 500 on fresh OAuth sessions). */
-async function persistSessionUser(req: any, overrides?: { email?: string | null }): Promise<string> {
+/** Ensure `users` row exists before likes/plays (avoids FK 500 on fresh OAuth sessions).
+ * Never accepts client-supplied email — contactEmail must not drive account merge/admin.
+ */
+async function persistSessionUser(req: any): Promise<string> {
   const userId = getUserId(req);
   if (!userId) return "";
   const u = req.user as {
@@ -88,9 +108,10 @@ async function persistSessionUser(req: any, overrides?: { email?: string | null 
     profileImageUrl?: string | null;
   };
   try {
+    // mergeEmailConflicts defaults false — session actions must not absorb other accounts.
     await storage.upsertOAuthUser({
       id: userId,
-      email: overrides?.email ?? u?.email ?? null,
+      email: u?.email ?? null,
       firstName: u?.firstName ?? null,
       lastName: u?.lastName ?? null,
       profileImageUrl: u?.profileImageUrl ?? null,
@@ -99,7 +120,7 @@ async function persistSessionUser(req: any, overrides?: { email?: string | null 
     console.warn("[auth] upsertOAuthUser before action failed", err?.message);
     await storage.createUser({
       id: userId,
-      email: overrides?.email ?? u?.email ?? null,
+      email: u?.email ?? null,
       firstName: u?.firstName ?? null,
       lastName: u?.lastName ?? null,
       profileImageUrl: u?.profileImageUrl ?? null,
@@ -132,11 +153,21 @@ function founderEnvEmail(): string {
   return (process.env.NEX_FOUNDER_ADMIN_EMAIL || NEX_FOUNDER_ADMIN_EMAIL).trim().toLowerCase();
 }
 
+function founderAdminUserIds(): Set<string> {
+  return new Set(
+    (process.env.NEX_FOUNDER_ADMIN_USER_IDS || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
 /** Founder Google account is always admin; in non-production, any DB `admin` profile still counts (local dev). */
 async function isAdmin(req: any): Promise<boolean> {
+  const userId = getUserId(req);
+  if (userId && founderAdminUserIds().has(userId)) return true;
   const email = getUserEmail(req);
   if (isFounderAdminEmail(email, founderEnvEmail())) return true;
-  const userId = getUserId(req);
   if (!userId) return false;
   const p = await storage.getProfileByUserId(userId);
   if (p?.role === "admin") {
@@ -360,7 +391,7 @@ export async function registerRoutes(
       viewerUserId: viewerUserId || null,
       includeHidden,
     });
-    res.json(rows);
+    res.json(rows.map((row) => stripCommunityAuthorUserId(row, includeHidden)));
   });
 
   app.post("/api/community/posts", isAuthenticated, async (req: any, res) => {
@@ -429,7 +460,7 @@ export async function registerRoutes(
     if (post.hiddenAt && !admin && post.authorUserId !== viewerUserId) {
       return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
     }
-    res.json(post);
+    res.json(stripCommunityAuthorUserId(post, admin));
   });
 
   app.post("/api/community/posts/:id/like", isAuthenticated, async (req: any, res) => {
@@ -469,7 +500,7 @@ export async function registerRoutes(
       return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
     }
     const rows = await storage.listCommunityComments(postId, { includeHidden: admin });
-    res.json(rows);
+    res.json(rows.map((row) => stripCommunityAuthorUserId(row, admin)));
   });
 
   app.post("/api/community/posts/:id/comments", isAuthenticated, async (req: any, res) => {
@@ -666,8 +697,20 @@ export async function registerRoutes(
     }
     const profile = await storage.getProfile(profileId);
     if (!profile) return res.status(404).json({ message: apiMsg("프로필을 찾을 수 없습니다", "Profile not found") });
-    const ts = await storage.getTracksByCreator(profileId);
-    const trackIds = ts.map((t) => t.id);
+    const allTs = await storage.getTracksByCreator(profileId);
+    const uid = (req as any).user ? getUserId(req as any) : "";
+    let includePrivate = false;
+    if (uid) {
+      if (await isAdmin(req as any)) includePrivate = true;
+      else {
+        const viewer = await storage.getProfileByUserId(uid);
+        if (viewer && viewer.id === profileId) includePrivate = true;
+      }
+    }
+    const ts = includePrivate
+      ? allTs
+      : allTs.filter((t: { status?: string }) => PUBLIC_TRACK_VIEW_STATUSES.has(String(t.status ?? "")));
+    const trackIds = ts.map((t: { id: number }) => t.id);
     const battleStats = await storage.getBattleStatsForTracks(trackIds);
     const formatted = ts.map((t) =>
       sanitizePublicTrack({
@@ -943,9 +986,52 @@ export async function registerRoutes(
       return;
     }
 
-    const userId = await persistSessionUser(req, {
-      email: contactEmail || undefined,
-    });
+    const userId = await persistSessionUser(req);
+    if (contactEmail) {
+      const forbidden = [
+        founderEnvEmail(),
+        ...(process.env.NEX_FOUNDER_ADMIN_EMAIL || NEX_FOUNDER_ADMIN_EMAIL)
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean),
+      ];
+      const set = await storage.trySetContactEmailNoMerge(userId, contactEmail, {
+        forbiddenEmails: forbidden,
+      });
+      if (!set.ok) {
+        if (set.reason === "forbidden") {
+          res.status(403).json({
+            code: "CONTACT_EMAIL_FORBIDDEN",
+            message: apiMsg(
+              "이 이메일은 연락처로 사용할 수 없습니다",
+              "This email cannot be used as a contact address",
+            ),
+          });
+          return;
+        }
+        if (set.reason === "taken") {
+          res.status(409).json({
+            code: "CONTACT_EMAIL_TAKEN",
+            message: apiMsg(
+              "이미 다른 계정에 등록된 이메일입니다. 해당 Google 계정으로 로그인해 주세요",
+              "That email is already linked to another account. Sign in with that Google account instead.",
+            ),
+          });
+          return;
+        }
+        res.status(400).json({
+          code: "INVALID_CONTACT_EMAIL",
+          message: apiMsg(
+            "연락 가능한 실제 이메일 주소를 입력해 주세요",
+            "Please enter a real, reachable email address",
+          ),
+        });
+        return;
+      }
+      if (req.user) {
+        (req.user as { email?: string | null }).email = contactEmail;
+      }
+    }
     const p = await storage.getProfileByUserId(userId);
     if (!p) {
       res.status(403).json({ message: apiMsg("프로필이 필요합니다", "Profile required") });
@@ -1168,6 +1254,22 @@ export async function registerRoutes(
     const trackId = Number(req.params.id);
     const t = await storage.getTrack(trackId);
     if (!t) return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+    const status = String((t as { status?: string }).status ?? "");
+    if (!PUBLIC_TRACK_VIEW_STATUSES.has(status)) {
+      const uid = req.user ? getUserId(req) : "";
+      let allowed = false;
+      if (uid) {
+        if (await isAdmin(req)) allowed = true;
+        else {
+          const viewer = await storage.getProfileByUserId(uid);
+          const creatorId = Number((t as { creatorId?: number }).creatorId);
+          if (viewer && viewer.id === creatorId) allowed = true;
+        }
+      }
+      if (!allowed) {
+        return res.status(404).json({ message: apiMsg("트랙을 찾을 수 없습니다", "Track not found") });
+      }
+    }
     const playCount = publicTrackPlayCount(t as { playCount?: number; playsCount?: number });
     const base = sanitizeTrackDetailForPublic({
       ...(t as Record<string, unknown>),
@@ -2285,13 +2387,27 @@ export async function registerRoutes(
     if (!(await isAdmin(req))) {
       return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
     }
-    const to =
-      (typeof req.body?.to === "string" && req.body.to.trim()) ||
-      getUserEmail(req) ||
-      process.env.NEX_FOUNDER_ADMIN_EMAIL?.trim();
+    const requested = typeof req.body?.to === "string" ? req.body.to.trim() : "";
+    const self = getUserEmail(req)?.trim() || "";
+    const founder = founderEnvEmail();
+    const to = requested || self || founder;
     if (!to) {
       return res.status(400).json({
         message: apiMsg("수신 이메일 주소가 필요합니다", "Recipient email is required"),
+      });
+    }
+    const allowed = new Set(
+      [self, founder, ...(process.env.NEX_FOUNDER_ADMIN_EMAIL || "")
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)].map((s) => s.toLowerCase()).filter(Boolean),
+    );
+    if (!allowed.has(to.toLowerCase())) {
+      return res.status(403).json({
+        message: apiMsg(
+          "테스트 메일은 본인 또는 창업자 메일로만 보낼 수 있습니다",
+          "Test emails may only be sent to your address or the founder mailbox",
+        ),
       });
     }
     const result = await sendTestEmail(to);

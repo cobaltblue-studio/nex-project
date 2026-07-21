@@ -3,7 +3,8 @@ import { normalizeSoundCloudPermalink } from "@shared/soundcloudPermalink";
 function normalizeInputUrl(raw: string): string | null {
   const t = raw.trim();
   if (!t) return null;
-  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  return withScheme.replace(/^http:\/\//i, "https://");
 }
 
 function isAllowedSoundCloudHost(host: string): boolean {
@@ -28,21 +29,39 @@ export async function resolveSoundCloudShareToPermalink(inputUrl: string): Promi
     return null;
   }
 
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  if (parsed.protocol !== "https:") return null;
   if (!isAllowedSoundCloudHost(parsed.hostname)) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
-    const res = await fetch(parsed.href, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "NEX-Music-Platform/1.0 (+https://nexmusic.ai)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-    return normalizeSoundCloudPermalink(res.url);
+    let current = parsed.href;
+    for (let hop = 0; hop < 5; hop++) {
+      const res = await fetch(current, {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "NEX-Music-Platform/1.0 (+https://nexmusic.ai)",
+          Accept: "text/html,application/xhtml+xml",
+        },
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get("location");
+        if (!loc) return null;
+        let nextUrl: URL;
+        try {
+          nextUrl = new URL(loc, current);
+        } catch {
+          return null;
+        }
+        if (nextUrl.protocol !== "https:") return null;
+        if (!isAllowedSoundCloudHost(nextUrl.hostname)) return null;
+        current = nextUrl.href;
+        continue;
+      }
+      return normalizeSoundCloudPermalink(res.url || current);
+    }
+    return null;
   } catch {
     return null;
   } finally {

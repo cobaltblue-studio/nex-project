@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import {
   users,
   profiles,
@@ -301,13 +302,25 @@ export interface IStorage {
   getProfileByUserId(userId: string): Promise<Profile | undefined>;
   createUser(u: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<any>;
   getUserById(id: string): Promise<User | undefined>;
-  upsertOAuthUser(u: {
-    id: string;
-    email?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-    profileImageUrl?: string | null;
-  }): Promise<void>;
+  upsertOAuthUser(
+    u: {
+      id: string;
+      email?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      profileImageUrl?: string | null;
+    },
+    opts?: { mergeEmailConflicts?: boolean },
+  ): Promise<void>;
+  /**
+   * Set a deliverable contact email without merging accounts.
+   * Refuses founder-admin mailbox and any email already owned by another user.
+   */
+  trySetContactEmailNoMerge(
+    userId: string,
+    email: string,
+    opts?: { forbiddenEmails?: string[] },
+  ): Promise<{ ok: true } | { ok: false; reason: "forbidden" | "taken" | "invalid" | "not_found" }>;
   recordUserLogin(userId: string): Promise<void>;
   recordUserVisit(userId: string): Promise<void>;
   listAdminUserActivitySummary(): Promise<
@@ -967,18 +980,23 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async upsertOAuthUser(u: {
-    id: string;
-    email?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-    profileImageUrl?: string | null;
-  }): Promise<void> {
+  async upsertOAuthUser(
+    u: {
+      id: string;
+      email?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      profileImageUrl?: string | null;
+    },
+    opts?: { mergeEmailConflicts?: boolean },
+  ): Promise<void> {
     const emailNorm = u.email != null && String(u.email).trim() !== "" ? String(u.email).trim().toLowerCase() : null;
+    const mergeEmailConflicts = opts?.mergeEmailConflicts === true;
 
     /**
      * Move all rows pointing at `fromId` to `toId`, then delete `fromId`.
      * `toId` must already exist in `users` (FK targets profiles, likes, …).
+     * Only used when Google OAuth verified the email (mergeEmailConflicts).
      */
     const mergeUserId = async (fromId: string, toId: string) => {
       if (fromId === toId) return;
@@ -1070,8 +1088,8 @@ export class DatabaseStorage implements IStorage {
         },
       });
 
-    // 2) Merge any other user rows that already use this email into u.id (must run before final email update).
-    if (emailNorm) {
+    // 2) Merge only when Google OAuth verified this email (never for client-supplied contactEmail).
+    if (emailNorm && mergeEmailConflicts) {
       const conflicts = await db
         .select()
         .from(users)
@@ -1082,17 +1100,70 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // 3) Safe to set email: no other row can still hold this unique value.
+    // 3) Set email when free; if conflict remains (no merge), keep prior email on this row.
+    if (emailNorm) {
+      const [conflict] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(ne(users.id, u.id), sql`lower(trim(coalesce(${users.email}, ''))) = ${emailNorm}`))
+        .limit(1);
+      if (!conflict) {
+        await db
+          .update(users)
+          .set({
+            email: emailNorm,
+            firstName: u.firstName ?? null,
+            lastName: u.lastName ?? null,
+            profileImageUrl: u.profileImageUrl ?? null,
+            updatedAt: sql`now()`,
+          })
+          .where(eq(users.id, u.id));
+        return;
+      }
+    }
+
     await db
       .update(users)
       .set({
-        email: emailNorm ?? u.email ?? null,
         firstName: u.firstName ?? null,
         lastName: u.lastName ?? null,
         profileImageUrl: u.profileImageUrl ?? null,
         updatedAt: sql`now()`,
       })
       .where(eq(users.id, u.id));
+  }
+
+  async trySetContactEmailNoMerge(
+    userId: string,
+    email: string,
+    opts?: { forbiddenEmails?: string[] },
+  ): Promise<{ ok: true } | { ok: false; reason: "forbidden" | "taken" | "invalid" | "not_found" }> {
+    const id = String(userId ?? "").trim();
+    const emailNorm = String(email ?? "").trim().toLowerCase();
+    if (!id) return { ok: false, reason: "not_found" };
+    if (!emailNorm || !emailNorm.includes("@") || emailNorm.endsWith("@artist.local") || emailNorm.endsWith("@neo.ai")) {
+      return { ok: false, reason: "invalid" };
+    }
+    const forbidden = new Set(
+      (opts?.forbiddenEmails ?? []).map((e) => String(e).trim().toLowerCase()).filter(Boolean),
+    );
+    if (forbidden.has(emailNorm)) return { ok: false, reason: "forbidden" };
+
+    const [self] = await db.select().from(users).where(eq(users.id, id));
+    if (!self) return { ok: false, reason: "not_found" };
+
+    const [taken] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(ne(users.id, id), sql`lower(trim(coalesce(${users.email}, ''))) = ${emailNorm}`))
+      .limit(1);
+    if (taken) return { ok: false, reason: "taken" };
+
+    await db
+      .update(users)
+      .set({ email: emailNorm, updatedAt: sql`now()` })
+      .where(eq(users.id, id));
+    return { ok: true };
   }
 
   async recordUserLogin(userId: string): Promise<void> {
@@ -3465,7 +3536,11 @@ export class DatabaseStorage implements IStorage {
     secret: string,
   ): Promise<{ ok: boolean; reason?: string }> {
     const expected = (process.env.TRACK_CLAIM_SECRET || "").trim();
-    if (!expected || secret.trim() !== expected) return { ok: false, reason: "invalid_secret" };
+    const provided = String(secret ?? "").trim();
+    if (!expected || !provided) return { ok: false, reason: "invalid_secret" };
+    const a = Buffer.from(expected);
+    const b = Buffer.from(provided);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return { ok: false, reason: "invalid_secret" };
     const [track] = await db.select().from(tracks).where(eq(tracks.id, trackId));
     if (!track) return { ok: false, reason: "not_found" };
     if (!track.claimableByCreators) return { ok: false, reason: "not_claimable" };
