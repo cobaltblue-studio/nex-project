@@ -16,6 +16,9 @@ app.use(
   helmet({
     contentSecurityPolicy: false, // SPA + third-party players; tighten later
     crossOriginEmbedderPolicy: false,
+    // Helmet default is no-referrer; YouTube embeds then fail with error 150/153
+    // ("video player configuration error"). Send origin on cross-origin loads.
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     hsts: isProductionBoot ? { maxAge: 15552000, includeSubDomains: true } : false,
   }),
 );

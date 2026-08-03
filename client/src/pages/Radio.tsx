@@ -295,9 +295,7 @@ export default function NexRadio() {
                     allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
                     allowFullScreen
                     title={`Radio: ${currentTrack?.title ?? "Track"}`}
-                    {...(iframeKind === "suno"
-                      ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
-                      : {})}
+                    referrerPolicy="strict-origin-when-cross-origin"
                   />
                   {iframeKind === "suno" ? <SunoEmbedOutboundShield /> : null}
                 </div>

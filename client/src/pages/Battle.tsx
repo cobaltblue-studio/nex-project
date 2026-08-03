@@ -372,9 +372,7 @@ function BattleTrackPlayer({
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   allowFullScreen
                   title={track.title}
-                  {...(iframeKind === "suno"
-                    ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
-                    : {})}
+                  referrerPolicy="strict-origin-when-cross-origin"
                 />
                 {iframeKind === "suno" ? <SunoEmbedOutboundShield /> : null}
               </div>

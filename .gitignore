@@ -11,6 +11,9 @@ client/public/apple-touch-icon.png
 .env.*.local
 .DS_Store
 server/public
+# Local scratch / mistaken root public (real assets live in client/public)
+.tmp_nexi/
+/public/
 vite.config.ts.*
 *.tar.gz
 ngrok.zip

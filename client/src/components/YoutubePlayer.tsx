@@ -151,6 +151,8 @@ export function YoutubePlayer({
           playsinline: 1,
           enablejsapi: 1,
           origin: window.location.origin,
+          // Helps YouTube accept the embed when the parent referrer policy is strict.
+          widget_referrer: window.location.origin,
         },
         events: {
           onStateChange: (e: { data: number }) => {
@@ -158,6 +160,10 @@ export function YoutubePlayer({
           },
           onReady: (ev: { target: any }) => {
             const p = ev.target;
+            try {
+              const iframe = typeof p.getIframe === "function" ? p.getIframe() : null;
+              iframe?.setAttribute?.("referrerpolicy", "strict-origin-when-cross-origin");
+            } catch {}
             if (battleAutoplay) {
               startBattleFromRandomMiddle(p);
             } else if (autoplay) {
