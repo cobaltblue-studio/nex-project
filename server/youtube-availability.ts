@@ -8,10 +8,12 @@ export type YoutubeAvailabilityResult =
 
 const YT_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
+/** Real browser UA — YouTube often serves bot/consent shells to custom "compatible; Bot" agents. */
 const YT_FETCH_HEADERS = {
-  Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+  Accept: "text/html,application/xhtml+xml;q=0.9,application/json;q=0.8,*/*;q=0.7",
+  "Accept-Language": "en-US,en;q=0.9",
   "User-Agent":
-    "Mozilla/5.0 (compatible; NEX/1.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 } as const;
 
 function extractYoutubeId(raw: string | null | undefined): string | null {
@@ -41,13 +43,29 @@ function extractYoutubeId(raw: string | null | undefined): string | null {
   return null;
 }
 
+function parsePlayability(html: string): {
+  status: string | null;
+  playableInEmbed: boolean | null;
+} {
+  const statusMatch = html.match(
+    /"playabilityStatus"\s*:\s*\{[^}]*?"status"\s*:\s*"(OK|ERROR|UNPLAYABLE|LOGIN_REQUIRED|LIVE_STREAM_OFFLINE)"/i,
+  );
+  const embedMatch = html.match(/"playableInEmbed"\s*:\s*(true|false)/i);
+  return {
+    status: statusMatch?.[1]?.toUpperCase() ?? null,
+    playableInEmbed: embedMatch ? embedMatch[1].toLowerCase() === "true" : null,
+  };
+}
+
+/** High-confidence unavailable phrases only — avoid loose UI copy like "Watch on YouTube". */
 function textSuggestsPrivateOrRemoved(html: string): boolean {
   return [
     /this video is private/i,
-    /video unavailable/i,
+    /video unavailable\.?\s*this video is private/i,
     /this video isn't available anymore/i,
     /this video has been removed/i,
-    /watch on youtube/i,
+    /"reason"\s*:\s*"This video is private"/i,
+    /"status"\s*:\s*"ERROR"[^}]{0,120}"reason"\s*:\s*"[^"]*private/i,
   ].some((re) => re.test(html));
 }
 
@@ -57,10 +75,14 @@ function textSuggestsEmbedBlocked(html: string): boolean {
     /video owner has not made this video available in your country/i,
     /sign in to confirm your age/i,
     /this video may be inappropriate for some users/i,
+    /"playableInEmbed"\s*:\s*false/i,
   ].some((re) => re.test(html));
 }
 
-async function fetchHtml(url: string, timeoutMs = 8000): Promise<{ ok: boolean; status: number; html: string } | null> {
+async function fetchHtml(
+  url: string,
+  timeoutMs = 10000,
+): Promise<{ ok: boolean; status: number; html: string } | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -79,17 +101,28 @@ async function fetchHtml(url: string, timeoutMs = 8000): Promise<{ ok: boolean; 
   }
 }
 
-async function fetchStatus(url: string, timeoutMs = 8000): Promise<number | null> {
+async function fetchOembed(
+  watchUrl: string,
+  timeoutMs = 10000,
+): Promise<{ status: number; okJson: boolean } | null> {
+  const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await fetch(oembedUrl, {
       method: "GET",
       redirect: "follow",
       signal: controller.signal,
       headers: YT_FETCH_HEADERS,
     });
-    return res.status;
+    if (!res.ok) return { status: res.status, okJson: false };
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text) as { title?: unknown };
+      return { status: res.status, okJson: typeof json?.title === "string" && json.title.length > 0 };
+    } catch {
+      return { status: res.status, okJson: false };
+    }
   } catch {
     return null;
   } finally {
@@ -97,6 +130,11 @@ async function fetchStatus(url: string, timeoutMs = 8000): Promise<number | null
   }
 }
 
+/**
+ * Decide whether a YouTube URL is usable as a NEX track source.
+ * Prefer structured signals (oEmbed / playabilityStatus) over loose HTML phrase matching —
+ * YouTube pages embed i18n/UI strings that caused false "private/removed" rejects.
+ */
 export async function inspectYoutubeVideoAvailability(
   inputUrl: string | null | undefined,
 ): Promise<YoutubeAvailabilityResult> {
@@ -105,12 +143,14 @@ export async function inspectYoutubeVideoAvailability(
 
   const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const embedUrl = `https://www.youtube.com/embed/${videoId}`;
-  const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`;
 
-  // Current YouTube behavior often returns 401 for public videos here, but 403/404 is a strong
-  // signal that the source video is not available for normal public embedding.
-  const oembedStatus = await fetchStatus(oembedUrl);
-  if (oembedStatus === 403 || oembedStatus === 404) {
+  // oEmbed 200 + title is the strongest "publicly known video" signal.
+  // (Some environments still get 401 on oEmbed for public videos — treat that as inconclusive.)
+  const oembed = await fetchOembed(watchUrl);
+  if (oembed?.okJson) {
+    return { status: "ok" };
+  }
+  if (oembed && (oembed.status === 403 || oembed.status === 404)) {
     return { status: "blocked", reason: "private_or_removed" };
   }
 
@@ -119,22 +159,49 @@ export async function inspectYoutubeVideoAvailability(
   if (!watch.ok && [403, 404, 410, 451].includes(watch.status)) {
     return { status: "blocked", reason: "private_or_removed" };
   }
+
+  const playability = parsePlayability(watch.html);
+  if (playability.status === "OK" || playability.playableInEmbed === true) {
+    return { status: "ok" };
+  }
+  if (playability.status === "LOGIN_REQUIRED") {
+    return { status: "blocked", reason: "embed_blocked" };
+  }
+  if (playability.status === "ERROR" || playability.status === "UNPLAYABLE") {
+    if (textSuggestsPrivateOrRemoved(watch.html)) {
+      return { status: "blocked", reason: "private_or_removed" };
+    }
+    if (playability.playableInEmbed === false || textSuggestsEmbedBlocked(watch.html)) {
+      return { status: "blocked", reason: "embed_blocked" };
+    }
+    return { status: "blocked", reason: "private_or_removed" };
+  }
+
   if (textSuggestsPrivateOrRemoved(watch.html)) {
     return { status: "blocked", reason: "private_or_removed" };
   }
 
   const embed = await fetchHtml(embedUrl);
-  if (!embed) return { status: "unknown" };
+  if (!embed) {
+    // Watch page didn't give a clear verdict; don't reject on network flake.
+    return { status: "unknown" };
+  }
   if (!embed.ok && [403, 404, 410, 451].includes(embed.status)) {
     return { status: "blocked", reason: "private_or_removed" };
+  }
+
+  const embedPlayability = parsePlayability(embed.html);
+  if (embedPlayability.status === "OK" || embedPlayability.playableInEmbed === true) {
+    return { status: "ok" };
   }
   if (textSuggestsPrivateOrRemoved(embed.html)) {
     return { status: "blocked", reason: "private_or_removed" };
   }
-  if (textSuggestsEmbedBlocked(embed.html)) {
+  if (embedPlayability.playableInEmbed === false || textSuggestsEmbedBlocked(embed.html)) {
     return { status: "blocked", reason: "embed_blocked" };
   }
 
-  const finalStatus: YoutubeAvailabilityStatus = "ok";
-  return { status: finalStatus };
+  // Inconclusive (consent wall, bot interstitial, etc.) — allow submit rather than false reject.
+  // Battle playback will still surface real embed failures to the listener.
+  return { status: "unknown" };
 }
