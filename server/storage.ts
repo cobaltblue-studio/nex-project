@@ -2207,6 +2207,11 @@ export class DatabaseStorage implements IStorage {
       if (battleIds.length) {
         await tx.delete(battleListenCompletions).where(inArray(battleListenCompletions.battleId, battleIds));
         await tx.delete(battleVotes).where(inArray(battleVotes.battleId, battleIds));
+        try {
+          await tx.delete(battleWinEmails).where(inArray(battleWinEmails.battleId, battleIds));
+        } catch (err: any) {
+          if (err?.code !== "42P01") throw err;
+        }
         await tx.delete(battles).where(inArray(battles.id, battleIds));
       }
 
