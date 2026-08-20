@@ -19,13 +19,15 @@ export function TrackNewBadge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-xs border border-primary/40 bg-primary/10 font-bold uppercase text-primary",
+        "inline-flex shrink-0 items-center rounded-sm border font-bold uppercase leading-none text-primary shadow-[0_0_10px_rgba(0,209,255,0.25)]",
+        "border-primary/70 bg-primary/20",
         compact
-          ? "px-1 py-px text-[6px] tracking-[0.18em]"
-          : "px-1.5 py-0.5 text-[8px] tracking-[0.22em]",
+          ? "px-1.5 py-0.5 text-[9px] tracking-[0.14em]"
+          : "px-2 py-0.5 text-[10px] tracking-[0.16em]",
         className,
       )}
       data-testid={testId}
+      aria-label={t("new.badge")}
     >
       {t("new.badge")}
     </span>
