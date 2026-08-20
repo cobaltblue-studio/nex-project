@@ -447,6 +447,7 @@
     "inactiveHint": "New on NEX"
   },
   "new": {
+    "badge": "NEW",
     "listSub": "Newest releases first; tracks with no plays yet stay at the end so every creator stays visible.",
     "awaitingPlaysSection": "Awaiting first listen",
     "awaitingPlays": "0 plays",

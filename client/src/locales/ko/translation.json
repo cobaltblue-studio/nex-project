@@ -447,6 +447,7 @@
     "inactiveHint": "NEX 신규"
   },
   "new": {
+    "badge": "NEW",
     "listSub": "최신 신곡 순 — 아직 재생이 없는 곡은 맨 뒤에 두어 크리에이터 곡이 사라지지 않습니다.",
     "awaitingPlaysSection": "첫 재생을 기다리는 신곡",
     "awaitingPlays": "재생 0",

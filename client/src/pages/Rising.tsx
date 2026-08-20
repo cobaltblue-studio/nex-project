@@ -11,6 +11,7 @@ import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
 import { useTranslation } from "react-i18next";
 import { CreatorNameWithBadge } from "@/components/CreatorNameWithBadge";
+import { TrackNewBadge } from "@/components/TrackNewBadge";
 
 interface RisingTrack {
   id: number;
@@ -32,6 +33,7 @@ interface RisingTrack {
   coverImageUrl?: string | null;
   musicVideoUrl?: string | null;
   trackType?: string;
+  createdAt?: string;
 }
 
 export function Rising() {
@@ -160,6 +162,7 @@ export function Rising() {
 
                 <div className="min-w-0 flex-1">
                   <p className="text-[0.68rem] sm:text-[0.75rem] font-bold text-white tracking-wide line-clamp-2 leading-tight break-words" data-testid={`text-rising-title-${track.id}`}>
+                    <TrackNewBadge createdAt={track.createdAt} testId={`badge-new-${track.id}`} className="mr-1.5 align-middle" />
                     {track.title}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">

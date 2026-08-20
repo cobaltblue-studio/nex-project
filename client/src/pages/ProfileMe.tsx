@@ -8,6 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { publicAudioChartSearchParams, isCreatorProfileRole } from "@shared/constants";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
+import { TrackNewBadge } from "@/components/TrackNewBadge";
 
 type BattleSummary = {
   trackId: number;
@@ -591,7 +592,10 @@ export function ProfileMe() {
                           {chartRank != null ? String(chartRank).padStart(2, "0") : "—"}
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold uppercase text-white group-hover:text-primary transition-colors">{track.title}</h4>
+                          <h4 className="text-sm font-bold uppercase text-white group-hover:text-primary transition-colors">
+                            <TrackNewBadge createdAt={(track as { createdAt?: string }).createdAt} testId={`badge-new-${track.id}`} className="mr-1.5 align-middle" />
+                            {track.title}
+                          </h4>
                           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">{track.aiTool} · {track.genre}</p>
                         </div>
                       </div>

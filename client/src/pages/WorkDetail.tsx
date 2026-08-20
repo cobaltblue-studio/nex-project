@@ -17,6 +17,7 @@ import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { TrackClaimSection } from "@/components/TrackClaimSection";
+import { TrackNewBadge } from "@/components/TrackNewBadge";
 
 export function TrackDetail() {
   const { t } = useTranslation();
@@ -536,7 +537,8 @@ export function TrackDetail() {
                 transition={{ duration: 0.2 }}
                 className="space-y-2"
               >
-                <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none neon-text-strong neon-text-green">
+                <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tighter uppercase leading-none neon-text-strong neon-text-green flex flex-wrap items-center justify-center gap-3">
+                  <TrackNewBadge createdAt={(track as { createdAt?: string }).createdAt} testId="badge-new-detail" className="text-[10px] px-2 py-1" />
                   {track.title}
                 </h1>
                 <Link href={`/profile/${encodeURIComponent(creatorProfileSlug)}`}>

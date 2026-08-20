@@ -9,6 +9,7 @@ import { resolveTrackThumbnailUrl } from "@/lib/trackThumbnail";
 import { TrackPlaysStat } from "@/components/TrackPlaysStat";
 import { useTranslation } from "react-i18next";
 import { CreatorNameWithBadge } from "@/components/CreatorNameWithBadge";
+import { TrackNewBadge } from "@/components/TrackNewBadge";
 
 interface MVTrack {
   id: number;
@@ -30,6 +31,7 @@ interface MVTrack {
   commentsCount?: number;
   claimableByCreators?: boolean;
   provenanceStatus?: string;
+  createdAt?: string;
 }
 
 export function MusicVideo() {
@@ -189,6 +191,7 @@ export function MusicVideo() {
                       className="text-[0.66rem] sm:text-[0.72rem] font-bold text-white tracking-wide line-clamp-2 leading-tight break-words"
                       data-testid={`text-mv-title-${track.id}`}
                     >
+                      <TrackNewBadge createdAt={track.createdAt} testId={`badge-new-${track.id}`} className="mr-1.5 align-middle" />
                       {track.title}
                     </p>
                     <CreatorNameWithBadge

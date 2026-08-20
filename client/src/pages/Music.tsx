@@ -9,6 +9,7 @@ import { TrackPlayModal } from "@/components/TrackPlayModal";
 import { TrackFeedModal, type TrackFeedSnapshot } from "@/components/TrackFeedModal";
 import { TrackPlaysStat } from "@/components/TrackPlaysStat";
 import { CreatorNameWithBadge } from "@/components/CreatorNameWithBadge";
+import { TrackNewBadge } from "@/components/TrackNewBadge";
 import { useTranslation } from "react-i18next";
 
 interface ChartTrack {
@@ -33,6 +34,7 @@ interface ChartTrack {
   wins?: number;
   musicVideoUrl?: string | null;
   trackType?: string;
+  createdAt?: string;
 }
 
 function getZoneForRank(
@@ -211,6 +213,7 @@ export function Music() {
                           className="text-[0.66rem] sm:text-[0.72rem] font-bold text-white tracking-wide line-clamp-2 leading-tight break-words"
                           data-testid={`text-chart-title-${track.id}`}
                         >
+                          <TrackNewBadge createdAt={track.createdAt} testId={`badge-new-${track.id}`} className="mr-1.5 align-middle" />
                           {track.title}
                         </p>
                         <CreatorNameWithBadge

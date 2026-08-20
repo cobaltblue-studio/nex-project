@@ -5,6 +5,7 @@ import { Loader2, ArrowLeft, Youtube, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
+import { TrackNewBadge } from "@/components/TrackNewBadge";
 
 export function MVDetail() {
   const [, params] = useRoute("/mv/:id");
@@ -120,7 +121,8 @@ export function MVDetail() {
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 bg-[#0A0A0A] p-8 border border-white/5 rounded-sm">
           <div className="space-y-6 flex-1">
             <div className="space-y-2">
-              <h1 className="text-2xl md:text-3xl font-display font-bold text-white tracking-tighter uppercase neon-text-green">
+              <h1 className="text-2xl md:text-3xl font-display font-bold text-white tracking-tighter uppercase neon-text-green flex flex-wrap items-center gap-2">
+                <TrackNewBadge createdAt={(track as { createdAt?: string }).createdAt} testId="badge-new-mv-detail" />
                 {track.title}
               </h1>
               <div className="flex items-center gap-4">

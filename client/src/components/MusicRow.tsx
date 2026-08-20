@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { hasPublicCount } from "@/lib/displayStats";
 import { useTranslation } from "react-i18next";
+import { TrackNewBadge } from "@/components/TrackNewBadge";
 
 interface MusicRowProps {
   track: any;
@@ -80,6 +81,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
       <div className="flex-1 min-w-0">
         <Link href={`/track/${track.id}`}>
           <h3 className="text-[0.6rem] font-bold text-white uppercase tracking-wider truncate leading-tight cursor-pointer hover:text-primary transition-colors">
+            <TrackNewBadge createdAt={track.createdAt} testId={`badge-new-${track.id}`} className="mr-1.5 align-middle" />
             {track.title}
           </h3>
         </Link>
