@@ -52,10 +52,16 @@ import { recordAnalyticsEvents, type AnalyticsEventInput } from "./analytics";
 import { emailFromPreview, isDeliverableEmail, isEmailEnabled, isSandboxEmailFrom, probeResendApiKey, sendTestEmail } from "./email";
 import {
   enqueueAnnouncementCampaign,
+  enqueueCustomAnnouncement,
   listAnnouncementCampaigns,
   listAnnouncementCampaignRuns,
+  parseCustomAnnouncementPayload,
   previewAnnouncementCampaign,
+  previewCustomAnnouncement,
+  processPendingAnnouncementCampaigns,
   sendAnnouncementCampaign,
+  sendCustomAnnouncementTest,
+  sendTemplateAnnouncementTest,
 } from "./announcementCampaigns";
 import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
@@ -2473,6 +2479,145 @@ export async function registerRoutes(
 
     try {
       const job = await enqueueAnnouncementCampaign(slug, {
+        dryRun: Boolean(req.body?.dryRun),
+        limit,
+        requestedBy: getUserEmail(req) || getUserId(req) || "admin",
+      });
+      void processPendingAnnouncementCampaigns().catch((err) => {
+        console.error("[announcement] queue kick failed", err);
+      });
+      res.json(job);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({
+        message: apiMsg("공지 이메일 큐 등록에 실패했습니다", "Announcement email queueing failed"),
+        detail: message,
+      });
+    }
+  });
+
+  function announcementTestRecipients(req: any): Set<string> {
+    const self = getUserEmail(req)?.trim().toLowerCase() || "";
+    const founder = founderEnvEmail()?.trim().toLowerCase() || "";
+    return new Set(
+      [self, founder, ...(process.env.NEX_FOUNDER_ADMIN_EMAIL || "")
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)].filter(Boolean),
+    );
+  }
+
+  app.post("/api/admin/announcement-campaigns/:slug/test", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    const slug = String(req.params.slug || "").trim();
+    const requested = typeof req.body?.to === "string" ? req.body.to.trim() : "";
+    const self = getUserEmail(req)?.trim() || "";
+    const to = requested || self;
+    if (!to) {
+      return res.status(400).json({
+        message: apiMsg("수신 이메일 주소가 필요합니다", "Recipient email is required"),
+      });
+    }
+    if (!announcementTestRecipients(req).has(to.toLowerCase())) {
+      return res.status(403).json({
+        message: apiMsg(
+          "테스트 메일은 본인 또는 창업자 메일로만 보낼 수 있습니다",
+          "Test emails may only be sent to your address or the founder mailbox",
+        ),
+      });
+    }
+
+    try {
+      const result = await sendTemplateAnnouncementTest(slug, to);
+      if (!result.sent) {
+        return res.status(502).json({
+          message: apiMsg("테스트 메일 발송에 실패했습니다", "Test email failed"),
+          result,
+        });
+      }
+      res.json({ sent: true, to });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({
+        message: apiMsg("테스트 메일 발송에 실패했습니다", "Test email failed"),
+        detail: message,
+      });
+    }
+  });
+
+  app.post("/api/admin/announcement-emails/custom/preview", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    try {
+      const payload = parseCustomAnnouncementPayload(req.body);
+      const preview = await previewCustomAnnouncement(payload);
+      res.json(preview);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({
+        message: apiMsg("공지 미리보기에 실패했습니다", "Announcement preview failed"),
+        detail: message,
+      });
+    }
+  });
+
+  app.post("/api/admin/announcement-emails/custom/test", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    const requested = typeof req.body?.to === "string" ? req.body.to.trim() : "";
+    const self = getUserEmail(req)?.trim() || "";
+    const to = requested || self;
+    if (!to) {
+      return res.status(400).json({
+        message: apiMsg("수신 이메일 주소가 필요합니다", "Recipient email is required"),
+      });
+    }
+    if (!announcementTestRecipients(req).has(to.toLowerCase())) {
+      return res.status(403).json({
+        message: apiMsg(
+          "테스트 메일은 본인 또는 창업자 메일로만 보낼 수 있습니다",
+          "Test emails may only be sent to your address or the founder mailbox",
+        ),
+      });
+    }
+
+    try {
+      const payload = parseCustomAnnouncementPayload(req.body);
+      const result = await sendCustomAnnouncementTest(payload, to);
+      if (!result.sent) {
+        return res.status(502).json({
+          message: apiMsg("테스트 메일 발송에 실패했습니다", "Test email failed"),
+          result,
+        });
+      }
+      res.json({ sent: true, to });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({
+        message: apiMsg("테스트 메일 발송에 실패했습니다", "Test email failed"),
+        detail: message,
+      });
+    }
+  });
+
+  app.post("/api/admin/announcement-emails/custom/queue", isAuthenticated, async (req: any, res) => {
+    if (!(await isAdmin(req))) {
+      return res.status(403).json({ message: apiMsg("관리자 권한이 필요합니다", "Admin access required") });
+    }
+
+    const rawLimit = Number(req.body?.limit);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : undefined;
+
+    try {
+      const payload = parseCustomAnnouncementPayload(req.body);
+      const job = await enqueueCustomAnnouncement(payload, {
         dryRun: Boolean(req.body?.dryRun),
         limit,
         requestedBy: getUserEmail(req) || getUserId(req) || "admin",

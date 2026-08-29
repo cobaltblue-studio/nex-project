@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { COMMUNITY_CATEGORIES } from "@shared/community";
+import { AdminAnnouncements } from "@/components/AdminAnnouncements";
 
 type Submission = {
   id: number;
@@ -280,6 +281,14 @@ export default function AdminPanel() {
 
   // --- Step 2: load submissions only when confirmed admin ---
   const {
+    data: health,
+  } = useQuery<{ email?: { enabled?: boolean } }>({
+    queryKey: ["/api/health"],
+    enabled: isAdmin,
+    retry: false,
+  });
+
+  const {
     data: snapshotStatus,
     refetch: refetchSnapshotStatus,
   } = useQuery<{
@@ -529,6 +538,8 @@ export default function AdminPanel() {
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      <AdminAnnouncements emailEnabled={health?.email?.enabled ?? false} />
 
       {/* Track submission pipeline — keep above long queues so admins see it without scrolling */}
       <div className="mb-10 border border-yellow-500/15 rounded-sm bg-yellow-500/[0.03] p-4">

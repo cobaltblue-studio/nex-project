@@ -19,6 +19,14 @@ function fromAddress(): string {
   return process.env.NEX_EMAIL_FROM?.trim() || "NEX <onboarding@resend.dev>";
 }
 
+/** Platform-wide announcements — display name NEX Team, same mailbox as transactional mail. */
+export function announcementFromAddress(): string {
+  const base = fromAddress();
+  const match = base.match(/<([^>]+)>/);
+  const mailbox = match?.[1]?.trim() ?? base.trim();
+  return `NEX Team <${mailbox}>`;
+}
+
 export function isEmailEnabled(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
@@ -175,6 +183,7 @@ export async function sendEmail(opts: {
   subject: string;
   html: string;
   text?: string;
+  from?: string;
 }): Promise<EmailSendResult> {
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key) {
@@ -195,7 +204,7 @@ export async function sendEmail(opts: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: fromAddress(),
+        from: opts.from?.trim() || fromAddress(),
         to: [to],
         subject: opts.subject,
         html: opts.html,
@@ -241,7 +250,7 @@ export async function sendPlatformAnnouncementEmail(opts: {
     textEn: opts.textEn,
     textKo: opts.textKo,
   });
-  return sendEmail({ to: opts.to, ...msg });
+  return sendEmail({ to: opts.to, from: announcementFromAddress(), ...msg });
 }
 
 export async function sendTrackApprovedEmail(opts: {
