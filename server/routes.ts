@@ -55,7 +55,7 @@ import {
   enqueueCustomAnnouncement,
   listAnnouncementCampaigns,
   listAnnouncementCampaignRuns,
-  parseCustomAnnouncementPayload,
+  resolveCustomAnnouncementPayload,
   previewAnnouncementCampaign,
   previewCustomAnnouncement,
   processPendingAnnouncementCampaigns,
@@ -2554,7 +2554,7 @@ export async function registerRoutes(
     }
 
     try {
-      const payload = parseCustomAnnouncementPayload(req.body);
+      const payload = await resolveCustomAnnouncementPayload(req.body);
       const preview = await previewCustomAnnouncement(payload);
       res.json(preview);
     } catch (err) {
@@ -2589,7 +2589,7 @@ export async function registerRoutes(
     }
 
     try {
-      const payload = parseCustomAnnouncementPayload(req.body);
+      const payload = await resolveCustomAnnouncementPayload(req.body);
       const result = await sendCustomAnnouncementTest(payload, to);
       if (!result.sent) {
         return res.status(502).json({
@@ -2616,7 +2616,7 @@ export async function registerRoutes(
     const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : undefined;
 
     try {
-      const payload = parseCustomAnnouncementPayload(req.body);
+      const payload = await resolveCustomAnnouncementPayload(req.body);
       const job = await enqueueCustomAnnouncement(payload, {
         dryRun: Boolean(req.body?.dryRun),
         limit,

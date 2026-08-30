@@ -41,26 +41,25 @@ type CampaignRun = {
 
 type CustomForm = {
   internalTitle: string;
-  subjectEn: string;
   subjectKo: string;
-  headlineEn: string;
   headlineKo: string;
-  bodyEn: string;
   bodyKo: string;
-  ctaLabelEn: string;
   ctaLabelKo: string;
   ctaHref: string;
 };
 
+type EnglishPreview = {
+  subjectEn: string;
+  headlineEn: string;
+  bodyEn: string;
+  ctaLabelEn: string;
+};
+
 const EMPTY_CUSTOM: CustomForm = {
   internalTitle: "",
-  subjectEn: "",
   subjectKo: "",
-  headlineEn: "",
   headlineKo: "",
-  bodyEn: "",
   bodyKo: "",
-  ctaLabelEn: "Open NEX",
   ctaLabelKo: "NEX 열기",
   ctaHref: "https://nexmusic.ai",
 };
@@ -84,6 +83,7 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
   const qc = useQueryClient();
   const [tab, setTab] = useState<"templates" | "compose">("templates");
   const [custom, setCustom] = useState<CustomForm>(EMPTY_CUSTOM);
+  const [englishPreview, setEnglishPreview] = useState<EnglishPreview | null>(null);
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -100,7 +100,12 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
   const customPreview = useMutation({
     mutationFn: () =>
       apiRequest("POST", "/api/admin/announcement-emails/custom/preview", custom).then((r) => r.json()),
-    onSuccess: (data: { pending: number; totalRecipients: number }) => {
+    onSuccess: (data: {
+      pending: number;
+      totalRecipients: number;
+      englishPreview?: EnglishPreview;
+    }) => {
+      if (data.englishPreview) setEnglishPreview(data.englishPreview);
       toast({
         title: t("adminAnnouncements.previewOk"),
         description: t("adminAnnouncements.previewDesc", {
@@ -155,6 +160,7 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
           title: action.dryRun ? t("adminAnnouncements.dryRunQueued") : t("adminAnnouncements.sendQueued"),
         });
         setCustom(EMPTY_CUSTOM);
+        setEnglishPreview(null);
         invalidate();
       }
     } catch (err) {
@@ -285,27 +291,63 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
         </div>
       ) : (
         <div className="space-y-3">
+          <p className="text-[10px] text-zinc-500 leading-relaxed">
+            {t("adminAnnouncements.composeKoHint")}
+          </p>
           <input
             className={fieldClass}
             placeholder={t("adminAnnouncements.internalTitle")}
             value={custom.internalTitle}
             onChange={(e) => setCustom((f) => ({ ...f, internalTitle: e.target.value }))}
           />
+          <input
+            className={fieldClass}
+            placeholder={t("adminAnnouncements.subjectKo")}
+            value={custom.subjectKo}
+            onChange={(e) => setCustom((f) => ({ ...f, subjectKo: e.target.value }))}
+          />
+          <input
+            className={fieldClass}
+            placeholder={t("adminAnnouncements.headlineKo")}
+            value={custom.headlineKo}
+            onChange={(e) => setCustom((f) => ({ ...f, headlineKo: e.target.value }))}
+          />
+          <textarea
+            className={`${fieldClass} min-h-[140px] resize-y`}
+            placeholder={t("adminAnnouncements.bodyKo")}
+            value={custom.bodyKo}
+            onChange={(e) => setCustom((f) => ({ ...f, bodyKo: e.target.value }))}
+          />
           <div className="grid sm:grid-cols-2 gap-3">
-            <input className={fieldClass} placeholder={t("adminAnnouncements.subjectEn")} value={custom.subjectEn} onChange={(e) => setCustom((f) => ({ ...f, subjectEn: e.target.value }))} />
-            <input className={fieldClass} placeholder={t("adminAnnouncements.subjectKo")} value={custom.subjectKo} onChange={(e) => setCustom((f) => ({ ...f, subjectKo: e.target.value }))} />
-            <input className={fieldClass} placeholder={t("adminAnnouncements.headlineEn")} value={custom.headlineEn} onChange={(e) => setCustom((f) => ({ ...f, headlineEn: e.target.value }))} />
-            <input className={fieldClass} placeholder={t("adminAnnouncements.headlineKo")} value={custom.headlineKo} onChange={(e) => setCustom((f) => ({ ...f, headlineKo: e.target.value }))} />
+            <input
+              className={fieldClass}
+              placeholder={t("adminAnnouncements.ctaKo")}
+              value={custom.ctaLabelKo}
+              onChange={(e) => setCustom((f) => ({ ...f, ctaLabelKo: e.target.value }))}
+            />
+            <input
+              className={fieldClass}
+              placeholder={t("adminAnnouncements.ctaHref")}
+              value={custom.ctaHref}
+              onChange={(e) => setCustom((f) => ({ ...f, ctaHref: e.target.value }))}
+            />
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <textarea className={`${fieldClass} min-h-[120px] resize-y`} placeholder={t("adminAnnouncements.bodyEn")} value={custom.bodyEn} onChange={(e) => setCustom((f) => ({ ...f, bodyEn: e.target.value }))} />
-            <textarea className={`${fieldClass} min-h-[120px] resize-y`} placeholder={t("adminAnnouncements.bodyKo")} value={custom.bodyKo} onChange={(e) => setCustom((f) => ({ ...f, bodyKo: e.target.value }))} />
-          </div>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <input className={fieldClass} placeholder={t("adminAnnouncements.ctaEn")} value={custom.ctaLabelEn} onChange={(e) => setCustom((f) => ({ ...f, ctaLabelEn: e.target.value }))} />
-            <input className={fieldClass} placeholder={t("adminAnnouncements.ctaKo")} value={custom.ctaLabelKo} onChange={(e) => setCustom((f) => ({ ...f, ctaLabelKo: e.target.value }))} />
-            <input className={fieldClass} placeholder={t("adminAnnouncements.ctaHref")} value={custom.ctaHref} onChange={(e) => setCustom((f) => ({ ...f, ctaHref: e.target.value }))} />
-          </div>
+          {englishPreview ? (
+            <div className="rounded-sm border border-white/10 bg-black/25 p-3 space-y-2">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                {t("adminAnnouncements.englishPreview")}
+              </p>
+              <p className="text-[10px] text-zinc-400">
+                <span className="text-zinc-600">{t("adminAnnouncements.subjectEn")}: </span>
+                {englishPreview.subjectEn}
+              </p>
+              <p className="text-[10px] text-zinc-400">
+                <span className="text-zinc-600">{t("adminAnnouncements.headlineEn")}: </span>
+                {englishPreview.headlineEn}
+              </p>
+              <p className="text-[10px] text-zinc-400 whitespace-pre-wrap">{englishPreview.bodyEn}</p>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2 pt-1">
             <button
               type="button"
@@ -331,6 +373,7 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
               onClick={async () => {
                 try {
                   const data = await apiRequest("POST", "/api/admin/announcement-emails/custom/preview", custom).then((r) => r.json());
+                  if (data.englishPreview) setEnglishPreview(data.englishPreview);
                   setConfirm({
                     kind: "custom-queue",
                     payload: custom,

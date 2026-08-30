@@ -34,6 +34,24 @@ type AnnouncementCampaignDefinition = AnnouncementEmailContent & {
   nameKo: string;
 };
 
+import { translateAnnouncementKoToEn } from "./announcementTranslate";
+
+export const customAnnouncementDraftSchema = z.object({
+  internalTitle: z.string().trim().min(1).max(80),
+  subjectKo: z.string().trim().min(1).max(200),
+  headlineKo: z.string().trim().min(1).max(200),
+  bodyKo: z.string().trim().min(1).max(8000),
+  ctaLabelKo: z.string().trim().max(80).optional(),
+  ctaHref: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().url().max(500).optional(),
+  ),
+  subjectEn: z.string().trim().max(200).optional(),
+  headlineEn: z.string().trim().max(200).optional(),
+  bodyEn: z.string().trim().max(8000).optional(),
+  ctaLabelEn: z.string().trim().max(80).optional(),
+});
+
 export const customAnnouncementPayloadSchema = z.object({
   internalTitle: z.string().trim().min(1).max(80),
   subjectEn: z.string().trim().min(1).max(200),
@@ -51,9 +69,45 @@ export const customAnnouncementPayloadSchema = z.object({
 });
 
 export type CustomAnnouncementPayload = z.infer<typeof customAnnouncementPayloadSchema>;
+export type CustomAnnouncementDraft = z.infer<typeof customAnnouncementDraftSchema>;
 
 export function parseCustomAnnouncementPayload(input: unknown): CustomAnnouncementPayload {
   return customAnnouncementPayloadSchema.parse(input);
+}
+
+function needsEnglishTranslation(draft: CustomAnnouncementDraft): boolean {
+  return !draft.subjectEn?.trim() || !draft.headlineEn?.trim() || !draft.bodyEn?.trim();
+}
+
+export async function resolveCustomAnnouncementPayload(
+  input: unknown,
+): Promise<CustomAnnouncementPayload> {
+  const draft = customAnnouncementDraftSchema.parse(input);
+  let subjectEn = draft.subjectEn?.trim() || "";
+  let headlineEn = draft.headlineEn?.trim() || "";
+  let bodyEn = draft.bodyEn?.trim() || "";
+  let ctaLabelEn = draft.ctaLabelEn?.trim() || "";
+
+  if (needsEnglishTranslation(draft)) {
+    const translated = await translateAnnouncementKoToEn({
+      subjectKo: draft.subjectKo,
+      headlineKo: draft.headlineKo,
+      bodyKo: draft.bodyKo,
+      ctaLabelKo: draft.ctaLabelKo,
+    });
+    subjectEn = subjectEn || translated.subjectEn;
+    headlineEn = headlineEn || translated.headlineEn;
+    bodyEn = bodyEn || translated.bodyEn;
+    ctaLabelEn = ctaLabelEn || translated.ctaLabelEn;
+  }
+
+  return customAnnouncementPayloadSchema.parse({
+    ...draft,
+    subjectEn,
+    headlineEn,
+    bodyEn,
+    ctaLabelEn: ctaLabelEn || undefined,
+  });
 }
 
 function escapeHtml(s: string): string {
@@ -343,19 +397,26 @@ export async function sendTemplateAnnouncementTest(slug: string, to: string) {
   return sendAnnouncementTestEmail(campaignDefinitionToContent(campaign), to);
 }
 
-export async function sendCustomAnnouncementTest(payload: CustomAnnouncementPayload, to: string) {
-  const content = customPayloadToContent(parseCustomAnnouncementPayload(payload));
+export async function sendCustomAnnouncementTest(payload: CustomAnnouncementPayload | CustomAnnouncementDraft, to: string) {
+  const resolved = await resolveCustomAnnouncementPayload(payload);
+  const content = customPayloadToContent(resolved);
   return sendAnnouncementTestEmail(content, to);
 }
 
-export async function previewCustomAnnouncement(payload: CustomAnnouncementPayload) {
-  const parsed = parseCustomAnnouncementPayload(payload);
+export async function previewCustomAnnouncement(payload: CustomAnnouncementPayload | CustomAnnouncementDraft) {
+  const parsed = await resolveCustomAnnouncementPayload(payload);
   const slug = buildCustomSlug(parsed.internalTitle);
   const preview = await previewCampaignBySlug(slug);
   return {
     ...preview,
     internalTitle: parsed.internalTitle,
     campaignSlug: slug,
+    englishPreview: {
+      subjectEn: parsed.subjectEn,
+      headlineEn: parsed.headlineEn,
+      bodyEn: parsed.bodyEn,
+      ctaLabelEn: parsed.ctaLabelEn || "Open NEX",
+    },
   };
 }
 
@@ -451,10 +512,10 @@ export async function enqueueAnnouncementCampaign(
 }
 
 export async function enqueueCustomAnnouncement(
-  payload: CustomAnnouncementPayload,
+  payload: CustomAnnouncementPayload | CustomAnnouncementDraft,
   opts?: { dryRun?: boolean; limit?: number; requestedBy?: string | null },
 ): Promise<{ id: number; status: string; campaignSlug: string }> {
-  const parsed = parseCustomAnnouncementPayload(payload);
+  const parsed = await resolveCustomAnnouncementPayload(payload);
   const slug = buildCustomSlug(parsed.internalTitle);
 
   const [row] = await db

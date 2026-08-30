@@ -567,6 +567,8 @@
     "confirmSendTitle": "Confirm send",
     "confirmBody": "Send to {{count}} recipients. Continue?",
     "cancel": "Cancel",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "composeKoHint": "Write in Korean only — English is auto-translated before send. Use Check recipient count to preview.",
+    "englishPreview": "Auto-translated English preview"
   }
 }
