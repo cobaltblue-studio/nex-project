@@ -49,9 +49,9 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
   );
 
   useEffect(() => {
-    setResolvedAsyncSrc(null);
     setError(null);
     if (!rawUrl?.trim()) {
+      setResolvedAsyncSrc(null);
       setLoading(false);
       return;
     }
@@ -61,6 +61,8 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
       setLoading(false);
       return;
     }
+
+    setResolvedAsyncSrc(null);
 
     const url = rawUrl.trim();
     const isSuno = urlLooksLikeSunoShare(url);
@@ -104,6 +106,6 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     };
   }, [rawUrl, syncSrc, cachedSrc, embedOpts, t, cacheVersion]);
 
-  const iframeSrc = resolvedAsyncSrc ?? syncSrc ?? cachedSrc ?? null;
+  const iframeSrc = syncSrc ?? cachedSrc ?? resolvedAsyncSrc ?? null;
   return { iframeSrc, loading, error };
 }

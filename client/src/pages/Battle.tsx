@@ -28,7 +28,7 @@ import {
 } from "@/components/YoutubePlayer";
 import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
-import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins, ensureStreamingEmbedResolved } from "@/lib/prefetchStreamingEmbed";
+import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { NexiCompanion, type NexiAnchor, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
 import { ShareButtons } from "@/components/ShareButtons";
@@ -308,6 +308,17 @@ function BattleTrackPlayer({
     },
   );
 
+  const streamingIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const showStreamingEmbed =
+    !!battleIframeSrc && (!autoplay || !embedStopped || iframeKind !== "suno");
+
+  useEffect(() => {
+    return () => {
+      const el = streamingIframeRef.current;
+      if (el) el.src = "about:blank";
+    };
+  }, [track.id]);
+
   useLayoutEffect(() => {
     const el = audioRef.current;
     if (!el || !autoplay || !isDirectAudio) return;
@@ -378,10 +389,11 @@ function BattleTrackPlayer({
                   </p>
                 ) : null}
               </div>
-            ) : battleIframeSrc ? (
+            ) : battleIframeSrc && showStreamingEmbed ? (
               <div className="relative w-full h-full min-h-[120px]">
                 <iframe
-                  key={battleIframeSrc}
+                  ref={streamingIframeRef}
+                  key={`battle-stream-${track.id}`}
                   src={battleIframeSrc}
                   className="w-full h-full min-h-[120px] pointer-events-none"
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
@@ -525,12 +537,6 @@ export function Battle() {
       setListenReplayB(0);
       setIsRevealed(false);
       setShowSharePopup(false);
-      const urls = [battleTrackStreamUrl(data.trackA), battleTrackStreamUrl(data.trackB)].filter(
-        Boolean,
-      );
-      await Promise.all(
-        urls.map((url) => ensureStreamingEmbedResolved(url).catch(() => undefined)),
-      );
       setPhase("track-a");
     },
     onError: (err: Error) => {
@@ -762,6 +768,15 @@ export function Battle() {
   }, [battle, phase]);
 
   useEffect(() => {
+    return () => {
+      document.querySelectorAll(".battle-player-container iframe").forEach((node) => {
+        const iframe = node as HTMLIFrameElement;
+        iframe.src = "about:blank";
+      });
+    };
+  }, [phase]);
+
+  useEffect(() => {
     if (!battle) return;
     prefetchPlayableStreamingEmbed(battleTrackStreamUrl(battle.trackA));
     prefetchPlayableStreamingEmbed(battleTrackStreamUrl(battle.trackB));
@@ -937,7 +952,7 @@ export function Battle() {
       </div>
       )}
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {phase === "genre-select" && (
           <motion.div
             key="genre-select"

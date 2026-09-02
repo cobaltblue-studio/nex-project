@@ -133,6 +133,7 @@ function resolveStreamingUrl(url: string): Promise<void> {
 export function prefetchPlayableStreamingEmbed(rawUrl: string | undefined | null): void {
   const url = rawUrl?.trim();
   if (!url) return;
+  if (buildStreamingIframeSrc(url, { autoplay: false })) return;
   void resolveStreamingUrl(url).catch(() => {});
 }
 
