@@ -9,6 +9,24 @@ import {
 const sunoUuidCache = new Map<string, string>();
 const soundCloudPermalinkCache = new Map<string, string>();
 const inflight = new Map<string, Promise<void>>();
+const cacheListeners = new Set<() => void>();
+let cacheVersion = 0;
+
+function notifyCacheListeners(): void {
+  cacheVersion += 1;
+  for (const listener of cacheListeners) listener();
+}
+
+export function getStreamingEmbedCacheVersion(): number {
+  return cacheVersion;
+}
+
+export function subscribeStreamingEmbedCache(listener: () => void): () => void {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+}
 
 function cacheKey(url: string): string {
   return url.trim().toLowerCase();
@@ -80,6 +98,7 @@ function resolveStreamingUrl(url: string): Promise<void> {
           throw new Error(typeof j.message === "string" ? j.message : "Suno resolve failed");
         }
         sunoUuidCache.set(key, j.songUuid);
+        notifyCacheListeners();
       })
       .finally(() => {
         inflight.delete(key);
@@ -96,6 +115,7 @@ function resolveStreamingUrl(url: string): Promise<void> {
           );
         }
         soundCloudPermalinkCache.set(key, j.permalink);
+        notifyCacheListeners();
       })
       .finally(() => {
         inflight.delete(key);

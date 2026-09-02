@@ -28,7 +28,7 @@ import {
 } from "@/components/YoutubePlayer";
 import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
-import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
+import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins, ensureStreamingEmbedResolved } from "@/lib/prefetchStreamingEmbed";
 import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
 import { NexiCompanion, type NexiAnchor, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
 import { ShareButtons } from "@/components/ShareButtons";
@@ -115,6 +115,7 @@ function BattleBlindCard({
   dataTestIdPrefix: string;
 }) {
   const maskedLabel = "[HIDDEN] · UNLOCK AFTER VOTE";
+  const [coverBroken, setCoverBroken] = useState(false);
   const isPicked = pickedTrackId === trackId;
   const voteLocked = pickedTrackId != null;
   const selectStateLabel = isPicked
@@ -128,6 +129,11 @@ function BattleBlindCard({
   const onSelect = () => {
     if (!disabled) onVote();
   };
+
+  useEffect(() => {
+    setCoverBroken(false);
+  }, [track.id, track.coverImageUrl]);
+
   return (
     <motion.div
       className={[
@@ -163,7 +169,7 @@ function BattleBlindCard({
         </span>
       </div>
       <div className="battle-cover-shell">
-        {track.coverImageUrl ? (
+        {track.coverImageUrl && !coverBroken ? (
           <img
             src={track.coverImageUrl}
             alt={`${track.title} cover`}
@@ -171,6 +177,7 @@ function BattleBlindCard({
               "battle-cover-image",
               isRevealed ? "battle-cover-revealed" : "battle-cover-hidden",
             ].join(" ")}
+            onError={() => setCoverBroken(true)}
           />
         ) : (
           <div className="battle-cover-fallback">
@@ -243,6 +250,7 @@ function BattleTrackPlayer({
   blindMode?: boolean;
   onEnded?: () => void;
 }) {
+  const { t } = useTranslation();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [iframeGuessSeek, setIframeGuessSeek] = useState(0);
@@ -362,7 +370,14 @@ function BattleTrackPlayer({
         ) : rawUrl ? (
           <div className="aspect-[21/9] flex items-center justify-center" style={{ maxHeight: "32vh" }}>
             {battleStreamLoading && !battleIframeSrc ? (
-              <Loader2 className="w-8 h-8 text-primary/60 animate-spin" />
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 text-primary/60 animate-spin" />
+                {iframeKind === "suno" ? (
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+                    {t("suno.resolving")}
+                  </p>
+                ) : null}
+              </div>
             ) : battleIframeSrc ? (
               <div className="relative w-full h-full min-h-[120px]">
                 <iframe
@@ -510,6 +525,12 @@ export function Battle() {
       setListenReplayB(0);
       setIsRevealed(false);
       setShowSharePopup(false);
+      const urls = [battleTrackStreamUrl(data.trackA), battleTrackStreamUrl(data.trackB)].filter(
+        Boolean,
+      );
+      await Promise.all(
+        urls.map((url) => ensureStreamingEmbedResolved(url).catch(() => undefined)),
+      );
       setPhase("track-a");
     },
     onError: (err: Error) => {

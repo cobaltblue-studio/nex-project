@@ -8,6 +8,8 @@ import {
 import {
   ensureStreamingEmbedResolved,
   getCachedEmbedSrc,
+  getStreamingEmbedCacheVersion,
+  subscribeStreamingEmbedCache,
 } from "@/lib/prefetchStreamingEmbed";
 
 type Opts = { autoplay?: boolean; enableJsApi?: boolean; embedSeekSeconds?: number };
@@ -29,6 +31,13 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     [autoplay, embedSeekSeconds],
   );
 
+  const [resolvedAsyncSrc, setResolvedAsyncSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cacheVersion, setCacheVersion] = useState(getStreamingEmbedCacheVersion);
+
+  useEffect(() => subscribeStreamingEmbedCache(() => setCacheVersion((v) => v + 1)), []);
+
   const syncSrc = useMemo(
     () => buildStreamingIframeSrc(rawUrl, { autoplay, enableJsApi, embedSeekSeconds }),
     [rawUrl, autoplay, enableJsApi, embedSeekSeconds],
@@ -36,12 +45,8 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
 
   const cachedSrc = useMemo(
     () => (rawUrl?.trim() ? getCachedEmbedSrc(rawUrl, embedOpts) : undefined),
-    [rawUrl, embedOpts],
+    [rawUrl, embedOpts, cacheVersion],
   );
-
-  const [resolvedAsyncSrc, setResolvedAsyncSrc] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setResolvedAsyncSrc(null);
@@ -50,7 +55,9 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
       setLoading(false);
       return;
     }
-    if (syncSrc !== null || cachedSrc) {
+    const immediate = syncSrc ?? cachedSrc ?? null;
+    if (immediate) {
+      setResolvedAsyncSrc(immediate);
       setLoading(false);
       return;
     }
@@ -95,7 +102,7 @@ export function usePlayableStreamingSrc(rawUrl: string | undefined | null, opts:
     return () => {
       cancelled = true;
     };
-  }, [rawUrl, syncSrc, cachedSrc, embedOpts, t]);
+  }, [rawUrl, syncSrc, cachedSrc, embedOpts, t, cacheVersion]);
 
   const iframeSrc = resolvedAsyncSrc ?? syncSrc ?? cachedSrc ?? null;
   return { iframeSrc, loading, error };

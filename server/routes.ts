@@ -22,11 +22,11 @@ import {
 } from "@shared/constants";
 import { createApiAccessControl } from "./api-access";
 import {
-  sanitizeBattleForPublic,
+  enrichBattleForPublic,
+  enrichTrackDetailForPublic,
   sanitizePublicProfileDetail,
   sanitizePublicProfileForDirectory,
   sanitizePublicTrack,
-  sanitizeTrackDetailForPublic,
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
 import { publicTrackProvenanceExtras } from "./trackProvenance";
@@ -1277,7 +1277,7 @@ export async function registerRoutes(
       }
     }
     const playCount = publicTrackPlayCount(t as { playCount?: number; playsCount?: number });
-    const base = sanitizeTrackDetailForPublic({
+    const base = await enrichTrackDetailForPublic({
       ...(t as Record<string, unknown>),
       playCount,
       playsCount: playCount,
@@ -2085,7 +2085,7 @@ export async function registerRoutes(
   app.get("/api/battles/recent", async (_req, res) => {
     try {
       const battle = await storage.getRecentBattle();
-      res.json(sanitizeBattleForPublic(battle as Record<string, unknown> | null));
+      res.json(await enrichBattleForPublic(battle as Record<string, unknown> | null));
     } catch {
       res.json(null);
     }
@@ -2207,14 +2207,14 @@ export async function registerRoutes(
       });
     }
 
-    res.json(sanitizeBattleForPublic(battle as Record<string, unknown>));
+    res.json(await enrichBattleForPublic(battle as Record<string, unknown>));
   });
 
   // Get a specific battle
   app.get("/api/battles/:id", async (req, res) => {
     const battle = await storage.getBattle(Number(req.params.id));
     if (!battle) return res.status(404).json({ message: apiMsg("배틀을 찾을 수 없습니다", "Battle not found") });
-    res.json(sanitizeBattleForPublic(battle as Record<string, unknown>));
+    res.json(await enrichBattleForPublic(battle as Record<string, unknown>));
   });
 
   // After finishing a battle track preview (client-enforced duration); server records eligibility to vote.
