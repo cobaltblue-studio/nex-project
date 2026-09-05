@@ -1,8 +1,9 @@
 import { announcementEmailCampaignRuns, announcementEmailDeliveries } from "@shared/schema";
 import { db } from "./db";
 import { sendPlatformAnnouncementEmail, isDeliverableEmail } from "./email";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { createTriggeredWorker } from "./triggeredWorker";
 
 type RecipientKind = "creator" | "visitor";
 
@@ -534,9 +535,7 @@ export async function enqueueCustomAnnouncement(
       campaignSlug: announcementEmailCampaignRuns.campaignSlug,
     });
 
-  void processPendingAnnouncementCampaigns().catch((err) => {
-    console.error("[announcement] custom queue kick failed", err);
-  });
+  triggerAnnouncementCampaignWorker("queue");
 
   return row;
 }
@@ -549,86 +548,95 @@ export async function listAnnouncementCampaignRuns(limit = 20) {
     .limit(limit);
 }
 
-let workerRunning = false;
+const ANNOUNCEMENT_SAFETY_POLL_MS = 6 * 60 * 60 * 1000;
 
+/**
+ * Drain claimable pending campaign runs.
+ * Ownership is only acquired when UPDATE … WHERE id AND status='pending' returns a row.
+ */
 export async function processPendingAnnouncementCampaigns(): Promise<void> {
-  if (workerRunning) return;
-  workerRunning = true;
-  try {
-    while (true) {
-      const [nextRun] = await db
-        .select()
-        .from(announcementEmailCampaignRuns)
-        .where(eq(announcementEmailCampaignRuns.status, "pending"))
-        .orderBy(announcementEmailCampaignRuns.requestedAt)
-        .limit(1);
+  while (true) {
+    const [nextRun] = await db
+      .select()
+      .from(announcementEmailCampaignRuns)
+      .where(eq(announcementEmailCampaignRuns.status, "pending"))
+      .orderBy(announcementEmailCampaignRuns.requestedAt)
+      .limit(1);
 
-      if (!nextRun) break;
+    if (!nextRun) break;
 
-      const [claimed] = await db
+    const [claimed] = await db
+      .update(announcementEmailCampaignRuns)
+      .set({
+        status: "processing",
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      })
+      .where(
+        and(
+          eq(announcementEmailCampaignRuns.id, nextRun.id),
+          eq(announcementEmailCampaignRuns.status, "pending"),
+        ),
+      )
+      .returning();
+
+    // Another replica claimed this row (or it was cancelled) — try the next pending job.
+    if (!claimed || claimed.status !== "processing") continue;
+
+    try {
+      let summary: Record<string, unknown>;
+      if (isCustomAnnouncementSlug(claimed.campaignSlug)) {
+        const stored = claimed.summary as { customPayload?: CustomAnnouncementPayload } | null;
+        const payload = stored?.customPayload;
+        if (!payload) throw new Error("Missing custom announcement payload");
+        summary = (await sendCustomAnnouncementCampaign(payload, {
+          slug: claimed.campaignSlug,
+          dryRun: claimed.dryRun,
+          limit: claimed.limit ?? undefined,
+        })) as Record<string, unknown>;
+      } else {
+        summary = (await sendAnnouncementCampaign(claimed.campaignSlug, {
+          dryRun: claimed.dryRun,
+          limit: claimed.limit ?? undefined,
+        })) as Record<string, unknown>;
+      }
+
+      await db
         .update(announcementEmailCampaignRuns)
         .set({
-          status: "processing",
-          startedAt: new Date(),
-          completedAt: null,
+          status: "completed",
+          summary: summary,
+          completedAt: new Date(),
           error: null,
         })
-        .where(eq(announcementEmailCampaignRuns.id, nextRun.id))
-        .returning();
-
-      if (!claimed || claimed.status !== "processing") break;
-
-      try {
-        let summary: Record<string, unknown>;
-        if (isCustomAnnouncementSlug(claimed.campaignSlug)) {
-          const stored = claimed.summary as { customPayload?: CustomAnnouncementPayload } | null;
-          const payload = stored?.customPayload;
-          if (!payload) throw new Error("Missing custom announcement payload");
-          summary = (await sendCustomAnnouncementCampaign(payload, {
-            slug: claimed.campaignSlug,
-            dryRun: claimed.dryRun,
-            limit: claimed.limit ?? undefined,
-          })) as Record<string, unknown>;
-        } else {
-          summary = (await sendAnnouncementCampaign(claimed.campaignSlug, {
-            dryRun: claimed.dryRun,
-            limit: claimed.limit ?? undefined,
-          })) as Record<string, unknown>;
-        }
-
-        await db
-          .update(announcementEmailCampaignRuns)
-          .set({
-            status: "completed",
-            summary: summary,
-            completedAt: new Date(),
-            error: null,
-          })
-          .where(eq(announcementEmailCampaignRuns.id, claimed.id));
-      } catch (err) {
-        await db
-          .update(announcementEmailCampaignRuns)
-          .set({
-            status: "failed",
-            error: err instanceof Error ? err.message : String(err),
-            completedAt: new Date(),
-          })
-          .where(eq(announcementEmailCampaignRuns.id, claimed.id));
-      }
+        .where(eq(announcementEmailCampaignRuns.id, claimed.id));
+    } catch (err) {
+      await db
+        .update(announcementEmailCampaignRuns)
+        .set({
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err),
+          completedAt: new Date(),
+        })
+        .where(eq(announcementEmailCampaignRuns.id, claimed.id));
     }
-  } finally {
-    workerRunning = false;
   }
 }
 
-export function startAnnouncementCampaignWorker(): void {
-  void processPendingAnnouncementCampaigns().catch((err) => {
-    console.error("[announcement] initial worker run failed", err);
-  });
+const announcementCampaignWorker = createTriggeredWorker({
+  safetyIntervalMs: ANNOUNCEMENT_SAFETY_POLL_MS,
+  run: processPendingAnnouncementCampaigns,
+  onError: (error, reason) => {
+    console.error(`[announcement] worker failed (${reason})`, error);
+  },
+});
 
-  setInterval(() => {
-    void processPendingAnnouncementCampaigns().catch((err) => {
-      console.error("[announcement] worker loop failed", err);
-    });
-  }, 60_000);
+/** Fire-and-forget — do not await from HTTP handlers. */
+export function triggerAnnouncementCampaignWorker(reason = "queue"): void {
+  announcementCampaignWorker.trigger(reason);
+}
+
+export function startAnnouncementCampaignWorker(): void {
+  announcementCampaignWorker.start();
 }

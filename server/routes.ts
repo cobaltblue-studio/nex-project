@@ -58,7 +58,7 @@ import {
   resolveCustomAnnouncementPayload,
   previewAnnouncementCampaign,
   previewCustomAnnouncement,
-  processPendingAnnouncementCampaigns,
+  triggerAnnouncementCampaignWorker,
   sendAnnouncementCampaign,
   sendCustomAnnouncementTest,
   sendTemplateAnnouncementTest,
@@ -2483,9 +2483,7 @@ export async function registerRoutes(
         limit,
         requestedBy: getUserEmail(req) || getUserId(req) || "admin",
       });
-      void processPendingAnnouncementCampaigns().catch((err) => {
-        console.error("[announcement] queue kick failed", err);
-      });
+      triggerAnnouncementCampaignWorker("queue");
       res.json(job);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

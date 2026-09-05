@@ -1,6 +1,6 @@
 import type { IStorage } from "./storage";
 
-const HOUR_MS = 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** UTC midnight for `date` (default: today UTC). */
 export function utcMidnight(date = new Date()): Date {
@@ -9,13 +9,22 @@ export function utcMidnight(date = new Date()): Date {
 
 let schedulerStarted = false;
 
+export type DailySnapshotSchedulerOptions = {
+  registerInterval?: (callback: () => void, delayMs: number) => unknown;
+};
+
 /**
- * Captures yesterday+today missing snapshots on boot, then checks hourly for a new UTC day.
+ * Captures yesterday+today missing snapshots on boot, then checks daily for a new UTC day.
  * Safe to call multiple times — storage layer upserts by snapshot_date.
  */
-export function startDailySnapshotScheduler(storage: IStorage): void {
+export function startDailySnapshotScheduler(
+  storage: IStorage,
+  options?: DailySnapshotSchedulerOptions,
+): void {
   if (schedulerStarted) return;
   schedulerStarted = true;
+
+  const registerInterval = options?.registerInterval ?? setInterval;
 
   const run = async (label: string) => {
     try {
@@ -31,5 +40,10 @@ export function startDailySnapshotScheduler(storage: IStorage): void {
   };
 
   void run("boot");
-  setInterval(() => void run("hourly"), HOUR_MS);
+  registerInterval(() => void run("daily"), DAY_MS);
+}
+
+/** Test-only: reset module idempotency flag between cases. */
+export function __resetDailySnapshotSchedulerForTests(): void {
+  schedulerStarted = false;
 }
