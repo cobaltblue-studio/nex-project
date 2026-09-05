@@ -22,7 +22,7 @@
     "audit:tracks": "tsx scripts/audit-track-data.ts",
     "approve:tracks:user": "tsx scripts/approve-tracks-for-username.ts",
     "snapshots:capture": "tsx scripts/capture-daily-snapshots.ts",
-    "test:workers": "tsx --test server/triggeredWorker.test.ts server/dailySnapshot.test.ts server/announcementCampaignClaim.test.ts",
+    "test:workers": "tsx --test server/triggeredWorker.test.ts server/dailySnapshot.test.ts server/announcementCampaignClaim.test.ts server/neonIdleCost.test.ts",
     "test:atomic-claim": "tsx scripts/test-announcement-atomic-claim.ts"
   },
   "dependencies": {

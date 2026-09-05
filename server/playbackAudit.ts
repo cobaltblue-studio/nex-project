@@ -5,7 +5,7 @@ import type { IStorage } from "./storage";
 import { describePlaybackIssue, inspectTrackPlaybackAvailability } from "./media-availability";
 
 const PUBLIC_TRACK_STATUSES = ["MV", "BATTLE_POOL", "PUBLISHED", "APPROVED", "CHART"] as const;
-const AUDIT_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const AUDIT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 let auditStarted = false;
 
 async function runPlaybackAudit(storage: IStorage, label: string): Promise<void> {

@@ -15,6 +15,7 @@ import {
 } from "@shared/constants";
 import { apiMsg } from "./api-i18n";
 import { isDeliverableEmail } from "./email";
+import { startSessionPruneScheduler } from "./sessionPrune";
 
 function founderEmailForEnv(): string {
   return (process.env.NEX_FOUNDER_ADMIN_EMAIL || NEX_FOUNDER_ADMIN_EMAIL).trim().toLowerCase();
@@ -329,16 +330,20 @@ export async function setupAuth(app: Express) {
     session({
       ...sessionBase,
       ...(usePgStore
-        ? {
+        ? (() => {
             // Reuse Drizzle `sessions` table (@shared/models/auth.ts). It already has index
             // "IDX_session_expire"; connect-pg-simple's create script would duplicate that name
             // if we used another tableName + createTableIfMissing.
-            store: new PgSessionStore({
+            // Default connect-pg-simple prune (~15m) keeps Neon awake; disable and prune daily.
+            const store = new PgSessionStore({
               pool,
               tableName: "sessions",
               createTableIfMissing: false,
-            }),
-          }
+              pruneSessionInterval: false,
+            });
+            startSessionPruneScheduler(store);
+            return { store };
+          })()
         : {}),
     }),
   );

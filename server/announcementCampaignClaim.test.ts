@@ -21,9 +21,12 @@ function claimPendingRow(
 }
 
 describe("announcement campaign atomic claim + cadence", () => {
-  it("safety poll interval is six hours (not 60 seconds)", () => {
+  it("safety poll interval is one day (not 60 seconds)", () => {
     const src = readFileSync(join(here, "announcementCampaigns.ts"), "utf8");
-    assert.match(src, /ANNOUNCEMENT_SAFETY_POLL_MS\s*=\s*6\s*\*\s*60\s*\*\s*60\s*\*\s*1000/);
+    assert.match(
+      src,
+      /ANNOUNCEMENT_SAFETY_POLL_MS\s*=\s*(?:DAY_MS|24\s*\*\s*60\s*\*\s*60\s*\*\s*1000)/,
+    );
     assert.doesNotMatch(src, /setInterval\(\(\)\s*=>[\s\S]{0,200}60_000/);
   });
 

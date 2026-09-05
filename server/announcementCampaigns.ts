@@ -548,7 +548,7 @@ export async function listAnnouncementCampaignRuns(limit = 20) {
     .limit(limit);
 }
 
-const ANNOUNCEMENT_SAFETY_POLL_MS = 6 * 60 * 60 * 1000;
+const ANNOUNCEMENT_SAFETY_POLL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Drain claimable pending campaign runs.
