@@ -2,10 +2,13 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Copy, UserPlus } from "lucide-react";
 import { Link, useSearch } from "wouter";
+import { useTranslation } from "react-i18next";
 import { getLoginUrl } from "@/lib/loginRedirect";
 import { inAppBrowserLabel, isLikelyInAppBrowser } from "@/lib/inapp-browser";
 
 export default function Auth() {
+  const { i18n } = useTranslation();
+  const ko = i18n.language?.startsWith("ko");
   const search = useSearch();
   const [copied, setCopied] = useState(false);
   const oauthHref = useMemo(() => {
@@ -50,7 +53,7 @@ export default function Auth() {
           <div className="flex items-center gap-2 text-amber-300">
             <AlertTriangle className="w-4 h-4" />
             <p className="text-[11px] font-bold uppercase tracking-widest">
-              In-app browser detected
+              In-app browser detected{appLabel ? ` · ${appLabel}` : ""}
             </p>
           </div>
           <p className="text-xs text-zinc-300 leading-relaxed">
@@ -76,6 +79,25 @@ export default function Auth() {
         <UserPlus className="w-4 h-4" />
         Continue with Google
       </a>
+      <p className="text-[11px] text-zinc-500 leading-relaxed px-2">
+        {ko ? (
+          <>
+            로그인 시{" "}
+            <Link href="/data-policy" className="text-primary hover:underline">
+              데이터·개인정보 정책
+            </Link>
+            이 적용됩니다.
+          </>
+        ) : (
+          <>
+            By signing in, you agree that our{" "}
+            <Link href="/data-policy" className="text-primary hover:underline">
+              Data &amp; Privacy Policy
+            </Link>{" "}
+            applies.
+          </>
+        )}
+      </p>
       <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
         <Link href="/" className="text-zinc-500 hover:text-primary transition-colors">
           Back to home
