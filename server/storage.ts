@@ -32,6 +32,7 @@ import {
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
 import { BATTLE_AND_NEW_AUDIO_STATUSES } from "@shared/constants";
+import { normalizeCommunityPostInput } from "@shared/community";
 import { computeCreatorPopularityScore } from "@shared/creatorPopularity";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import {
@@ -421,7 +422,8 @@ export interface IStorage {
   ): Promise<{ id: number; userId: string; content: string; createdAt: Date; authorName: string | null }[]>;
   createCommunityPost(input: {
     authorUserId: string;
-    category: string;
+    category?: string;
+    kind?: string;
     title: string;
     body: string;
     attachedTrackId?: number | null;
@@ -438,6 +440,7 @@ export interface IStorage {
     {
       id: number;
       category: string;
+      kind: string;
       title: string;
       body: string;
       externalUrl: string | null;
@@ -467,6 +470,7 @@ export interface IStorage {
   ): Promise<{
     id: number;
     category: string;
+    kind: string;
     title: string;
     body: string;
     externalUrl: string | null;
@@ -2507,17 +2511,21 @@ export class DatabaseStorage implements IStorage {
 
   async createCommunityPost(input: {
     authorUserId: string;
-    category: string;
+    category?: string;
+    kind?: string;
     title: string;
     body: string;
     attachedTrackId?: number | null;
     externalUrl?: string | null;
   }): Promise<number> {
-    const title = String(input.title ?? "").trim();
-    const body = String(input.body ?? "").trim();
-    if (!title) throw new Error("EMPTY_TITLE");
-    if (title.length > 140) throw new Error("TITLE_TOO_LONG");
-    if (body.length > 5000) throw new Error("BODY_TOO_LONG");
+    const normalized = normalizeCommunityPostInput({
+      kind: input.kind,
+      title: input.title,
+      body: input.body,
+      attachedTrackId: input.attachedTrackId,
+      category: input.category,
+    });
+    const { kind, title, body, attachedTrackId, category } = normalized;
 
     let externalUrl: string | null = null;
     const rawUrl = String(input.externalUrl ?? "").trim();
@@ -2531,10 +2539,6 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    const attachedTrackId = Number.isFinite(Number(input.attachedTrackId))
-      ? Number(input.attachedTrackId)
-      : null;
-    if (!attachedTrackId) throw new Error("ATTACHED_TRACK_REQUIRED");
     if (attachedTrackId) {
       const [track] = await db
         .select({ id: tracks.id })
@@ -2548,7 +2552,8 @@ export class DatabaseStorage implements IStorage {
       .insert(communityPosts)
       .values({
         authorUserId: input.authorUserId,
-        category: input.category,
+        category,
+        kind,
         title,
         body,
         attachedTrackId,
@@ -2557,7 +2562,7 @@ export class DatabaseStorage implements IStorage {
       .returning({ id: communityPosts.id });
 
     if (attachedTrackId) {
-      const [ownerNote] = await db.execute(sql`
+      const ownerNoteResult = await db.execute(sql`
         SELECT p.id
         FROM community_posts p
         INNER JOIN tracks t ON t.id = p.attached_track_id
@@ -2568,6 +2573,7 @@ export class DatabaseStorage implements IStorage {
           AND p.hidden_at IS NULL
         LIMIT 1
       `);
+      const ownerNoteRows = (ownerNoteResult as { rows?: { id: number }[] }).rows ?? [];
       const [authorProfile] = await db
         .select({ id: profiles.id })
         .from(profiles)
@@ -2581,7 +2587,7 @@ export class DatabaseStorage implements IStorage {
       const isOwnerFirstNote =
         authorProfile?.id != null &&
         trackOwner?.creatorId === authorProfile.id &&
-        ((ownerNote.rows as { id: number }[] | undefined)?.length ?? 0) === 0;
+        ownerNoteRows.length === 0;
       if (isOwnerFirstNote) {
         await db
           .update(communityPosts)
@@ -2604,6 +2610,7 @@ export class DatabaseStorage implements IStorage {
     {
       id: number;
       category: string;
+      kind: string;
       title: string;
       body: string;
       externalUrl: string | null;
@@ -2635,35 +2642,19 @@ export class DatabaseStorage implements IStorage {
     if (opts?.category) whereParts.push(sql`p.category = ${opts.category}`);
     if (q) whereParts.push(sql`(p.title ILIKE ${`%${q}%`} OR p.body ILIKE ${`%${q}%`})`);
     const whereSql = whereParts.length ? sql`WHERE ${sql.join(whereParts, sql` AND `)}` : sql``;
-    const feedOrder = sql`
-      CASE
-        WHEN p.pinned_at IS NOT NULL AND p.attached_track_id IS NULL THEN 0
-        WHEN p.attached_track_id IS NOT NULL THEN 1
-        ELSE 2
-      END,
-      p.pinned_at DESC NULLS LAST,
-      (
-        SELECT MAX(p2.created_at)
-        FROM community_posts p2
-        WHERE p2.attached_track_id IS NOT DISTINCT FROM p.attached_track_id
-          AND p2.hidden_at IS NULL
-      ) DESC NULLS LAST,
-      p.created_at DESC
-    `;
     const orderSql =
       opts?.sort === "popular"
         ? sql`ORDER BY
-          CASE WHEN p.pinned_at IS NOT NULL AND p.attached_track_id IS NULL THEN 0 ELSE 1 END,
-          p.attached_track_id NULLS LAST,
           p.pinned_at DESC NULLS LAST,
           (COALESCE(pl.cnt, 0) * 3 + COALESCE(cc.cnt, 0)) DESC,
           p.created_at DESC`
-        : sql`ORDER BY ${feedOrder}`;
+        : sql`ORDER BY p.pinned_at DESC NULLS LAST, p.created_at DESC`;
 
     const rows = await db.execute(sql`
       SELECT
         p.id,
         p.category,
+        COALESCE(p.post_kind, 'talk') AS "kind",
         p.title,
         p.body,
         p.external_url AS "externalUrl",
@@ -2709,6 +2700,7 @@ export class DatabaseStorage implements IStorage {
     return (rows.rows as any[]).map((row) => ({
       id: Number(row.id),
       category: String(row.category),
+      kind: String(row.kind ?? "talk"),
       title: String(row.title),
       body: String(row.body),
       externalUrl: row.externalUrl ?? null,
@@ -2742,6 +2734,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<{
     id: number;
     category: string;
+    kind: string;
     title: string;
     body: string;
     externalUrl: string | null;
@@ -2754,6 +2747,7 @@ export class DatabaseStorage implements IStorage {
     authorName: string | null;
     authorProfileId: number | null;
     authorIsVerified: boolean;
+    isTrackCreatorPost: boolean;
     attachedTrack: {
       id: number;
       title: string;
@@ -2772,6 +2766,7 @@ export class DatabaseStorage implements IStorage {
       SELECT
         p.id,
         p.category,
+        COALESCE(p.post_kind, 'talk') AS "kind",
         p.title,
         p.body,
         p.external_url AS "externalUrl",
@@ -2818,6 +2813,7 @@ export class DatabaseStorage implements IStorage {
     return {
       id: Number(row.id),
       category: String(row.category),
+      kind: String(row.kind ?? "talk"),
       title: String(row.title),
       body: String(row.body),
       externalUrl: row.externalUrl ?? null,
@@ -2847,7 +2843,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async toggleCommunityPostLike(userId: string, postId: number): Promise<{ liked: boolean; likeCount: number }> {
-    const [post] = await db.select({ id: communityPosts.id, hiddenAt: communityPosts.hiddenAt }).from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
+    const [post] = await db
+      .select({
+        id: communityPosts.id,
+        hiddenAt: communityPosts.hiddenAt,
+        authorUserId: communityPosts.authorUserId,
+        title: communityPosts.title,
+      })
+      .from(communityPosts)
+      .where(eq(communityPosts.id, postId))
+      .limit(1);
     if (!post || post.hiddenAt) throw new Error("POST_NOT_FOUND");
     const [existing] = await db
       .select({ id: communityPostLikes.id })
@@ -2858,6 +2863,15 @@ export class DatabaseStorage implements IStorage {
       await db.delete(communityPostLikes).where(eq(communityPostLikes.id, existing.id));
     } else {
       await db.insert(communityPostLikes).values({ postId, userId });
+      if (post.authorUserId && post.authorUserId !== userId) {
+        void this.createNotification({
+          recipientUserId: post.authorUserId,
+          type: "community_like",
+          title: "Community like",
+          body: `Someone liked "${post.title}" in the community.`,
+          href: `/community/${postId}`,
+        });
+      }
     }
     const [countRow] = await db
       .select({ c: count() })
@@ -2871,12 +2885,26 @@ export class DatabaseStorage implements IStorage {
     if (!body) throw new Error("EMPTY_COMMENT");
     if (body.length > 2000) throw new Error("COMMENT_TOO_LONG");
     const [post] = await db
-      .select({ id: communityPosts.id, hiddenAt: communityPosts.hiddenAt })
+      .select({
+        id: communityPosts.id,
+        hiddenAt: communityPosts.hiddenAt,
+        authorUserId: communityPosts.authorUserId,
+        title: communityPosts.title,
+      })
       .from(communityPosts)
       .where(eq(communityPosts.id, postId))
       .limit(1);
     if (!post || post.hiddenAt) throw new Error("POST_NOT_FOUND");
     await db.insert(communityComments).values({ authorUserId: userId, postId, content: body });
+    if (post.authorUserId && post.authorUserId !== userId) {
+      void this.createNotification({
+        recipientUserId: post.authorUserId,
+        type: "community_comment",
+        title: "New community comment",
+        body: `Someone commented on "${post.title}".`,
+        href: `/community/${postId}`,
+      });
+    }
   }
 
   async listCommunityComments(

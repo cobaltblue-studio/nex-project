@@ -79,8 +79,68 @@ export const COMMUNITY_SYSTEM_SEED_POSTS = [
 
 export const COMMUNITY_CATEGORY_SLUGS = COMMUNITY_CATEGORIES.map((item) => item.slug) as CommunityCategorySlug[];
 
+export const COMMUNITY_POST_KINDS = ["talk", "track", "discussion"] as const;
+export type CommunityPostKind = (typeof COMMUNITY_POST_KINDS)[number];
+
+/** Content well (cards/composer/detail) — page chrome stays NEX dark. */
+export const COMMUNITY_IVORY = "#F7F1E3";
+export const COMMUNITY_IVORY_INK = "#1C1917";
+
 export function isCommunityCategorySlug(value: unknown): value is CommunityCategorySlug {
   return typeof value === "string" && COMMUNITY_CATEGORY_SLUGS.includes(value as CommunityCategorySlug);
+}
+
+export function isCommunityPostKind(value: unknown): value is CommunityPostKind {
+  return typeof value === "string" && (COMMUNITY_POST_KINDS as readonly string[]).includes(value);
+}
+
+function autoTitleFromBody(body: string): string {
+  const firstLine = body.split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? "";
+  const clipped = firstLine.slice(0, 80).trim();
+  return clipped;
+}
+
+/**
+ * Normalize community create payload.
+ * Track attachment is never required (Founder: early community must stay easy to post).
+ */
+export function normalizeCommunityPostInput(input: {
+  kind?: string | null;
+  title: string;
+  body: string;
+  attachedTrackId?: number | null;
+  category?: string | null;
+}): {
+  kind: CommunityPostKind;
+  title: string;
+  body: string;
+  attachedTrackId: number | null;
+  category: CommunityCategorySlug;
+} {
+  const body = String(input.body ?? "").trim();
+  if (!body) throw new Error("EMPTY_BODY");
+  if (body.length > 5000) throw new Error("BODY_TOO_LONG");
+
+  const kindRaw = String(input.kind ?? "talk").trim() || "talk";
+  if (!isCommunityPostKind(kindRaw)) throw new Error("INVALID_KIND");
+  const kind = kindRaw;
+
+  let title = String(input.title ?? "").trim();
+  if (!title && (kind === "talk" || kind === "track")) {
+    title = autoTitleFromBody(body);
+  }
+  if (!title) throw new Error("EMPTY_TITLE");
+  if (title.length > 140) throw new Error("TITLE_TOO_LONG");
+
+  const categoryRaw = String(input.category ?? "").trim();
+  const category: CommunityCategorySlug = isCommunityCategorySlug(categoryRaw)
+    ? categoryRaw
+    : "track-share";
+
+  const trackNum = Number(input.attachedTrackId);
+  const attachedTrackId = Number.isFinite(trackNum) && trackNum > 0 ? trackNum : null;
+
+  return { kind, title, body, attachedTrackId, category };
 }
 
 export function formatCommunitySeedTitle(

@@ -219,6 +219,7 @@ export const communityPosts = pgTable("community_posts", {
   id: serial("id").primaryKey(),
   authorUserId: varchar("author_user_id").references(() => users.id).notNull(),
   category: text("category").notNull(),
+  kind: text("post_kind").notNull().default("talk"),
   title: text("title").notNull(),
   body: text("body").notNull(),
   attachedTrackId: integer("attached_track_id").references(() => tracks.id),

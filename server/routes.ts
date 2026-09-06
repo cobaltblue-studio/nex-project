@@ -409,16 +409,13 @@ export async function registerRoutes(
         message: apiMsg("커뮤니티 글을 쓰려면 프로필이 필요합니다", "A profile is required before posting to the community"),
       });
     }
-    const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
-    if (!isCommunityCategorySlug(category)) {
-      return res.status(400).json({
-        message: apiMsg("유효한 커뮤니티 카테고리가 필요합니다", "A valid community category is required"),
-      });
-    }
+    const category = typeof req.body?.category === "string" ? req.body.category.trim() : "track-share";
+    const kind = typeof req.body?.kind === "string" ? req.body.kind.trim() : "talk";
     try {
       const postId = await storage.createCommunityPost({
         authorUserId: userId,
         category,
+        kind,
         title: String(req.body?.title ?? ""),
         body: String(req.body?.body ?? ""),
         attachedTrackId: req.body?.attachedTrackId ?? null,
@@ -429,6 +426,12 @@ export async function registerRoutes(
       const msg = err?.message;
       if (msg === "EMPTY_TITLE") {
         return res.status(400).json({ message: apiMsg("제목을 입력해 주세요", "Please enter a title") });
+      }
+      if (msg === "EMPTY_BODY") {
+        return res.status(400).json({ message: apiMsg("본문을 입력해 주세요", "Please enter a body") });
+      }
+      if (msg === "INVALID_KIND") {
+        return res.status(400).json({ message: apiMsg("글 유형이 올바르지 않습니다", "Invalid post kind") });
       }
       if (msg === "TITLE_TOO_LONG") {
         return res.status(400).json({ message: apiMsg("제목이 너무 깁니다", "Title is too long") });
@@ -441,11 +444,6 @@ export async function registerRoutes(
       }
       if (msg === "ATTACHED_TRACK_NOT_FOUND") {
         return res.status(404).json({ message: apiMsg("첨부할 트랙을 찾을 수 없습니다", "Attached track not found") });
-      }
-      if (msg === "ATTACHED_TRACK_REQUIRED") {
-        return res.status(400).json({
-          message: apiMsg("관련 곡 또는 뮤직비디오를 선택해 주세요", "Please select a related track or music video"),
-        });
       }
       throw err;
     }
