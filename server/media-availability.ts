@@ -41,6 +41,37 @@ function classifySource(url: string | null | undefined): MediaSourceKind {
   return "other";
 }
 
+const SC_OEMBED_HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "NEX-Music-Platform/1.0 (+https://nexmusic.ai)",
+} as const;
+
+/**
+ * SoundCloud oEmbed is definitive for public track/set existence.
+ * 404/403 → removed or private; network failures stay inconclusive.
+ */
+export async function inspectSoundCloudOembed(
+  permalink: string,
+): Promise<"ok" | "blocked" | "unknown"> {
+  const oembedUrl = `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(permalink)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(oembedUrl, {
+      method: "GET",
+      signal: controller.signal,
+      headers: SC_OEMBED_HEADERS,
+    });
+    if (res.ok) return "ok";
+    if (res.status === 404 || res.status === 403) return "blocked";
+    return "unknown";
+  } catch {
+    return "unknown";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function inspectTrackPlaybackAvailability(
   url: string | null | undefined,
 ): Promise<MediaAvailabilityResult> {
@@ -57,7 +88,13 @@ export async function inspectTrackPlaybackAvailability(
 
   if (source === "soundcloud") {
     const permalink = await resolveSoundCloudShareToPermalink(raw);
-    return permalink ? { status: "ok", source } : { status: "unknown", source };
+    if (!permalink) return { status: "unknown", source };
+    const oembed = await inspectSoundCloudOembed(permalink);
+    if (oembed === "ok") return { status: "ok", source };
+    if (oembed === "blocked") {
+      return { status: "blocked", source, reason: "private_or_removed" };
+    }
+    return { status: "unknown", source };
   }
 
   if (source === "suno") {
