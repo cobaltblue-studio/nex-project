@@ -851,17 +851,21 @@ export function Battle() {
   const voteReady = listenedA && listenedB;
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto w-full min-w-0">
       <NexiCompanion cue={nexiCue} />
-      <div className="mb-6">
-        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+      <div className="mb-6 w-full min-w-0">
+        {/*
+          Mobile: stack so the blind toggle cannot be clipped by Layout overflow-x:hidden
+          when a wide child expands min-content width. Desktop keeps Arena | Blind on one row.
+        */}
+        <div className="flex flex-col gap-2 mb-2 w-full min-w-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Zap className="w-5 h-5 text-primary shrink-0" />
             <h1
               className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
               data-testid="text-battle-label"
             >
-              Arena
+              {t("battle.label")}
             </h1>
           </div>
           <button
@@ -869,13 +873,9 @@ export function Battle() {
             onClick={() => setBlindMode((v) => !v)}
             data-testid="toggle-battle-blind-mode"
             aria-pressed={blindMode}
-            title={
-              blindMode
-                ? "Blind mode: track titles stay hidden until you vote. Click to reveal titles sooner."
-                : "Blind mode off. Click for blind judging (titles hidden until vote)."
-            }
+            title={blindMode ? t("battle.blindTitleOn") : t("battle.blindTitleOff")}
             className={[
-              "inline-flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-lg border text-[9px] font-bold uppercase tracking-[0.18em] transition-premium",
+              "inline-flex items-center gap-1.5 sm:gap-2 self-start sm:self-auto shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9px] font-bold uppercase tracking-[0.14em] sm:tracking-[0.18em] transition-premium",
               blindMode
                 ? "border-primary/40 text-primary bg-primary/10"
                 : "border-white/20 text-zinc-400 bg-white/5 hover:border-white/30 hover:text-zinc-300",
@@ -887,16 +887,16 @@ export function Battle() {
               <Eye className="w-3.5 h-3.5 text-current shrink-0" aria-hidden strokeWidth={2.25} />
             )}
             <span className="whitespace-nowrap">
-              Blind <span className="opacity-80">·</span> {blindMode ? "On" : "Off"}
+              {blindMode ? t("battle.blindOn") : t("battle.blindOff")}
             </span>
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
           <h2
             className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
             data-testid="text-battle-arena-title"
           >
-            BATTLE ARENA
+            {t("battle.title")}
           </h2>
           <Link
             href="/community"
@@ -906,17 +906,16 @@ export function Battle() {
           </Link>
         </div>
         <p className="text-zinc-500 text-sm mt-2">
-          Head-to-head track battles where the community decides the winner.
+          {t("battle.subtitle")}
         </p>
       </div>
-      <div className="battle-page-container">
-      <div className={`mb-2 text-center ${phase === "vote" ? "pt-0" : "pt-1"}`}>
+      <div className="battle-page-container min-w-0">
+      <div className={`mb-2 text-center min-w-0 ${phase === "vote" ? "pt-0" : "pt-1"}`}>
         <p
-          className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-[4px] md:mt-0"
+          className="text-[10px] font-black uppercase tracking-[0.18em] md:tracking-[0.35em] text-zinc-500 mt-[4px] md:mt-0 max-w-full break-words px-1"
           data-testid="battle-progress-indicator"
-          style={{ letterSpacing: "0.35em" }}
         >
-          {`TODAY'S BATTLES ${displayCount} / ${dailyMax} (DAILY LIMIT ${dailyMax})`}
+          {t("battle.dailyProgress", { count: displayCount, max: dailyMax })}
         </p>
       </div>
 
