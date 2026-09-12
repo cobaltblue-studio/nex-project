@@ -35,7 +35,7 @@ type Props = {
 };
 
 /**
- * In-NEX Suno playback via server-resolved stream (MP4 / m4a-opus proxy).
+ * In-NEX Suno playback via server-resolved stream (MP4 / mp3 proxy).
  * Falls back to Open-on-Suno CTA when resolve fails. Modal unmount or active=false stops audio.
  */
 export function SunoInAppPlayer({
@@ -83,12 +83,14 @@ export function SunoInAppPlayer({
       .then((data) => {
         if (cancelled) return;
         if (!data?.streamUrl && !data?.upstreamUrl) throw new Error("no_stream");
-        // Prefer direct CDN/CloudFront in the browser; proxy is fallback if direct fails.
-        const primary = data.upstreamUrl || data.streamUrl || "";
+        // Prefer same-origin proxy (moov-at-EOF + Range safe). CDN is onError fallback.
+        const primary = data.streamUrl || data.upstreamUrl || "";
+        const fallback =
+          data.upstreamUrl && data.upstreamUrl !== primary ? data.upstreamUrl : undefined;
         setMeta({
           ...data,
           streamUrl: primary,
-          upstreamUrl: data.streamUrl && data.upstreamUrl !== data.streamUrl ? data.streamUrl : data.upstreamUrl,
+          upstreamUrl: fallback,
         });
         setLoading(false);
       })
@@ -133,7 +135,21 @@ export function SunoInAppPlayer({
     if (!meta || !autoplay || !active) return;
     const el = mediaRef.current;
     if (!el) return;
-    void el.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    void el
+      .play()
+      .then(() => setPlaying(true))
+      .catch(() => {
+        // Chrome blocks audible autoplay — retry muted for video, then wait for user Play.
+        if (el instanceof HTMLVideoElement) {
+          el.muted = true;
+          void el
+            .play()
+            .then(() => setPlaying(true))
+            .catch(() => setPlaying(false));
+          return;
+        }
+        setPlaying(false);
+      });
   }, [meta, autoplay, active]);
 
   useEffect(() => {
@@ -165,10 +181,25 @@ export function SunoInAppPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stop is stable enough via mediaRef
   }, [previewSeconds, meta?.durationSeconds, meta?.streamUrl, active, onEnded]);
 
+  const swapToFallback = (el: HTMLVideoElement | HTMLAudioElement) => {
+    const fallback = meta?.upstreamUrl;
+    if (!fallback) return false;
+    const current = el.currentSrc || el.src || "";
+    if (!current || current === fallback || current.endsWith(fallback) || current.includes(fallback)) {
+      return false;
+    }
+    el.src = fallback;
+    void el.play().catch(() => setError(true));
+    return true;
+  };
+
   const togglePlay = () => {
     const el = mediaRef.current;
     if (!el) return;
     if (el.paused) {
+      if (el instanceof HTMLVideoElement) {
+        el.muted = false;
+      }
       void el.play().then(() => setPlaying(true)).catch(() => {});
     } else {
       el.pause();
@@ -252,12 +283,7 @@ export function SunoInAppPlayer({
           }}
           onError={() => {
             const el = mediaRef.current;
-            const fallback = meta.upstreamUrl;
-            if (el && fallback && el.src !== fallback && !el.src.includes(fallback)) {
-              el.src = fallback;
-              void el.play().catch(() => setError(true));
-              return;
-            }
+            if (el && swapToFallback(el)) return;
             setError(true);
           }}
         />
@@ -278,12 +304,7 @@ export function SunoInAppPlayer({
           }}
           onError={() => {
             const el = mediaRef.current;
-            const fallback = meta.upstreamUrl;
-            if (el && fallback && el.currentSrc !== fallback) {
-              el.src = fallback;
-              void el.play().catch(() => setError(true));
-              return;
-            }
+            if (el && swapToFallback(el)) return;
             setError(true);
           }}
         />

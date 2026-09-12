@@ -1,7 +1,8 @@
 /**
  * Resolve a playable Suno media URL without the Clerk /embed iframe.
  * Uses the public studio clip API (no auth) and prefers unsigned MP4 video_url,
- * then progressive media_urls (m4a-opus). Direct cdn1 *.mp3 is usually signed/403.
+ * then browser-native mp3. Progressive CloudFront m4a-opus (encoding 1.0.0) is
+ * encrypted/custom and is NOT HTMLAudio/Video-playable — never treat HTTP 200 alone as success.
  */
 
 import { extractSunoSongUuidFromUrlString, resolveSunoShareToSongUuid } from "./suno-resolve";
@@ -32,7 +33,44 @@ type ClipMediaUrl = {
   url?: string;
   content_type?: string;
   delivery?: string;
+  encoding?: string;
 };
+
+/** True when the first bytes look like a browser-native media container (not Suno ciphertext). */
+export function looksLikeBrowserMediaBytes(buf: ArrayBuffer | Uint8Array | Buffer): boolean {
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  if (u8.length < 12) return false;
+  // ISO BMFF (mp4 / m4a / mov): size + 'ftyp'
+  if (u8[4] === 0x66 && u8[5] === 0x74 && u8[6] === 0x79 && u8[7] === 0x70) return true;
+  // ID3 / MP3
+  if (u8[0] === 0x49 && u8[1] === 0x44 && u8[2] === 0x33) return true;
+  if (u8[0] === 0xff && (u8[1] & 0xe0) === 0xe0) return true;
+  // Ogg
+  if (u8[0] === 0x4f && u8[1] === 0x67 && u8[2] === 0x67 && u8[3] === 0x53) return true;
+  // RIFF / WAV / AVI
+  if (u8[0] === 0x52 && u8[1] === 0x49 && u8[2] === 0x46 && u8[3] === 0x46) return true;
+  // WebM / Matroska EBML
+  if (u8[0] === 0x1a && u8[1] === 0x45 && u8[2] === 0xdf && u8[3] === 0xa3) return true;
+  return false;
+}
+
+export function contentTypeFromMediaMagic(buf: ArrayBuffer | Uint8Array | Buffer, fallback: string): string {
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  if (u8.length >= 8 && u8[4] === 0x66 && u8[5] === 0x74 && u8[6] === 0x79 && u8[7] === 0x70) {
+    const brand = String.fromCharCode(u8[8], u8[9], u8[10], u8[11]).toLowerCase();
+    if (brand.startsWith("iso") || brand.startsWith("mp4") || brand.includes("avc") || brand === "dash") {
+      return "video/mp4";
+    }
+    if (brand.startsWith("m4a") || brand.includes("mp4a")) return "audio/mp4";
+    return fallback.includes("video") ? "video/mp4" : "audio/mp4";
+  }
+  if (u8.length >= 3 && u8[0] === 0x49 && u8[1] === 0x44 && u8[2] === 0x33) return "audio/mpeg";
+  if (u8.length >= 2 && u8[0] === 0xff && (u8[1] & 0xe0) === 0xe0) return "audio/mpeg";
+  if (u8.length >= 4 && u8[0] === 0x4f && u8[1] === 0x67 && u8[2] === 0x67 && u8[3] === 0x53) {
+    return "audio/ogg";
+  }
+  return fallback || "application/octet-stream";
+}
 
 type SunoClipPayload = {
   id?: string;
@@ -132,13 +170,16 @@ export function pickPlayableFromClip(clip: SunoClipPayload, songUuid: string): S
     };
   }
 
-  const m4a = media.find(
-    (m) =>
-      typeof m?.url === "string" &&
-      isHttpUrl(m.url) &&
-      !isForbiddenAudioUrl(m.url) &&
-      /m4a/i.test(String(m.content_type || "")),
-  );
+  // Skip encoded progressive m4a-opus (Suno ciphertext). Plain m4a without encoding may still work.
+  const m4a = media.find((m) => {
+    if (typeof m?.url !== "string" || !isHttpUrl(m.url) || isForbiddenAudioUrl(m.url)) return false;
+    const ct = String(m.content_type || "").toLowerCase();
+    if (!/m4a/.test(ct)) return false;
+    const enc = String(m.encoding || "").trim();
+    // encoding 1.0.0 (and similar) = custom encrypted progressive — not HTML-playable
+    if (enc && enc !== "0") return false;
+    return true;
+  });
   if (m4a?.url) {
     return {
       songUuid: uuid,
@@ -231,7 +272,7 @@ export async function resolveSunoPlayableMedia(
   };
 }
 
-/** Probe candidates until one responds 200/206 — works even when studio-api is blocked. */
+/** Probe candidates until one responds 200/206 with browser-native media magic. */
 export async function resolveSunoPlayableMediaVerified(
   inputUrlOrUuid: string,
 ): Promise<SunoPlayableMedia | null> {
@@ -268,6 +309,7 @@ export async function resolveSunoPlayableMediaVerified(
     for (const m of media) {
       if (typeof m?.url !== "string" || !isHttpUrl(m.url) || isForbiddenAudioUrl(m.url)) continue;
       const ct = String(m.content_type || "").toLowerCase();
+      const enc = String(m.encoding || "").trim();
       if (ct === "mp3") {
         pushUnique({
           songUuid: uuid,
@@ -278,7 +320,7 @@ export async function resolveSunoPlayableMediaVerified(
           durationSeconds: picked.durationSeconds,
           title: picked.title,
         });
-      } else if (/m4a/.test(ct)) {
+      } else if (/m4a/.test(ct) && (!enc || enc === "0")) {
         pushUnique({
           songUuid: uuid,
           kind: "audio",
@@ -292,7 +334,8 @@ export async function resolveSunoPlayableMediaVerified(
     }
   }
 
-  // Deterministic public patterns (no API required)
+  // Deterministic public patterns (no API required). Do NOT probe encoded CloudFront m4a —
+  // it returns HTTP 200 ciphertext that browsers cannot decode.
   pushUnique({
     songUuid: uuid,
     kind: "video",
@@ -305,9 +348,9 @@ export async function resolveSunoPlayableMediaVerified(
   pushUnique({
     songUuid: uuid,
     kind: "audio",
-    upstreamUrl: `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${uuid}.m4a`,
-    contentType: "audio/mp4",
-    source: "media_m4a",
+    upstreamUrl: `https://cdn1.suno.ai/${uuid}.mp3`,
+    contentType: "audio/mpeg",
+    source: "media_mp3",
     durationSeconds: picked.durationSeconds,
     title: picked.title,
   });
@@ -317,30 +360,14 @@ export async function resolveSunoPlayableMediaVerified(
       return candidate;
     }
   }
-  // HEAD may be blocked while GET/stream still works — prefer video then m4a.
-  return (
-    candidates.find((c) => c.source === "video_url") ||
-    candidates.find((c) => c.source === "media_m4a") ||
-    candidates[0] ||
-    null
-  );
+  // Never return unverified ciphertext / 403 CDN guesses.
+  return null;
 }
 
 async function probeUpstreamReachable(url: string): Promise<boolean> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
-    const head = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: {
-        ...SUNO_FETCH_HEADERS,
-        Accept: "*/*",
-      },
-    });
-    if (head.ok || head.status === 206) return true;
-    // Some CDNs reject HEAD — try a tiny ranged GET.
     const get = await fetch(url, {
       method: "GET",
       redirect: "follow",
@@ -348,10 +375,12 @@ async function probeUpstreamReachable(url: string): Promise<boolean> {
       headers: {
         ...SUNO_FETCH_HEADERS,
         Accept: "*/*",
-        Range: "bytes=0-64",
+        Range: "bytes=0-63",
       },
     });
-    return get.ok || get.status === 206;
+    if (!(get.ok || get.status === 206)) return false;
+    const buf = Buffer.from(await get.arrayBuffer());
+    return looksLikeBrowserMediaBytes(buf);
   } catch {
     return false;
   } finally {

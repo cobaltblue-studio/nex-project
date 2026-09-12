@@ -44,6 +44,14 @@ const resolveLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: "Too many resolve requests. Please try again later." },
 });
+/** Media elements issue many Range requests; keep this separate and high. */
+const sunoStreamLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many stream requests. Please try again later." },
+});
 const writeLimiter = rateLimit({
   windowMs: 60_000,
   limit: 60,
@@ -55,8 +63,12 @@ app.use("/api/", apiLimiter);
 app.use("/api/auth/", authLimiter);
 app.use("/api/login", authLimiter);
 app.use("/api/suno/resolve", resolveLimiter);
-app.use("/api/suno/audio", resolveLimiter);
-app.use("/api/suno/audio/stream", resolveLimiter);
+// Exact resolve path only — do NOT mount on `/api/suno/audio` prefix (would also hit /stream).
+app.use("/api/suno/audio", (req, res, next) => {
+  if (req.path === "/" || req.path === "") return resolveLimiter(req, res, next);
+  if (req.path === "/stream") return sunoStreamLimiter(req, res, next);
+  return next();
+});
 app.use("/api/soundcloud/resolve", resolveLimiter);
 app.use("/api/analytics/event", writeLimiter);
 app.use("/api/boost/increment-impression", writeLimiter);

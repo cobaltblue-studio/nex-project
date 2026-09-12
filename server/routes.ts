@@ -49,6 +49,8 @@ import {
 } from "./suno-resolve";
 import {
   assertAllowedSunoUpstream,
+  contentTypeFromMediaMagic,
+  looksLikeBrowserMediaBytes,
   resolveSunoPlayableMediaVerified,
   sunoUpstreamFetchHeaders,
 } from "./suno-audio";
@@ -966,7 +968,7 @@ export async function registerRoutes(
 
   /**
    * Resolve a playable in-NEX media URL for a Suno share/song link.
-   * Prefer unsigned MP4 (video_url); else progressive m4a-opus. Clerk /embed is not used.
+   * Prefer unsigned MP4 (video_url); skip encrypted progressive m4a-opus.
    */
   app.get("/api/suno/audio", async (req, res) => {
     const url = typeof req.query.url === "string" ? req.query.url.trim() : "";
@@ -1008,7 +1010,7 @@ export async function registerRoutes(
     }
   });
 
-  /** Same-origin proxy for Suno CDN / CloudFront media (Range-aware). */
+  /** Same-origin proxy for Suno CDN media (Range-aware, no 1MB cap). */
   app.get("/api/suno/audio/stream", async (req, res) => {
     const uuidRaw = typeof req.query.uuid === "string" ? req.query.uuid.trim().toLowerCase() : "";
     if (!uuidRaw) {
@@ -1021,11 +1023,11 @@ export async function registerRoutes(
       }
 
       const tryUrls = [media.upstreamUrl];
-      if (media.source !== "cdn_mp4") {
+      if (media.source !== "cdn_mp4" && media.source !== "video_url") {
         tryUrls.push(`https://cdn1.suno.ai/${media.songUuid}.mp4`);
       }
-      if (media.source !== "media_m4a") {
-        tryUrls.push(`https://d2lwuy8qc234o3.cloudfront.net/1/clip/${media.songUuid}.m4a`);
+      if (media.source !== "media_mp3") {
+        tryUrls.push(`https://cdn1.suno.ai/${media.songUuid}.mp3`);
       }
 
       const range = typeof req.headers.range === "string" ? req.headers.range : undefined;
@@ -1036,16 +1038,34 @@ export async function registerRoutes(
         const upstream = assertAllowedSunoUpstream(rawUrl);
         if (!upstream) continue;
         try {
+          // Probe magic only when this looks like a start-of-file read.
+          const needsMagicProbe = !range || /^bytes=0-/i.test(range);
+          if (needsMagicProbe) {
+            const probeRes = await fetch(upstream.href, {
+              method: "GET",
+              redirect: "follow",
+              headers: sunoUpstreamFetchHeaders({ Range: "bytes=0-63" }),
+            });
+            if (!(probeRes.ok || probeRes.status === 206)) continue;
+            const probe = Buffer.from(await probeRes.arrayBuffer());
+            if (!looksLikeBrowserMediaBytes(probe)) continue;
+            chosenType = contentTypeFromMediaMagic(probe, probeRes.headers.get("content-type") || chosenType);
+          }
+
+          // Forward client Range as-is. Never invent a 1MB window — Suno MP4s often
+          // put moov at EOF, so a truncated first response breaks Chrome playback.
           const attempt = await fetch(upstream.href, {
             method: "GET",
             redirect: "follow",
-            headers: sunoUpstreamFetchHeaders(range ? { Range: range } : { Range: "bytes=0-1048575" }),
+            headers: sunoUpstreamFetchHeaders(range ? { Range: range } : {}),
           });
-          if (attempt.ok || attempt.status === 206) {
-            upstreamRes = attempt;
-            chosenType = attempt.headers.get("content-type") || chosenType;
-            break;
-          }
+          if (!(attempt.ok || attempt.status === 206)) continue;
+
+          const ct = attempt.headers.get("content-type");
+          if (ct && !/octet-stream/i.test(ct)) chosenType = ct;
+
+          upstreamRes = attempt;
+          break;
         } catch {
           /* try next candidate */
         }
@@ -1058,7 +1078,10 @@ export async function registerRoutes(
       }
 
       res.status(upstreamRes.status);
-      res.setHeader("Content-Type", chosenType);
+      res.setHeader(
+        "Content-Type",
+        /octet-stream/i.test(chosenType) ? media.contentType : chosenType,
+      );
       res.setHeader("Cache-Control", "public, max-age=300");
       res.setHeader("Accept-Ranges", "bytes");
       const cl = upstreamRes.headers.get("content-length");

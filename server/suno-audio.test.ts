@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { pickPlayableFromClip } from "./suno-audio";
+import { looksLikeBrowserMediaBytes, pickPlayableFromClip } from "./suno-audio";
+
+describe("looksLikeBrowserMediaBytes", () => {
+  it("accepts ftyp ISO BMFF", () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0);
+    buf.write("ftyp", 4);
+    buf.write("isom", 8);
+    assert.equal(looksLikeBrowserMediaBytes(buf), true);
+  });
+
+  it("rejects Suno ciphertext (high-entropy non-ftyp)", () => {
+    const buf = Buffer.from("bbb32529893f2d55e6f433254216e2c49a5324b7a577d07359ad6affa9fb102c", "hex");
+    assert.equal(looksLikeBrowserMediaBytes(buf), false);
+  });
+});
 
 describe("pickPlayableFromClip", () => {
   const uuid = "2c2a9bb7-9144-4734-9d34-0026172b9948";
@@ -16,6 +31,7 @@ describe("pickPlayableFromClip", () => {
           {
             url: `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${uuid}.m4a`,
             content_type: "m4a-opus",
+            encoding: "1.0.0",
           },
         ],
         metadata: { duration: 206.4 },
@@ -29,7 +45,7 @@ describe("pickPlayableFromClip", () => {
     assert.equal(picked!.durationSeconds, 206);
   });
 
-  it("falls back to m4a when video_url empty", () => {
+  it("skips encoded m4a-opus and falls back to cdn_mp4", () => {
     const picked = pickPlayableFromClip(
       {
         id: uuid,
@@ -40,6 +56,7 @@ describe("pickPlayableFromClip", () => {
             url: `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${uuid}.m4a`,
             content_type: "m4a-opus",
             delivery: "progressive",
+            encoding: "1.0.0",
           },
         ],
         metadata: { duration: 175.84 },
@@ -47,9 +64,8 @@ describe("pickPlayableFromClip", () => {
       uuid,
     );
     assert.ok(picked);
-    assert.equal(picked!.kind, "audio");
-    assert.equal(picked!.source, "media_m4a");
-    assert.match(picked!.upstreamUrl, /\.m4a$/);
+    assert.equal(picked!.source, "cdn_mp4");
+    assert.equal(picked!.kind, "video");
   });
 
   it("ignores forbidden audio_url", () => {
@@ -75,6 +91,7 @@ describe("pickPlayableFromClip", () => {
           {
             url: `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${uuid}.m4a`,
             content_type: "m4a-opus",
+            encoding: "1.0.0",
           },
           {
             url: `https://cdn1.suno.ai/${uuid}.mp3`,
