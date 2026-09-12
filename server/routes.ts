@@ -989,11 +989,12 @@ export async function registerRoutes(
           ),
         });
       }
-      const streamUrl = `/api/suno/audio/stream?uuid=${encodeURIComponent(media.songUuid)}&source=${encodeURIComponent(media.source)}`;
+      const streamUrl = `/api/suno/audio/stream?uuid=${encodeURIComponent(media.songUuid)}`;
       res.json({
         songUuid: media.songUuid,
         kind: media.kind,
         streamUrl,
+        upstreamUrl: media.upstreamUrl,
         contentType: media.contentType,
         source: media.source,
         durationSeconds: media.durationSeconds,
@@ -1018,26 +1019,42 @@ export async function registerRoutes(
       if (!media) {
         return res.status(404).json({ message: apiMsg("재생 스트림 없음", "No playable stream") });
       }
-      const upstream = assertAllowedSunoUpstream(media.upstreamUrl);
-      if (!upstream) {
-        return res.status(502).json({ message: apiMsg("허용되지 않은 스트림 호스트", "Disallowed stream host") });
+
+      const tryUrls = [media.upstreamUrl];
+      if (media.source !== "cdn_mp4") {
+        tryUrls.push(`https://cdn1.suno.ai/${media.songUuid}.mp4`);
+      }
+      if (media.source !== "media_m4a") {
+        tryUrls.push(`https://d2lwuy8qc234o3.cloudfront.net/1/clip/${media.songUuid}.m4a`);
       }
 
       const range = typeof req.headers.range === "string" ? req.headers.range : undefined;
-      const upstreamRes = await fetch(upstream.href, {
-        method: "GET",
-        redirect: "follow",
-        headers: sunoUpstreamFetchHeaders(range ? { Range: range } : undefined),
-      });
-      if (!(upstreamRes.ok || upstreamRes.status === 206)) {
+      let upstreamRes: Response | null = null;
+      let chosenType = media.contentType;
+
+      for (const rawUrl of tryUrls) {
+        const upstream = assertAllowedSunoUpstream(rawUrl);
+        if (!upstream) continue;
+        const attempt = await fetch(upstream.href, {
+          method: "GET",
+          redirect: "follow",
+          headers: sunoUpstreamFetchHeaders(range ? { Range: range } : undefined),
+        });
+        if (attempt.ok || attempt.status === 206) {
+          upstreamRes = attempt;
+          chosenType = attempt.headers.get("content-type") || chosenType;
+          break;
+        }
+      }
+
+      if (!upstreamRes) {
         return res.status(502).json({
           message: apiMsg("Suno CDN 스트림을 가져오지 못했습니다", "Failed to fetch Suno CDN stream"),
         });
       }
 
       res.status(upstreamRes.status);
-      const ct = upstreamRes.headers.get("content-type") || media.contentType;
-      res.setHeader("Content-Type", ct);
+      res.setHeader("Content-Type", chosenType);
       res.setHeader("Cache-Control", "public, max-age=300");
       res.setHeader("Accept-Ranges", "bytes");
       const cl = upstreamRes.headers.get("content-length");
@@ -1045,28 +1062,8 @@ export async function registerRoutes(
       const cr = upstreamRes.headers.get("content-range");
       if (cr) res.setHeader("Content-Range", cr);
 
-      if (!upstreamRes.body) {
-        const buf = Buffer.from(await upstreamRes.arrayBuffer());
-        return res.send(buf);
-      }
-
-      const reader = upstreamRes.body.getReader();
-      const pump = async (): Promise<void> => {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            if (!res.write(Buffer.from(value))) {
-              await new Promise<void>((resolve) => res.once("drain", resolve));
-            }
-          }
-        }
-        res.end();
-      };
-      req.on("close", () => {
-        void reader.cancel().catch(() => {});
-      });
-      await pump();
+      const buf = Buffer.from(await upstreamRes.arrayBuffer());
+      return res.send(buf);
     } catch {
       if (!res.headersSent) {
         res.status(500).json({

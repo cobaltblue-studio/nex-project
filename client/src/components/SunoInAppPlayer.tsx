@@ -15,6 +15,7 @@ type AudioApiOk = {
   songUuid: string;
   kind: "video" | "audio";
   streamUrl: string;
+  upstreamUrl?: string;
   contentType: string;
   source: string;
   durationSeconds: number | null;
@@ -81,8 +82,12 @@ export function SunoInAppPlayer({
       })
       .then((data) => {
         if (cancelled) return;
-        if (!data?.streamUrl) throw new Error("no_stream");
-        setMeta(data);
+        if (!data?.streamUrl && !data?.upstreamUrl) throw new Error("no_stream");
+        // Prefer same-origin proxy; keep upstream as onError fallback via streamUrl swap.
+        setMeta({
+          ...data,
+          streamUrl: data.streamUrl || data.upstreamUrl || "",
+        });
         setLoading(false);
       })
       .catch(() => {
@@ -243,7 +248,15 @@ export function SunoInAppPlayer({
             setPlaying(false);
             onEnded?.();
           }}
-          onError={() => setError(true)}
+          onError={() => {
+            // One retry: swap to upstream CDN if proxy fails
+            if (meta.upstreamUrl && mediaRef.current && mediaRef.current.src.includes("/api/suno/")) {
+              mediaRef.current.src = meta.upstreamUrl;
+              void mediaRef.current.play().catch(() => setError(true));
+              return;
+            }
+            setError(true);
+          }}
         />
       ) : (
         <audio
@@ -260,7 +273,14 @@ export function SunoInAppPlayer({
             setPlaying(false);
             onEnded?.();
           }}
-          onError={() => setError(true)}
+          onError={() => {
+            if (meta.upstreamUrl && mediaRef.current && mediaRef.current.src.includes("/api/suno/")) {
+              mediaRef.current.src = meta.upstreamUrl;
+              void mediaRef.current.play().catch(() => setError(true));
+              return;
+            }
+            setError(true);
+          }}
         />
       )}
 
