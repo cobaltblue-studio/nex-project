@@ -985,9 +985,10 @@ export async function registerRoutes(
       if (!media) {
         return res.status(422).json({
           streamUrl: null,
+          code: "NO_PUBLIC_STREAM",
           message: apiMsg(
-            "Suno에서 재생 가능한 오디오를 찾지 못했습니다",
-            "Could not find playable Suno audio for this link",
+            "Suno가 이 곡에 공개 MP3/MP4를 제공하지 않아 NEX 안에서 재생할 수 없습니다",
+            "Suno has no public MP3/MP4 for this track — cannot play inside NEX",
           ),
         });
       }

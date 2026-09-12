@@ -54,7 +54,7 @@
     "resolveFailed": "Could not turn this Suno link into a playable URL.",
     "embedFailed": "Could not build Suno embed URL.",
     "requestFailed": "Suno resolve request failed.",
-    "embedUnavailable": "Suno’s in-page player is blocked by their login redirect. Listen on Suno instead.",
+    "embedUnavailable": "Suno has no public MP3/MP4 stream for this track, so it can’t play inside NEX. The cover stays visible — listen on Suno.",
     "openOnSuno": "Open on Suno",
     "playingInNex": "Playing in NEX"
   },

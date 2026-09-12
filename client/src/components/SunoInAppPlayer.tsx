@@ -135,21 +135,11 @@ export function SunoInAppPlayer({
     if (!meta || !autoplay || !active) return;
     const el = mediaRef.current;
     if (!el) return;
+    // Never mute-retry: this is music. If Chrome blocks autoplay, wait for Play.
     void el
       .play()
       .then(() => setPlaying(true))
-      .catch(() => {
-        // Chrome blocks audible autoplay — retry muted for video, then wait for user Play.
-        if (el instanceof HTMLVideoElement) {
-          el.muted = true;
-          void el
-            .play()
-            .then(() => setPlaying(true))
-            .catch(() => setPlaying(false));
-          return;
-        }
-        setPlaying(false);
-      });
+      .catch(() => setPlaying(false));
   }, [meta, autoplay, active]);
 
   useEffect(() => {
@@ -197,9 +187,6 @@ export function SunoInAppPlayer({
     const el = mediaRef.current;
     if (!el) return;
     if (el.paused) {
-      if (el instanceof HTMLVideoElement) {
-        el.muted = false;
-      }
       void el.play().then(() => setPlaying(true)).catch(() => {});
     } else {
       el.pause();
@@ -259,20 +246,21 @@ export function SunoInAppPlayer({
         <img
           src={cover}
           alt={title ? `${title} cover` : ""}
-          className="absolute inset-0 h-full w-full object-cover opacity-40"
+          className="absolute inset-0 h-full w-full object-cover opacity-70"
           onError={() => setCoverBroken(true)}
         />
       ) : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
 
       {meta.kind === "video" ? (
+        // Suno social MP4 is audio+visualizer; keep element for decode, cover is the UI.
         <video
           ref={(el) => {
             mediaRef.current = el;
           }}
           key={meta.streamUrl}
           src={meta.streamUrl}
-          className="relative z-[1] h-full w-full object-contain"
+          className="pointer-events-none absolute h-px w-px opacity-0"
           playsInline
           preload="auto"
           onPlay={() => setPlaying(true)}

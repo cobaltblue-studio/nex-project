@@ -20,9 +20,8 @@ type Props = {
 };
 
 /**
- * Suno’s /embed iframe now boots Clerk (auth.suno.com). In third-party iframes
- * that auth loop fails (Chrome: too many redirects). Public CDN mp3/m4a is not
- * a reliable HTML5 audio source, so NEX shows cover + outbound listen CTA.
+ * Cover + outbound CTA when Suno has no browser-native public stream
+ * (ciphertext-only m4a-opus / missing social MP4). Never mounts Clerk /embed.
  */
 export function SunoListenFallback({
   shareUrl,
