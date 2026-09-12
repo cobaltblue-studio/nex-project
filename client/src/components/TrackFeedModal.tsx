@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { buildIntentOverlay } from "@/lib/intentOverlay";
-import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { SunoListenFallback } from "@/components/SunoListenFallback";
 
 export type TrackFeedSnapshot = {
   id: number;
@@ -27,6 +27,7 @@ export type TrackFeedSnapshot = {
   creatorName: string;
   audioUrl?: string | null;
   mvUrl?: string | null;
+  coverImageUrl?: string | null;
   trackType?: string | null;
   aiPrompt?: string | null;
 };
@@ -61,6 +62,7 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
   const creatorName = track?.creatorName ?? "";
   const audioUrl = track?.audioUrl;
   const mvUrl = track?.mvUrl;
+  const coverImageUrl = track?.coverImageUrl;
   const trackType = track?.trackType;
   const aiPrompt = track?.aiPrompt;
 
@@ -69,11 +71,12 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
   const ytIdFromMv = extractYoutubeId(mvUrl || undefined);
   const ytIdFromAudio = extractYoutubeId(audioUrl || undefined);
   const ytId = isVideo ? ytIdFromMv || ytIdFromAudio : ytIdFromAudio || ytIdFromMv;
+  const embedKind = classifyStreamingSource(primaryMedia || undefined);
+  const isSuno = !ytId && embedKind === "suno";
   const { iframeSrc: playableSrc, loading: streamLoading, error: streamError } = usePlayableStreamingSrc(
-    !ytId ? primaryMedia : undefined,
+    !ytId && !isSuno ? primaryMedia : undefined,
     { autoplay: true, enableJsApi: true },
   );
-  const embedKind = classifyStreamingSource(primaryMedia || undefined);
   const isWide = !!(
     ytId ||
     (playableSrc && (isVideo || embedKind === "vimeo" || embedKind === "youtube"))
@@ -192,6 +195,12 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
           >
             {ytId ? (
               <YoutubePlayer videoId={ytId} autoplay className="!h-full !min-h-0" />
+            ) : isSuno ? (
+              <SunoListenFallback
+                shareUrl={primaryMedia}
+                coverImageUrl={coverImageUrl}
+                title={title}
+              />
             ) : streamLoading && !playableSrc ? (
               <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 text-zinc-500">
                 <Loader2 className="w-10 h-10 animate-spin text-primary/60" />
@@ -200,23 +209,17 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
                 </p>
               </div>
             ) : playableSrc ? (
-              <>
-                <iframe
-                  key={playableSrc}
-                  title={title}
-                  src={playableSrc}
-                  width="100%"
-                  height="100%"
-                  className="w-full h-full min-h-[200px]"
-                  style={{ border: "none" }}
-                  allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
-                  allowFullScreen
-                  {...(embedKind === "suno"
-                    ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
-                    : {})}
-                />
-                {embedKind === "suno" ? <SunoEmbedOutboundShield /> : null}
-              </>
+              <iframe
+                key={playableSrc}
+                title={title}
+                src={playableSrc}
+                width="100%"
+                height="100%"
+                className="w-full h-full min-h-[200px]"
+                style={{ border: "none" }}
+                allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
+                allowFullScreen
+              />
             ) : streamError ? (
               <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 px-4 text-center">
                 <Music className="w-12 h-12 text-zinc-700" />

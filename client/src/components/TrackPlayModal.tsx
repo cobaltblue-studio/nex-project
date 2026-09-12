@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { buildIntentOverlay } from "@/lib/intentOverlay";
-import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { SunoListenFallback } from "@/components/SunoListenFallback";
 import { TrackClaimSection } from "@/components/TrackClaimSection";
 import { Link } from "wouter";
 
@@ -25,6 +25,7 @@ type Props = {
   creatorName: string;
   audioUrl?: string | null;
   mvUrl?: string | null;
+  coverImageUrl?: string | null;
   trackType?: string | null;
   aiPrompt?: string | null;
   /** When set with owner id, modal shows the same ownership claim flow as the track detail page. */
@@ -41,6 +42,7 @@ export function TrackPlayModal({
   creatorName,
   audioUrl,
   mvUrl,
+  coverImageUrl,
   trackType,
   aiPrompt,
   trackId = null,
@@ -58,11 +60,12 @@ export function TrackPlayModal({
   const ytIdFromMv = extractYoutubeId(mvUrl || undefined);
   const ytIdFromAudio = extractYoutubeId(audioUrl || undefined);
   const ytId = isVideo ? ytIdFromMv || ytIdFromAudio : ytIdFromAudio || ytIdFromMv;
+  const embedKind = classifyStreamingSource(primaryMedia || undefined);
+  const isSuno = !ytId && embedKind === "suno";
   const { iframeSrc: playableSrc, loading: streamLoading, error: streamError } = usePlayableStreamingSrc(
-    !ytId ? primaryMedia : undefined,
+    !ytId && !isSuno ? primaryMedia : undefined,
     { autoplay: true, enableJsApi: true },
   );
-  const embedKind = classifyStreamingSource(primaryMedia || undefined);
   const isWide = !!(
     ytId ||
     (playableSrc && (isVideo || embedKind === "vimeo" || embedKind === "youtube"))
@@ -119,6 +122,12 @@ export function TrackPlayModal({
           >
             {ytId ? (
               <YoutubePlayer videoId={ytId} autoplay className="!h-full !min-h-0" />
+            ) : isSuno ? (
+              <SunoListenFallback
+                shareUrl={primaryMedia}
+                coverImageUrl={coverImageUrl}
+                title={title}
+              />
             ) : streamLoading && !playableSrc ? (
               <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 text-zinc-500">
                 <Loader2 className="w-10 h-10 animate-spin text-primary/60" />
@@ -127,23 +136,17 @@ export function TrackPlayModal({
                 </p>
               </div>
             ) : playableSrc ? (
-              <>
-                <iframe
-                  key={playableSrc}
-                  title={title}
-                  src={playableSrc}
-                  width="100%"
-                  height="100%"
-                  className="w-full h-full min-h-[200px]"
-                  style={{ border: "none" }}
-                  allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
-                  allowFullScreen
-                  {...(embedKind === "suno"
-                    ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
-                    : {})}
-                />
-                {embedKind === "suno" ? <SunoEmbedOutboundShield /> : null}
-              </>
+              <iframe
+                key={playableSrc}
+                title={title}
+                src={playableSrc}
+                width="100%"
+                height="100%"
+                className="w-full h-full min-h-[200px]"
+                style={{ border: "none" }}
+                allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
+                allowFullScreen
+              />
             ) : streamError ? (
               <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 px-4 text-center">
                 <Music className="w-12 h-12 text-zinc-700" />

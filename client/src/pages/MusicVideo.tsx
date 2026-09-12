@@ -82,6 +82,7 @@ export function MusicVideo() {
         creatorName={playing?.creatorName ?? ""}
         audioUrl={playing?.audioUrl}
         mvUrl={playing?.musicVideoUrl}
+        coverImageUrl={playing?.coverImageUrl}
         trackType={playing?.trackType ?? "video"}
         aiPrompt={playing?.aiPrompt}
         trackId={playing?.id ?? null}
@@ -239,6 +240,7 @@ export function MusicVideo() {
                           creatorName: track.creatorName,
                           audioUrl: track.audioUrl,
                           mvUrl: track.musicVideoUrl,
+                          coverImageUrl: track.coverImageUrl,
                           trackType: track.trackType ?? "video",
                           aiPrompt: track.aiPrompt,
                         },

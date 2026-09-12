@@ -78,6 +78,7 @@ export function New() {
         creatorName={playing?.creatorName ?? ""}
         audioUrl={playing?.audioUrl}
         mvUrl={playing?.musicVideoUrl}
+        coverImageUrl={playing?.coverImageUrl}
         trackType={playing?.trackType}
         aiPrompt={playing?.aiPrompt}
         trackId={playing?.id ?? null}
@@ -257,6 +258,7 @@ export function New() {
                         creatorName: track.creatorName,
                         audioUrl: track.audioUrl,
                         mvUrl: track.musicVideoUrl,
+                        coverImageUrl: track.coverImageUrl,
                         trackType: track.trackType,
                         aiPrompt: track.aiPrompt,
                       },

@@ -29,7 +29,7 @@ import {
 import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
-import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { SunoListenFallback } from "@/components/SunoListenFallback";
 import { NexiCompanion, type NexiAnchor, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
 import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
@@ -250,7 +250,6 @@ function BattleTrackPlayer({
   blindMode?: boolean;
   onEnded?: () => void;
 }) {
-  const { t } = useTranslation();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [iframeGuessSeek, setIframeGuessSeek] = useState(0);
@@ -277,6 +276,7 @@ function BattleTrackPlayer({
   const ytId = extractYoutubeId(rawUrl);
   const isDirectAudio = isDirectAudioUrl(rawUrl, ytId);
   const iframeKind = rawUrl && !ytId ? classifyStreamingSource(rawUrl) : "other";
+  const isSuno = iframeKind === "suno";
 
   useEffect(() => {
     if (!autoplay || !ytId || isDirectAudio || !rawUrl) {
@@ -300,7 +300,7 @@ function BattleTrackPlayer({
     loading: battleStreamLoading,
     error: battleStreamError,
   } = usePlayableStreamingSrc(
-    rawUrl && !ytId && !isDirectAudio ? rawUrl : undefined,
+    rawUrl && !ytId && !isDirectAudio && !isSuno ? rawUrl : undefined,
     {
       autoplay,
       enableJsApi: false,
@@ -378,16 +378,20 @@ function BattleTrackPlayer({
             />
             <Music2 className="w-8 h-8 text-primary animate-pulse" />
           </div>
+        ) : isSuno ? (
+          <div className="aspect-[21/9] flex items-center justify-center" style={{ maxHeight: "32vh" }}>
+            <SunoListenFallback
+              compact
+              shareUrl={rawUrl}
+              coverImageUrl={track.coverImageUrl}
+              title={track.title}
+            />
+          </div>
         ) : rawUrl ? (
           <div className="aspect-[21/9] flex items-center justify-center" style={{ maxHeight: "32vh" }}>
             {battleStreamLoading && !battleIframeSrc ? (
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="w-8 h-8 text-primary/60 animate-spin" />
-                {iframeKind === "suno" ? (
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-                    {t("suno.resolving")}
-                  </p>
-                ) : null}
               </div>
             ) : battleIframeSrc && showStreamingEmbed ? (
               <div className="relative w-full h-full min-h-[120px]">
@@ -401,7 +405,6 @@ function BattleTrackPlayer({
                   title={track.title}
                   referrerPolicy="strict-origin-when-cross-origin"
                 />
-                {iframeKind === "suno" ? <SunoEmbedOutboundShield /> : null}
               </div>
             ) : battleStreamError ? (
               <p className="text-[10px] text-zinc-500 text-center px-4 leading-relaxed max-w-md">

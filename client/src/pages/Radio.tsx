@@ -14,7 +14,7 @@ import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
 import { useTranslation } from "react-i18next";
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
-import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { SunoListenFallback } from "@/components/SunoListenFallback";
 import { publicAudioChartSearchParams } from "@shared/constants";
 import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
 import { useRecordLikeAfterListen } from "@/hooks/use-record-like-after-listen";
@@ -26,6 +26,7 @@ type Track = {
   genre: string;
   audioUrl: string;
   musicVideoUrl?: string;
+  coverImageUrl?: string | null;
   lyrics?: string;
   votes: number;
   rankingScore: number;
@@ -101,13 +102,14 @@ export default function NexRadio() {
     ? (currentTrack.musicVideoUrl || currentTrack.audioUrl)
     : null;
   const ytVideoId = activeUrl ? extractYoutubeId(activeUrl) : null;
-  const rawForIframe = activeUrl && !ytVideoId ? activeUrl : null;
+  const iframeKind = activeUrl && !ytVideoId ? classifyStreamingSource(activeUrl) : "other";
+  const isSuno = iframeKind === "suno";
+  const rawForIframe = activeUrl && !ytVideoId && !isSuno ? activeUrl : null;
   const {
     iframeSrc: iframeUrl,
     loading: iframeLoading,
     error: iframeError,
   } = usePlayableStreamingSrc(rawForIframe, { autoplay: true, enableJsApi: false });
-  const iframeKind = activeUrl && !ytVideoId ? classifyStreamingSource(activeUrl) : "other";
 
   const advanceTrack = useCallback(() => {
     const len = Math.max(playlistRef.current.length, 1);
@@ -129,6 +131,11 @@ export default function NexRadio() {
     if (ytVideoId) return;
     if (iframeLoading) return;
 
+    if (isSuno) {
+      const id = window.setTimeout(() => advanceTrackRef.current(), 8000);
+      return () => window.clearTimeout(id);
+    }
+
     if (iframeUrl) {
       const id = window.setTimeout(() => advanceTrackRef.current(), RADIO_IFRAME_MAX_MS);
       return () => window.clearTimeout(id);
@@ -138,7 +145,7 @@ export default function NexRadio() {
     const delayMs = iframeError ? 2500 : 4000;
     const id = window.setTimeout(() => advanceTrackRef.current(), delayMs);
     return () => window.clearTimeout(id);
-  }, [radioStarted, currentTrack?.id, activeUrl, ytVideoId, iframeUrl, iframeLoading, iframeError]);
+  }, [radioStarted, currentTrack?.id, activeUrl, ytVideoId, iframeUrl, iframeLoading, iframeError, isSuno]);
 
   const startRadio = () => {
     setRadioStarted(true);
@@ -269,6 +276,14 @@ export default function NexRadio() {
                   autoplay={true}
                   onEnded={advanceTrack}
                 />
+              ) : isSuno ? (
+                <div className="relative min-h-[280px] h-[320px]">
+                  <SunoListenFallback
+                    shareUrl={activeUrl}
+                    coverImageUrl={currentTrack?.coverImageUrl}
+                    title={currentTrack?.title}
+                  />
+                </div>
               ) : rawForIframe && iframeLoading && !iframeUrl ? (
                 <div
                   className="aspect-video flex flex-col items-center justify-center gap-2"
@@ -282,9 +297,7 @@ export default function NexRadio() {
                   className={
                     iframeKind === "soundcloud"
                       ? "relative min-h-[166px] h-[200px] sm:h-[220px]"
-                      : iframeKind === "suno"
-                        ? "relative min-h-[280px] h-[320px]"
-                        : "relative aspect-video"
+                      : "relative aspect-video"
                   }
                 >
                   <iframe
@@ -297,7 +310,6 @@ export default function NexRadio() {
                     title={`Radio: ${currentTrack?.title ?? "Track"}`}
                     referrerPolicy="strict-origin-when-cross-origin"
                   />
-                  {iframeKind === "suno" ? <SunoEmbedOutboundShield /> : null}
                 </div>
               ) : (
                 <div className="aspect-video flex flex-col items-center justify-center gap-3 px-4">

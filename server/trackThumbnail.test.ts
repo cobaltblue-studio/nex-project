@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalizeSunoCoverImageUrl, resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
+import { normalizeSunoCoverImageUrl, resolveTrackThumbnailUrl, sunoCoverUrlFromSongUuid } from "@shared/trackThumbnail";
 
 describe("normalizeSunoCoverImageUrl", () => {
   it("rewrites cdn2 image_ to cdn1 image_large_", () => {
@@ -25,12 +25,36 @@ describe("normalizeSunoCoverImageUrl", () => {
   });
 });
 
+describe("sunoCoverUrlFromSongUuid", () => {
+  it("builds cdn1 image_large_ from song uuid", () => {
+    const uuid = "2c2a9bb7-9144-4734-9d34-0026172b9948";
+    assert.equal(
+      sunoCoverUrlFromSongUuid(uuid),
+      `https://cdn1.suno.ai/image_large_${uuid}.jpeg`,
+    );
+  });
+
+  it("rejects non-uuid", () => {
+    assert.equal(sunoCoverUrlFromSongUuid("o7GJ6PoulJwu1mV1"), null);
+  });
+});
+
 describe("resolveTrackThumbnailUrl", () => {
   it("normalizes Suno covers before return", () => {
     const uuid = "2c2a9bb7-9144-4734-9d34-0026172b9948";
     assert.equal(
       resolveTrackThumbnailUrl({
         coverImageUrl: `https://cdn2.suno.ai/image_${uuid}.jpeg`,
+      }),
+      `https://cdn1.suno.ai/image_large_${uuid}.jpeg`,
+    );
+  });
+
+  it("derives Suno cover from song audioUrl when cover missing", () => {
+    const uuid = "3b0e0e31-acac-45ed-b999-49a8a08ff461";
+    assert.equal(
+      resolveTrackThumbnailUrl({
+        audioUrl: `https://suno.com/song/${uuid}`,
       }),
       `https://cdn1.suno.ai/image_large_${uuid}.jpeg`,
     );

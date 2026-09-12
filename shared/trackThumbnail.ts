@@ -50,6 +50,25 @@ export function normalizeSunoCoverImageUrl(url: string | null | undefined): stri
   return `https://cdn1.suno.ai/image_large_${uuid}.${ext}`;
 }
 
+const SUNO_SONG_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Canonical cdn1 large cover when only the song UUID is known. */
+export function sunoCoverUrlFromSongUuid(uuid: string | null | undefined): string | null {
+  if (!uuid?.trim()) return null;
+  const id = uuid.trim().toLowerCase();
+  if (!SUNO_SONG_UUID_RE.test(id)) return null;
+  return `https://cdn1.suno.ai/image_large_${id}.jpeg`;
+}
+
+function extractSunoSongUuidFromLooseUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  const m = url.trim().match(
+    /(?:suno\.(?:com|ai)\/(?:song|embed)\/|cdn[12]\.suno\.ai\/(?:image_large_|image_))([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+  );
+  return m ? m[1].toLowerCase() : null;
+}
+
 export function resolveTrackThumbnailUrl(opts: {
   coverImageUrl?: string | null;
   musicVideoUrl?: string | null;
@@ -60,5 +79,8 @@ export function resolveTrackThumbnailUrl(opts: {
   if (cover) return normalizeSunoCoverImageUrl(cover) ?? cover;
 
   const mv = opts.musicVideoUrl ?? opts.mvUrl ?? null;
-  return youtubeThumbnailFromUrl(mv) ?? youtubeThumbnailFromUrl(opts.audioUrl ?? undefined);
+  const fromYt = youtubeThumbnailFromUrl(mv) ?? youtubeThumbnailFromUrl(opts.audioUrl ?? undefined);
+  if (fromYt) return fromYt;
+
+  return sunoCoverUrlFromSongUuid(extractSunoSongUuidFromLooseUrl(opts.audioUrl ?? undefined));
 }

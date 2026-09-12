@@ -179,6 +179,21 @@ function safariLike(): boolean {
   return /safari/i.test(ua) && !/chrome|chromium|crios|android/i.test(ua);
 }
 
+/** Public wrapper around share/embed URL song-id extraction. */
+export function extractSunoSongIdFromUrl(rawUrl: string | undefined | null): string | null {
+  if (!rawUrl?.trim()) return null;
+  return extractSunoSongId(rawUrl);
+}
+
+/** Prefer canonical `/song/{uuid}` when known; otherwise normalized share URL. */
+export function buildSunoSongPageUrl(rawUrl: string | undefined | null): string | null {
+  if (!rawUrl?.trim()) return null;
+  const id = extractSunoSongId(rawUrl);
+  if (id && isSunoSongUuid(id)) return `https://suno.com/song/${id.trim().toLowerCase()}`;
+  if (!urlLooksLikeSunoShare(rawUrl)) return null;
+  return normalizeStreamingUrl(rawUrl.trim());
+}
+
 /** Build embed URL when the song UUID is already known (e.g. after `/api/suno/resolve`). */
 export function buildSunoEmbedFromCanonicalUuid(songUuid: string, autoplay = false): string | null {
   if (!isSunoSongUuid(songUuid)) return null;

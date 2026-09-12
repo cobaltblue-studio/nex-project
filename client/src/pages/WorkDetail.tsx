@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@shared/routes";
 import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
-import { SunoEmbedOutboundShield } from "@/components/SunoEmbedOutboundShield";
+import { SunoListenFallback } from "@/components/SunoListenFallback";
 import { TrackClaimSection } from "@/components/TrackClaimSection";
 import { TrackNewBadge } from "@/components/TrackNewBadge";
 
@@ -63,7 +63,9 @@ export function TrackDetail() {
   }, [trackData]);
 
   const { iframeSrc: playableSrc, loading: streamLoading, error: streamError } = usePlayableStreamingSrc(
-    rawForStreaming,
+    rawForStreaming && classifyStreamingSource(rawForStreaming) !== "suno"
+      ? rawForStreaming
+      : undefined,
     { autoplay: true, enableJsApi: true },
   );
 
@@ -450,28 +452,28 @@ export function TrackDetail() {
                     autoplay={true}
                     onEnded={handleTrackEnded}
                   />
+                ) : embedKind === "suno" ? (
+                  <SunoListenFallback
+                    shareUrl={rawForStreaming}
+                    coverImageUrl={track?.coverImageUrl}
+                    title={track?.title}
+                  />
                 ) : streamLoading && !playableSrc ? (
                   <div className="w-full min-h-[280px] flex flex-col items-center justify-center gap-3 text-zinc-500">
                     <Loader2 className="w-12 h-12 animate-spin text-primary/60" />
                     <p className="text-[9px] font-bold uppercase tracking-widest">{t("suno.resolving")}</p>
                   </div>
                 ) : playableSrc ? (
-                  <>
-                    <iframe
-                      key={playableSrc}
-                      src={playableSrc}
-                      width="100%"
-                      height="100%"
-                      style={{ border: "none" }}
-                      allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
-                      allowFullScreen
-                      title={track.title}
-                      {...(embedKind === "suno"
-                        ? { referrerPolicy: "strict-origin-when-cross-origin" as const }
-                        : {})}
-                    />
-                    {embedKind === "suno" ? <SunoEmbedOutboundShield /> : null}
-                  </>
+                  <iframe
+                    key={playableSrc}
+                    src={playableSrc}
+                    width="100%"
+                    height="100%"
+                    style={{ border: "none" }}
+                    allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
+                    allowFullScreen
+                    title={track.title}
+                  />
                 ) : streamError ? (
                   <div className="w-full min-h-[200px] flex flex-col items-center justify-center gap-2 px-6 text-center">
                     <Music className="w-16 h-16 text-zinc-800" />
