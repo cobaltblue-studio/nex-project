@@ -202,7 +202,8 @@ export async function resolveSunoPlayableMedia(
   if (!raw) return null;
 
   let uuid: string | null = null;
-  if (extractSunoSongUuidFromUrlString(`https://suno.com/song/${raw}`)) {
+  // Bare UUID (no scheme/path) vs full share URL
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
     uuid = raw.toLowerCase();
   } else {
     uuid =
@@ -212,41 +213,117 @@ export async function resolveSunoPlayableMedia(
   if (!uuid) return null;
 
   const clip = await fetchSunoClipJson(uuid);
-  if (!clip) return null;
-  return pickPlayableFromClip(clip, uuid);
+  if (clip) {
+    const fromClip = pickPlayableFromClip(clip, uuid);
+    if (fromClip && fromClip.source !== "cdn_mp4") return fromClip;
+    if (fromClip) return fromClip;
+  }
+
+  // Studio clip API may be unreachable from some hosts — still try known public CDN shapes.
+  return {
+    songUuid: uuid,
+    kind: "video",
+    upstreamUrl: `https://cdn1.suno.ai/${uuid}.mp4`,
+    contentType: "video/mp4",
+    source: "cdn_mp4",
+    durationSeconds: null,
+    title: null,
+  };
 }
 
-/** HEAD/GET probe — drop synthetic cdn_mp4 if upstream is not reachable. */
+/** Probe candidates until one responds 200/206 — works even when studio-api is blocked. */
 export async function resolveSunoPlayableMediaVerified(
   inputUrlOrUuid: string,
 ): Promise<SunoPlayableMedia | null> {
   const picked = await resolveSunoPlayableMedia(inputUrlOrUuid);
   if (!picked) return null;
 
-  if (picked.source !== "cdn_mp4") return picked;
+  const uuid = picked.songUuid;
+  const candidates: SunoPlayableMedia[] = [];
 
-  const ok = await probeUpstreamReachable(picked.upstreamUrl);
-  if (ok) return picked;
+  const pushUnique = (item: SunoPlayableMedia | null) => {
+    if (!item) return;
+    if (candidates.some((c) => c.upstreamUrl === item.upstreamUrl)) return;
+    candidates.push(item);
+  };
 
-  // Fall back: only m4a/mp3 from the same clip (already preferred above if present).
-  const clip = await fetchSunoClipJson(picked.songUuid);
-  if (!clip) return null;
-  const media = Array.isArray(clip.media_urls) ? clip.media_urls : [];
-  const m4a = media.find(
-    (m) =>
-      typeof m?.url === "string" &&
-      isHttpUrl(m.url) &&
-      !isForbiddenAudioUrl(m.url) &&
-      /m4a/i.test(String(m.content_type || "")),
-  );
-  if (!m4a?.url) return null;
-  return {
-    ...picked,
+  // Prefer API-derived non-synthetic picks first
+  if (picked.source !== "cdn_mp4") pushUnique(picked);
+
+  const clip = await fetchSunoClipJson(uuid);
+  if (clip) {
+    const videoUrl = typeof clip.video_url === "string" ? clip.video_url.trim() : "";
+    if (isHttpUrl(videoUrl) && !isForbiddenAudioUrl(videoUrl)) {
+      pushUnique({
+        songUuid: uuid,
+        kind: "video",
+        upstreamUrl: videoUrl,
+        contentType: "video/mp4",
+        source: "video_url",
+        durationSeconds: picked.durationSeconds,
+        title: picked.title,
+      });
+    }
+    const media = Array.isArray(clip.media_urls) ? clip.media_urls : [];
+    for (const m of media) {
+      if (typeof m?.url !== "string" || !isHttpUrl(m.url) || isForbiddenAudioUrl(m.url)) continue;
+      const ct = String(m.content_type || "").toLowerCase();
+      if (ct === "mp3") {
+        pushUnique({
+          songUuid: uuid,
+          kind: "audio",
+          upstreamUrl: m.url.trim(),
+          contentType: "audio/mpeg",
+          source: "media_mp3",
+          durationSeconds: picked.durationSeconds,
+          title: picked.title,
+        });
+      } else if (/m4a/.test(ct)) {
+        pushUnique({
+          songUuid: uuid,
+          kind: "audio",
+          upstreamUrl: m.url.trim(),
+          contentType: "audio/mp4",
+          source: "media_m4a",
+          durationSeconds: picked.durationSeconds,
+          title: picked.title,
+        });
+      }
+    }
+  }
+
+  // Deterministic public patterns (no API required)
+  pushUnique({
+    songUuid: uuid,
+    kind: "video",
+    upstreamUrl: `https://cdn1.suno.ai/${uuid}.mp4`,
+    contentType: "video/mp4",
+    source: "cdn_mp4",
+    durationSeconds: picked.durationSeconds,
+    title: picked.title,
+  });
+  pushUnique({
+    songUuid: uuid,
     kind: "audio",
-    upstreamUrl: m4a.url.trim(),
+    upstreamUrl: `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${uuid}.m4a`,
     contentType: "audio/mp4",
     source: "media_m4a",
-  };
+    durationSeconds: picked.durationSeconds,
+    title: picked.title,
+  });
+
+  for (const candidate of candidates) {
+    if (await probeUpstreamReachable(candidate.upstreamUrl)) {
+      return candidate;
+    }
+  }
+  // HEAD may be blocked while GET/stream still works — prefer video then m4a.
+  return (
+    candidates.find((c) => c.source === "video_url") ||
+    candidates.find((c) => c.source === "media_m4a") ||
+    candidates[0] ||
+    null
+  );
 }
 
 async function probeUpstreamReachable(url: string): Promise<boolean> {
