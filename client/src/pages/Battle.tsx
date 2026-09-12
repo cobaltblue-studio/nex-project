@@ -29,7 +29,7 @@ import {
 import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
-import { SunoListenFallback } from "@/components/SunoListenFallback";
+import { SunoInAppPlayer } from "@/components/SunoInAppPlayer";
 import { NexiCompanion, type NexiAnchor, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
 import { ShareButtons } from "@/components/ShareButtons";
 import { trackShareUrl } from "@/lib/siteUrl";
@@ -380,11 +380,15 @@ function BattleTrackPlayer({
           </div>
         ) : isSuno ? (
           <div className="aspect-[21/9] flex items-center justify-center" style={{ maxHeight: "32vh" }}>
-            <SunoListenFallback
+            <SunoInAppPlayer
               compact
               shareUrl={rawUrl}
               coverImageUrl={track.coverImageUrl}
               title={track.title}
+              autoplay={autoplay && !embedStopped}
+              active={autoplay && !embedStopped}
+              previewSeconds={autoplay ? PREVIEW_DURATION : undefined}
+              onEnded={onEnded}
             />
           </div>
         ) : rawUrl ? (

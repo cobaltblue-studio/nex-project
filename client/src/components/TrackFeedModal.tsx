@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { buildIntentOverlay } from "@/lib/intentOverlay";
-import { SunoListenFallback } from "@/components/SunoListenFallback";
+import { SunoInAppPlayer } from "@/components/SunoInAppPlayer";
 
 export type TrackFeedSnapshot = {
   id: number;
@@ -196,10 +196,12 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
             {ytId ? (
               <YoutubePlayer videoId={ytId} autoplay className="!h-full !min-h-0" />
             ) : isSuno ? (
-              <SunoListenFallback
+              <SunoInAppPlayer
                 shareUrl={primaryMedia}
                 coverImageUrl={coverImageUrl}
                 title={title}
+                autoplay
+                active={open}
               />
             ) : streamLoading && !playableSrc ? (
               <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 text-zinc-500">

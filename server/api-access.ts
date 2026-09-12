@@ -45,7 +45,14 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
     if (/^\/api\/tracks\/\d+\/comments$/.test(p)) return true;
     if (/^\/api\/community\/posts\/\d+$/.test(p)) return true;
     if (/^\/api\/community\/posts\/\d+\/comments$/.test(p)) return true;
-    if (p === "/api/suno/resolve" || p === "/api/soundcloud/resolve") return true;
+    if (
+      p === "/api/suno/resolve" ||
+      p === "/api/suno/audio" ||
+      p === "/api/suno/audio/stream" ||
+      p === "/api/soundcloud/resolve"
+    ) {
+      return true;
+    }
     return false;
   }
 

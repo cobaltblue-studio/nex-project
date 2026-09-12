@@ -55,7 +55,8 @@
     "embedFailed": "Suno 임베드 주소를 만들 수 없습니다",
     "requestFailed": "Suno 링크 확인 요청에 실패했습니다",
     "embedUnavailable": "Suno 로그인 리디렉션 때문에 앱 안 플레이어를 쓸 수 없습니다. Suno에서 들어 주세요.",
-    "openOnSuno": "Suno에서 듣기"
+    "openOnSuno": "Suno에서 듣기",
+    "playingInNex": "NEX에서 재생 중"
   },
   "submitTrack": {
     "listenerSubmitNotice": "리스너 계정으로 제출하면 크리에이터 등록 요청과 함께 처리됩니다. 관리자 승인 전까지는 프로필에만 보이고, 승인 후에 뉴·차트·배틀에 노출됩니다.",

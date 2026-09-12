@@ -14,7 +14,7 @@ import { YoutubePlayer, extractYoutubeId } from "@/components/YoutubePlayer";
 import { useTranslation } from "react-i18next";
 import { classifyStreamingSource } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
-import { SunoListenFallback } from "@/components/SunoListenFallback";
+import { SunoInAppPlayer } from "@/components/SunoInAppPlayer";
 import { publicAudioChartSearchParams } from "@shared/constants";
 import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
 import { useRecordLikeAfterListen } from "@/hooks/use-record-like-after-listen";
@@ -123,18 +123,14 @@ export default function NexRadio() {
     advanceTrackRef.current = advanceTrack;
   }, [advanceTrack]);
 
-  /** Iframe embeds (Suno, SoundCloud, …) do not fire onEnded — cap playback so radio keeps moving. */
+  /** Iframe embeds (SoundCloud, …) do not fire onEnded — cap playback so radio keeps moving. */
   const RADIO_IFRAME_MAX_MS = 7 * 60 * 1000;
 
   useEffect(() => {
     if (!radioStarted || !currentTrack) return;
     if (ytVideoId) return;
+    if (isSuno) return; // SunoInAppPlayer advances via onEnded / duration
     if (iframeLoading) return;
-
-    if (isSuno) {
-      const id = window.setTimeout(() => advanceTrackRef.current(), 8000);
-      return () => window.clearTimeout(id);
-    }
 
     if (iframeUrl) {
       const id = window.setTimeout(() => advanceTrackRef.current(), RADIO_IFRAME_MAX_MS);
@@ -278,10 +274,14 @@ export default function NexRadio() {
                 />
               ) : isSuno ? (
                 <div className="relative min-h-[280px] h-[320px]">
-                  <SunoListenFallback
+                  <SunoInAppPlayer
+                    key={playerKey.current}
                     shareUrl={activeUrl}
                     coverImageUrl={currentTrack?.coverImageUrl}
                     title={currentTrack?.title}
+                    autoplay
+                    active={radioStarted}
+                    onEnded={advanceTrack}
                   />
                 </div>
               ) : rawForIframe && iframeLoading && !iframeUrl ? (

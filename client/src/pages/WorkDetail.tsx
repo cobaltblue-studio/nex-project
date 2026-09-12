@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@shared/routes";
 import { buildStreamingIframeSrc, classifyStreamingSource, urlLooksLikeSunoShare } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
-import { SunoListenFallback } from "@/components/SunoListenFallback";
+import { SunoInAppPlayer } from "@/components/SunoInAppPlayer";
 import { TrackClaimSection } from "@/components/TrackClaimSection";
 import { TrackNewBadge } from "@/components/TrackNewBadge";
 
@@ -453,10 +453,13 @@ export function TrackDetail() {
                     onEnded={handleTrackEnded}
                   />
                 ) : embedKind === "suno" ? (
-                  <SunoListenFallback
+                  <SunoInAppPlayer
                     shareUrl={rawForStreaming}
                     coverImageUrl={track?.coverImageUrl}
                     title={track?.title}
+                    autoplay
+                    active
+                    onEnded={handleTrackEnded}
                   />
                 ) : streamLoading && !playableSrc ? (
                   <div className="w-full min-h-[280px] flex flex-col items-center justify-center gap-3 text-zinc-500">

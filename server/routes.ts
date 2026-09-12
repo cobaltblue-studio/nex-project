@@ -47,6 +47,11 @@ import {
   fetchSunoSongDurationSeconds,
   resolveSunoShareToSongUuid,
 } from "./suno-resolve";
+import {
+  assertAllowedSunoUpstream,
+  resolveSunoPlayableMediaVerified,
+  sunoUpstreamFetchHeaders,
+} from "./suno-audio";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { recordAnalyticsEvents, type AnalyticsEventInput } from "./analytics";
 import { emailFromPreview, isDeliverableEmail, isEmailEnabled, isSandboxEmailFrom, probeResendApiKey, sendTestEmail } from "./email";
@@ -956,6 +961,120 @@ export async function registerRoutes(
         durationSeconds: null,
         message: apiMsg("Suno 메타데이터 조회 중 오류", "Server error while fetching Suno metadata"),
       });
+    }
+  });
+
+  /**
+   * Resolve a playable in-NEX media URL for a Suno share/song link.
+   * Prefer unsigned MP4 (video_url); else progressive m4a-opus. Clerk /embed is not used.
+   */
+  app.get("/api/suno/audio", async (req, res) => {
+    const url = typeof req.query.url === "string" ? req.query.url.trim() : "";
+    const uuidQ = typeof req.query.uuid === "string" ? req.query.uuid.trim() : "";
+    const input = url || uuidQ;
+    if (!input) {
+      return res.status(400).json({
+        streamUrl: null,
+        message: apiMsg("url 또는 uuid 쿼리가 필요합니다", "url or uuid query parameter is required"),
+      });
+    }
+    try {
+      const media = await resolveSunoPlayableMediaVerified(input);
+      if (!media) {
+        return res.status(422).json({
+          streamUrl: null,
+          message: apiMsg(
+            "Suno에서 재생 가능한 오디오를 찾지 못했습니다",
+            "Could not find playable Suno audio for this link",
+          ),
+        });
+      }
+      const streamUrl = `/api/suno/audio/stream?uuid=${encodeURIComponent(media.songUuid)}&source=${encodeURIComponent(media.source)}`;
+      res.json({
+        songUuid: media.songUuid,
+        kind: media.kind,
+        streamUrl,
+        contentType: media.contentType,
+        source: media.source,
+        durationSeconds: media.durationSeconds,
+        title: media.title,
+      });
+    } catch {
+      res.status(500).json({
+        streamUrl: null,
+        message: apiMsg("Suno 오디오 확인 중 서버 오류", "Server error while resolving Suno audio"),
+      });
+    }
+  });
+
+  /** Same-origin proxy for Suno CDN / CloudFront media (Range-aware). */
+  app.get("/api/suno/audio/stream", async (req, res) => {
+    const uuidRaw = typeof req.query.uuid === "string" ? req.query.uuid.trim().toLowerCase() : "";
+    if (!uuidRaw) {
+      return res.status(400).json({ message: apiMsg("uuid 쿼리가 필요합니다", "uuid query parameter is required") });
+    }
+    try {
+      const media = await resolveSunoPlayableMediaVerified(uuidRaw);
+      if (!media) {
+        return res.status(404).json({ message: apiMsg("재생 스트림 없음", "No playable stream") });
+      }
+      const upstream = assertAllowedSunoUpstream(media.upstreamUrl);
+      if (!upstream) {
+        return res.status(502).json({ message: apiMsg("허용되지 않은 스트림 호스트", "Disallowed stream host") });
+      }
+
+      const range = typeof req.headers.range === "string" ? req.headers.range : undefined;
+      const upstreamRes = await fetch(upstream.href, {
+        method: "GET",
+        redirect: "follow",
+        headers: sunoUpstreamFetchHeaders(range ? { Range: range } : undefined),
+      });
+      if (!(upstreamRes.ok || upstreamRes.status === 206)) {
+        return res.status(502).json({
+          message: apiMsg("Suno CDN 스트림을 가져오지 못했습니다", "Failed to fetch Suno CDN stream"),
+        });
+      }
+
+      res.status(upstreamRes.status);
+      const ct = upstreamRes.headers.get("content-type") || media.contentType;
+      res.setHeader("Content-Type", ct);
+      res.setHeader("Cache-Control", "public, max-age=300");
+      res.setHeader("Accept-Ranges", "bytes");
+      const cl = upstreamRes.headers.get("content-length");
+      if (cl) res.setHeader("Content-Length", cl);
+      const cr = upstreamRes.headers.get("content-range");
+      if (cr) res.setHeader("Content-Range", cr);
+
+      if (!upstreamRes.body) {
+        const buf = Buffer.from(await upstreamRes.arrayBuffer());
+        return res.send(buf);
+      }
+
+      const reader = upstreamRes.body.getReader();
+      const pump = async (): Promise<void> => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            if (!res.write(Buffer.from(value))) {
+              await new Promise<void>((resolve) => res.once("drain", resolve));
+            }
+          }
+        }
+        res.end();
+      };
+      req.on("close", () => {
+        void reader.cancel().catch(() => {});
+      });
+      await pump();
+    } catch {
+      if (!res.headersSent) {
+        res.status(500).json({
+          message: apiMsg("Suno 스트림 중계 오류", "Suno stream proxy error"),
+        });
+      } else {
+        res.end();
+      }
     }
   });
 

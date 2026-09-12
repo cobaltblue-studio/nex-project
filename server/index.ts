@@ -55,6 +55,8 @@ app.use("/api/", apiLimiter);
 app.use("/api/auth/", authLimiter);
 app.use("/api/login", authLimiter);
 app.use("/api/suno/resolve", resolveLimiter);
+app.use("/api/suno/audio", resolveLimiter);
+app.use("/api/suno/audio/stream", resolveLimiter);
 app.use("/api/soundcloud/resolve", resolveLimiter);
 app.use("/api/analytics/event", writeLimiter);
 app.use("/api/boost/increment-impression", writeLimiter);

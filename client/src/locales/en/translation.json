@@ -55,7 +55,8 @@
     "embedFailed": "Could not build Suno embed URL.",
     "requestFailed": "Suno resolve request failed.",
     "embedUnavailable": "Suno’s in-page player is blocked by their login redirect. Listen on Suno instead.",
-    "openOnSuno": "Open on Suno"
+    "openOnSuno": "Open on Suno",
+    "playingInNex": "Playing in NEX"
   },
   "submitTrack": {
     "listenerSubmitNotice": "Listener accounts: submitting a track also requests creator registration. The song stays on your profile only until an admin approves it — then it appears on NEW, Music chart lanes, and battles.",
