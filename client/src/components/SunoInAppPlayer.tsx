@@ -83,10 +83,12 @@ export function SunoInAppPlayer({
       .then((data) => {
         if (cancelled) return;
         if (!data?.streamUrl && !data?.upstreamUrl) throw new Error("no_stream");
-        // Prefer same-origin proxy; keep upstream as onError fallback via streamUrl swap.
+        // Prefer direct CDN/CloudFront in the browser; proxy is fallback if direct fails.
+        const primary = data.upstreamUrl || data.streamUrl || "";
         setMeta({
           ...data,
-          streamUrl: data.streamUrl || data.upstreamUrl || "",
+          streamUrl: primary,
+          upstreamUrl: data.streamUrl && data.upstreamUrl !== data.streamUrl ? data.streamUrl : data.upstreamUrl,
         });
         setLoading(false);
       })
@@ -249,10 +251,11 @@ export function SunoInAppPlayer({
             onEnded?.();
           }}
           onError={() => {
-            // One retry: swap to upstream CDN if proxy fails
-            if (meta.upstreamUrl && mediaRef.current && mediaRef.current.src.includes("/api/suno/")) {
-              mediaRef.current.src = meta.upstreamUrl;
-              void mediaRef.current.play().catch(() => setError(true));
+            const el = mediaRef.current;
+            const fallback = meta.upstreamUrl;
+            if (el && fallback && el.src !== fallback && !el.src.includes(fallback)) {
+              el.src = fallback;
+              void el.play().catch(() => setError(true));
               return;
             }
             setError(true);
@@ -274,9 +277,11 @@ export function SunoInAppPlayer({
             onEnded?.();
           }}
           onError={() => {
-            if (meta.upstreamUrl && mediaRef.current && mediaRef.current.src.includes("/api/suno/")) {
-              mediaRef.current.src = meta.upstreamUrl;
-              void mediaRef.current.play().catch(() => setError(true));
+            const el = mediaRef.current;
+            const fallback = meta.upstreamUrl;
+            if (el && fallback && el.currentSrc !== fallback) {
+              el.src = fallback;
+              void el.play().catch(() => setError(true));
               return;
             }
             setError(true);

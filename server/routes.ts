@@ -1035,15 +1035,19 @@ export async function registerRoutes(
       for (const rawUrl of tryUrls) {
         const upstream = assertAllowedSunoUpstream(rawUrl);
         if (!upstream) continue;
-        const attempt = await fetch(upstream.href, {
-          method: "GET",
-          redirect: "follow",
-          headers: sunoUpstreamFetchHeaders(range ? { Range: range } : undefined),
-        });
-        if (attempt.ok || attempt.status === 206) {
-          upstreamRes = attempt;
-          chosenType = attempt.headers.get("content-type") || chosenType;
-          break;
+        try {
+          const attempt = await fetch(upstream.href, {
+            method: "GET",
+            redirect: "follow",
+            headers: sunoUpstreamFetchHeaders(range ? { Range: range } : { Range: "bytes=0-1048575" }),
+          });
+          if (attempt.ok || attempt.status === 206) {
+            upstreamRes = attempt;
+            chosenType = attempt.headers.get("content-type") || chosenType;
+            break;
+          }
+        } catch {
+          /* try next candidate */
         }
       }
 
