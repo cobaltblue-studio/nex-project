@@ -63,7 +63,7 @@ import {
   sendCustomAnnouncementTest,
   sendTemplateAnnouncementTest,
 } from "./announcementCampaigns";
-import { resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
+import { normalizeSunoCoverImageUrl, resolveTrackThumbnailUrl } from "@shared/trackThumbnail";
 import { resolvePublicPlayCount } from "@shared/publicPlayCount";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
 import { isCommunityCategorySlug } from "@shared/community";
@@ -1161,7 +1161,7 @@ export async function registerRoutes(
           });
           return;
         }
-        cover = s;
+        cover = normalizeSunoCoverImageUrl(s) ?? s;
       } catch {
         res.status(400).json({
           message: apiMsg("유효하지 않은 커버 이미지 URL입니다", "Invalid cover image URL"),
@@ -1518,7 +1518,7 @@ export async function registerRoutes(
                 message: apiMsg("커버 이미지 URL은 http(s)여야 합니다", "cover image URL must be http(s)"),
               });
             }
-            updates.coverImageUrl = s;
+            updates.coverImageUrl = normalizeSunoCoverImageUrl(s) ?? s;
           } catch {
             return res.status(400).json({
               message: apiMsg("유효하지 않은 커버 이미지 URL입니다", "Invalid cover image URL"),
@@ -1756,20 +1756,22 @@ export async function registerRoutes(
       });
     }
 
-    const resolvedCover =
+    const rawCover =
       typeof coverImageUrl === "string" && coverImageUrl.trim()
         ? coverImageUrl.trim()
         : typeof coverImage === "string" && coverImage.trim()
           ? coverImage.trim()
           : null;
-    if (resolvedCover) {
+    let resolvedCover: string | null = null;
+    if (rawCover) {
       try {
-        const u = new URL(resolvedCover);
+        const u = new URL(rawCover);
         if (u.protocol !== "http:" && u.protocol !== "https:") {
           return res.status(400).json({
             message: apiMsg("커버 이미지 URL은 http(s)여야 합니다", "cover image URL must be http(s)"),
           });
         }
+        resolvedCover = normalizeSunoCoverImageUrl(rawCover) ?? rawCover;
       } catch {
         return res.status(400).json({
           message: apiMsg("유효하지 않은 커버 이미지 URL입니다", "Invalid cover image URL"),

@@ -1,6 +1,7 @@
 import type { Profile } from "@shared/schema";
 import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
 import { normalizeSoundCloudPermalink } from "@shared/soundcloudPermalink";
+import { normalizeSunoCoverImageUrl } from "@shared/trackThumbnail";
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
 import { resolveSunoShareToSongUuid } from "./suno-resolve";
 
@@ -12,6 +13,7 @@ type PublicTrackLike = Record<string, unknown> & {
   audioUrl?: unknown;
   mvUrl?: unknown;
   musicVideoUrl?: unknown;
+  coverImageUrl?: unknown;
 };
 
 export function sanitizePublicTrack<T extends PublicTrackLike>(t: T): T {
@@ -29,6 +31,10 @@ export function sanitizePublicTrack<T extends PublicTrackLike>(t: T): T {
     if (n) out.musicVideoUrl = n;
   } else if (typeof out.mvUrl === "string" && out.mvUrl) {
     out.musicVideoUrl = out.mvUrl;
+  }
+  if (typeof out.coverImageUrl === "string") {
+    const n = normalizeSunoCoverImageUrl(out.coverImageUrl);
+    if (n) out.coverImageUrl = n;
   }
   return out as T;
 }
