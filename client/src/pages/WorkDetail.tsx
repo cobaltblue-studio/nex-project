@@ -28,7 +28,8 @@ export function TrackDetail() {
 
   // currentTrackId is the source of truth for the player — decoupled from URL
   const [currentTrackId, setCurrentTrackId] = useState<number>(() => Number(params?.id) || 0);
-  const [autoPlayNext, setAutoPlayNext] = useState(true);
+  // Default OFF — continuous AUTO was keeping audio alive across navigation/tab hide.
+  const [autoPlayNext, setAutoPlayNext] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const playerKey = useRef(0); // forces iframe remount on track change
@@ -160,8 +161,9 @@ export function TrackDetail() {
   }, [prevTrack, isTransitioning, setLocation]);
 
   const handleTrackEnded = useCallback(async () => {
-    // Leaving /track/* must not keep auto-advancing into the next song.
+    // Leaving /track/* or hiding the tab must not keep auto-advancing.
     if (!pageMountedRef.current) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (currentTrackId) {
       try {
         await recordTrackPlay(currentTrackId, true);
@@ -172,6 +174,7 @@ export function TrackDetail() {
       }
     }
     if (!pageMountedRef.current) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (autoPlayNext) goToNext();
   }, [autoPlayNext, currentTrackId, goToNext]);
 

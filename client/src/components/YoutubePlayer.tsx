@@ -1,4 +1,9 @@
 import { useEffect, useRef } from "react";
+import {
+  installYoutubePlaybackGuard,
+  registerYoutubePlayer,
+  unregisterYoutubePlayer,
+} from "@/lib/youtubePlaybackGuard";
 
 declare global {
   interface Window {
@@ -72,6 +77,10 @@ export function YoutubePlayer({
   useEffect(() => {
     onEndedRef.current = onEnded;
   }, [onEnded]);
+
+  useEffect(() => {
+    installYoutubePlaybackGuard();
+  }, []);
 
   useEffect(() => {
     if (!videoId || !wrapperRef.current) return;
@@ -173,6 +182,8 @@ export function YoutubePlayer({
               return;
             }
             const p = ev.target;
+            playerRef.current = p;
+            registerYoutubePlayer(p);
             try {
               const iframe = typeof p.getIframe === "function" ? p.getIframe() : null;
               iframe?.setAttribute?.("referrerpolicy", "strict-origin-when-cross-origin");
@@ -196,6 +207,7 @@ export function YoutubePlayer({
       if (battleTimerRef.current) clearTimeout(battleTimerRef.current);
       const player = playerRef.current;
       playerRef.current = null;
+      unregisterYoutubePlayer(player);
       try {
         player?.stopVideo?.();
       } catch {}
