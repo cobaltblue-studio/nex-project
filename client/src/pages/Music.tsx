@@ -45,8 +45,8 @@ function getZoneForRank(
   zoneLabel: (key: "zoneLegend" | "zoneElite" | "zoneRising") => string,
 ): { label: string; icon: typeof Crown; color: string; bgColor: string; borderColor: string } | null {
   if (rank === 1) return { label: zoneLabel("zoneLegend"), icon: Crown, color: "text-arena", bgColor: "bg-[hsl(var(--nex-wow-ember)/0.12)]", borderColor: "border-[hsl(var(--nex-wow-ember)/0.35)]" };
-  if (rank === 11) return { label: zoneLabel("zoneElite"), icon: Star, color: "text-[#00D1FF]", bgColor: "bg-[#00D1FF]/10", borderColor: "border-[#00D1FF]/30" };
-  if (rank === 51) return { label: zoneLabel("zoneRising"), icon: TrendingUp, color: "text-[#00FF9C]", bgColor: "bg-[#00FF9C]/10", borderColor: "border-[#00FF9C]/30" };
+  if (rank === 11) return { label: zoneLabel("zoneElite"), icon: Star, color: "text-verdict", bgColor: "bg-[hsl(var(--nex-wow-teal)/0.12)]", borderColor: "border-[hsl(var(--nex-wow-teal)/0.35)]" };
+  if (rank === 51) return { label: zoneLabel("zoneRising"), icon: TrendingUp, color: "text-arena", bgColor: "bg-[hsl(var(--nex-wow-ember)/0.12)]", borderColor: "border-[hsl(var(--nex-wow-ember)/0.35)]" };
   return null;
 }
 
@@ -130,20 +130,14 @@ export function Music() {
         focusCommentOnOpen={feed?.focusComment ?? false}
       />
 
-      <div className="mb-10">
+      <header className="mb-10" data-testid="music-arena-header">
         <div className="flex items-center gap-3 mb-2">
-          <MusicIcon className="w-5 h-5 text-primary" />
-          <h1
-            className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
-            data-testid="text-chart-label"
-          >
+          <MusicIcon className="w-5 h-5 text-arena" aria-hidden />
+          <h1 className="nex-ember-lead-eyebrow" data-testid="text-chart-label">
             {t("musicChart.label")}
           </h1>
         </div>
-        <h2
-          className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
-          data-testid="text-chart-title"
-        >
+        <h2 className="nex-ember-lead-title" data-testid="text-chart-title">
           {t("musicChart.title")}
         </h2>
         <p className="text-zinc-500 text-sm mt-2">{t("musicChart.subtitle")}</p>
@@ -153,13 +147,14 @@ export function Music() {
           </p>
         )}
         <div className="mt-4 relative max-w-md">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("common.searchPlaceholder")}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[hsl(var(--nex-wow-ember)/0.45)]"
             data-testid="input-search-music"
+            aria-label={t("common.searchPlaceholder")}
           />
         </div>
         {isSearching && (
@@ -167,11 +162,11 @@ export function Music() {
             {t("common.searchHintAudio")}
           </p>
         )}
-      </div>
+      </header>
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Loader2 className="w-8 h-8 text-arena animate-spin" />
           <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">{t("common.loadingChart")}</p>
         </div>
       ) : isError ? (
@@ -216,11 +211,11 @@ export function Music() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(rank * 0.02, 1) }}
-                    className="flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
+                    className="nex-chart-row flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 transition-all group"
                     data-testid={`row-chart-${track.id}`}
                   >
                     <div className="w-8 sm:w-10 text-center shrink-0 flex flex-col items-center gap-0.5">
-                      <span className="text-xs sm:text-sm font-mono font-bold text-zinc-500">
+                      <span className="text-xs sm:text-sm font-mono font-bold text-verdict">
                         {String(rank).padStart(2, "0")}
                       </span>
                       <RankSpike delta={rankDeltas[track.id] ?? 0} />
@@ -230,7 +225,7 @@ export function Music() {
                       <button
                         type="button"
                         onClick={() => setPlayId(track.id)}
-                        className="w-10 h-10 rounded-md overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                        className="w-10 h-10 rounded-md overflow-hidden bg-black/40 border border-white/5 flex-shrink-0 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--nex-wow-ember)/0.55)]"
                         data-testid={`img-chart-cover-${track.id}`}
                         aria-label={`Play ${track.title}`}
                       >

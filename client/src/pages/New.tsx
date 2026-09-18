@@ -92,40 +92,35 @@ export function New() {
         focusCommentOnOpen={feed?.focusComment ?? false}
       />
 
-      <div className="mb-10">
+      <header className="mb-10" data-testid="new-arena-header">
         <div className="flex items-center gap-3 mb-2">
-          <Clock className="w-5 h-5 text-primary" />
-          <h1
-            className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
-            data-testid="text-new-label"
-          >
+          <Clock className="w-5 h-5 text-arena" aria-hidden />
+          <h1 className="nex-ember-lead-eyebrow" data-testid="text-new-label">
             {t("newPage.label")}
           </h1>
         </div>
-        <h2
-          className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
-          data-testid="text-new-title"
-        >
+        <h2 className="nex-ember-lead-title" data-testid="text-new-title">
           {t("newPage.title")}
         </h2>
         <p className="text-zinc-500 text-sm mt-2">
           {t("new.listSub")}
         </p>
         <div className="mt-4 relative max-w-md">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("common.searchPlaceholder")}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[hsl(var(--nex-wow-ember)/0.45)]"
             data-testid="input-search-new"
+            aria-label={t("common.searchPlaceholder")}
           />
         </div>
-      </div>
+      </header>
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Loader2 className="w-8 h-8 text-arena animate-spin" />
           <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">{t("common.loadingNew")}</p>
         </div>
       ) : isError ? (
@@ -162,22 +157,22 @@ export function New() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(idx * 0.02, 1) }}
-              className={`flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm transition-all group ${
+              className={`nex-new-row flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm transition-all group ${
                 isZeroPlay
                   ? "bg-black/10 opacity-80 hover:opacity-100 hover:bg-white/3 hover:border-white/10"
-                  : "bg-black/20 hover:bg-white/3 hover:border-primary/20"
+                  : "bg-black/20 hover:bg-white/3"
               }`}
               data-testid={`row-new-${track.id}`}
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-8 sm:w-10 flex justify-center shrink-0" data-testid={`icon-new-genre-${track.id}`}>
-                  <GenreIcon className="w-5 h-5 text-primary/80 shrink-0" strokeWidth={1.75} aria-hidden />
+                  <GenreIcon className="w-5 h-5 text-[hsl(var(--nex-wow-ember)/0.8)] shrink-0" strokeWidth={1.75} aria-hidden />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setPlayId(track.id)}
-                  className="shrink-0 rounded-md overflow-hidden border border-white/10 bg-black/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  className="shrink-0 rounded-md overflow-hidden border border-white/10 bg-black/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--nex-wow-ember)/0.55)]"
                   data-testid={`img-new-cover-${track.id}`}
                   aria-label={`Play ${track.title}`}
                 >

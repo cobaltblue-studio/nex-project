@@ -74,6 +74,13 @@ NEX는 음악 플랫폼이다. 차트·트랙·커뮤니티·크리에이터 흐
   - a11y: Crest compact `aria-label` · Clash banner `aria-live` · reduced-motion에 pulse/clash chip-dot/rising fuel/crest 포함
   - KO/EN Rising·Clash 카피 정렬 (BTS 없음)
 - **프로그램 W1–W7 완료 · Production `0d4dee0`.**
+- **Post-W7 로컬 (2026-09-19):** Music/New Arena triad 정렬 — 네온그린·cyan hero 퇴장.  
+  - 플랜: `docs/superpowers/plans/2026-09-19-nex-arena-music-new-triad-align.md`
+  - `/music` · `/new`: **Ember** eyebrow/title glow · loader/search focus Ember  
+  - Music zones: Legend/Rising **Ember** · Elite **Teal** · rank digits **Teal** · RankSpike/Crest 불변
+- **스모크 Post-W7 — Music/New triad:**
+  1. `http://localhost:5001/music` — 상단 **Ember「아레나 차트」** + TOP 100 Ember glow. 네온그린/cyan 타이틀이면 Fail. 순위 숫자 Teal · RankSpike Ember · Crest compact 유지 · 재생 OK
+  2. `http://localhost:5001/new` — 상단 **Ember「아레나 신곡」** + 타이틀 Ember glow. 네온그린이면 Fail · 재생 OK
 - **스모크 W7 — Rising Arena 정렬:**
   1. `http://localhost:5001/rising` — 상단 **Ember「아레나 급등」** + RISING 타이틀 Ember glow + Ember「배틀 입장」CTA. 한눈에 Arena (구 cyan/네온그린 차트 느낌이면 Fail)
   2. OS 축소 모션 ON: Rising empty fuel / Home pulse / Clash frame / Crest aura = **정적**, 의미 유지
@@ -101,7 +108,7 @@ NEX는 음악 플랫폼이다. 차트·트랙·커뮤니티·크리에이터 흐
   6. force 끄고 재기동 → B/C off (금요일 아니면)
 - **스모크 W4 (참고):** `http://localhost:5001/` hero ink glow · Live Ember 점 · Battle stats Ember 점
 - **Production:** `0d4dee0` — Arena Wow **W1–W7** 전체 배포 완료 (2026-09-19).
-- **다음:** 라이브 스모크. 선택 후속: Music/New 네온그린 triad 정렬.
+- **다음:** 선택 후속 polish 또는 대표 방향. Music/New Arena triad 정렬은 **로컬 완료** (커밋/배포 = 대표 승인 후).
 - NEXI/Higgsfield 보류.
 - 코드는 이 `nex-project`.
 

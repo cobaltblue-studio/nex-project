@@ -383,9 +383,9 @@
     "dismiss": "닫기"
   },
   "musicChart": {
-    "label": "뮤직 차트",
+    "label": "아레나 차트",
     "title": "NEX TOP 100",
-    "subtitle": "NEX 공식 오디오 TOP 100 랭킹입니다.",
+    "subtitle": "아레나 공식 오디오 TOP 100 — 승과 모멘텀으로 오른 순위.",
     "zoneLegend": "레전드 존",
     "zoneElite": "엘리트 존",
     "zoneRising": "라이징 존"
@@ -396,7 +396,7 @@
     "subtitle": "NEX에 등록된 뮤직비디오 TOP 100입니다."
   },
   "newPage": {
-    "label": "신곡",
+    "label": "아레나 신곡",
     "title": "NEX 신곡"
   },
   "rising": {

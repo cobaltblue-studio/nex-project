@@ -383,9 +383,9 @@
     "dismiss": "Dismiss"
   },
   "musicChart": {
-    "label": "Music Chart",
+    "label": "Arena Chart",
     "title": "NEX TOP 100",
-    "subtitle": "The definitive ranking of the top 100 tracks on NEX.",
+    "subtitle": "Official arena audio TOP 100 — ranks earned by wins and momentum.",
     "zoneLegend": "Legend Zone",
     "zoneElite": "Elite Zone",
     "zoneRising": "Rising Zone"
@@ -396,7 +396,7 @@
     "subtitle": "The top 100 tracks with music videos on NEX."
   },
   "newPage": {
-    "label": "New Releases",
+    "label": "Arena New",
     "title": "NEW ON NEX"
   },
   "rising": {
