@@ -46,6 +46,7 @@ type CustomForm = {
   bodyKo: string;
   ctaLabelKo: string;
   ctaHref: string;
+  creatorsOnly: boolean;
 };
 
 type EnglishPreview = {
@@ -62,6 +63,7 @@ const EMPTY_CUSTOM: CustomForm = {
   bodyKo: "",
   ctaLabelKo: "NEX 열기",
   ctaHref: "https://nexmusic.ai",
+  creatorsOnly: true,
 };
 
 type ConfirmAction =
@@ -99,10 +101,14 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
 
   const customPreview = useMutation({
     mutationFn: () =>
-      apiRequest("POST", "/api/admin/announcement-emails/custom/preview", custom).then((r) => r.json()),
+      apiRequest("POST", "/api/admin/announcement-emails/custom/preview", {
+        ...custom,
+        audience: custom.creatorsOnly ? "creators" : "all",
+      }).then((r) => r.json()),
     onSuccess: (data: {
       pending: number;
       totalRecipients: number;
+      creatorRecipients?: number;
       englishPreview?: EnglishPreview;
     }) => {
       if (data.englishPreview) setEnglishPreview(data.englishPreview);
@@ -134,7 +140,10 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
         return;
       }
       if (action.kind === "custom-test") {
-        const res = await apiRequest("POST", "/api/admin/announcement-emails/custom/test", custom);
+        const res = await apiRequest("POST", "/api/admin/announcement-emails/custom/test", {
+          ...custom,
+          audience: custom.creatorsOnly ? "creators" : "all",
+        });
         if (!res.ok) throw new Error(await res.text());
         toast({ title: t("adminAnnouncements.testOk") });
         return;
@@ -154,6 +163,7 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
         const res = await apiRequest("POST", "/api/admin/announcement-emails/custom/queue", {
           ...action.payload,
           dryRun: action.dryRun,
+          audience: action.payload.creatorsOnly ? "creators" : "all",
         });
         if (!res.ok) throw new Error(await res.text());
         toast({
@@ -332,6 +342,15 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
               onChange={(e) => setCustom((f) => ({ ...f, ctaHref: e.target.value }))}
             />
           </div>
+          <label className="flex items-center gap-2 text-[11px] text-zinc-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={custom.creatorsOnly}
+              onChange={(e) => setCustom((f) => ({ ...f, creatorsOnly: e.target.checked }))}
+              className="rounded border-white/20"
+            />
+            <span>크리에이터만 발송 (트랙 보유 계정)</span>
+          </label>
           {englishPreview ? (
             <div className="rounded-sm border border-white/10 bg-black/25 p-3 space-y-2">
               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">
@@ -372,7 +391,10 @@ export function AdminAnnouncements({ emailEnabled }: { emailEnabled: boolean }) 
               disabled={!emailEnabled || busy != null}
               onClick={async () => {
                 try {
-                  const data = await apiRequest("POST", "/api/admin/announcement-emails/custom/preview", custom).then((r) => r.json());
+                  const data = await apiRequest("POST", "/api/admin/announcement-emails/custom/preview", {
+                    ...custom,
+                    audience: custom.creatorsOnly ? "creators" : "all",
+                  }).then((r) => r.json());
                   if (data.englishPreview) setEnglishPreview(data.englishPreview);
                   setConfirm({
                     kind: "custom-queue",

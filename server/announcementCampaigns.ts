@@ -275,15 +275,30 @@ export async function listAnnouncementRecipients(): Promise<AnnouncementRecipien
   });
 }
 
-async function previewCampaignBySlug(slug: string): Promise<{
+export type AnnouncementAudience = "all" | "creators";
+
+function filterRecipientsByAudience(
+  recipients: AnnouncementRecipient[],
+  audience: AnnouncementAudience = "all",
+): AnnouncementRecipient[] {
+  if (audience === "creators") return recipients.filter((item) => item.kind === "creator");
+  return recipients;
+}
+
+async function previewCampaignBySlug(
+  slug: string,
+  audience: AnnouncementAudience = "all",
+): Promise<{
   campaignSlug: string;
   totalRecipients: number;
   creatorRecipients: number;
   visitorRecipients: number;
   alreadySent: number;
   pending: number;
+  audience: AnnouncementAudience;
 }> {
-  const recipients = await listAnnouncementRecipients();
+  const all = await listAnnouncementRecipients();
+  const recipients = filterRecipientsByAudience(all, audience);
   const creatorRecipients = recipients.filter((item) => item.kind === "creator").length;
   const visitorRecipients = recipients.length - creatorRecipients;
 
@@ -302,13 +317,14 @@ async function previewCampaignBySlug(slug: string): Promise<{
     visitorRecipients,
     alreadySent,
     pending: recipients.length - alreadySent,
+    audience,
   };
 }
 
 async function sendAnnouncementContent(
   campaignSlug: string,
   content: AnnouncementEmailContent,
-  opts?: { dryRun?: boolean; limit?: number },
+  opts?: { dryRun?: boolean; limit?: number; audience?: AnnouncementAudience },
 ): Promise<{
   campaignSlug: string;
   totalRecipients: number;
@@ -319,10 +335,12 @@ async function sendAnnouncementContent(
   sent: number;
   failed: number;
   dryRun: boolean;
+  audience: AnnouncementAudience;
   failures: Array<{ email: string; reason: string; detail?: string }>;
 }> {
-  const preview = await previewCampaignBySlug(campaignSlug);
-  const recipients = await listAnnouncementRecipients();
+  const audience = opts?.audience === "creators" ? "creators" : "all";
+  const preview = await previewCampaignBySlug(campaignSlug, audience);
+  const recipients = filterRecipientsByAudience(await listAnnouncementRecipients(), audience);
 
   const delivered = await db
     .select({ recipientEmail: announcementEmailDeliveries.recipientEmail })
@@ -404,10 +422,14 @@ export async function sendCustomAnnouncementTest(payload: CustomAnnouncementPayl
   return sendAnnouncementTestEmail(content, to);
 }
 
-export async function previewCustomAnnouncement(payload: CustomAnnouncementPayload | CustomAnnouncementDraft) {
+export async function previewCustomAnnouncement(
+  payload: CustomAnnouncementPayload | CustomAnnouncementDraft,
+  opts?: { audience?: AnnouncementAudience },
+) {
   const parsed = await resolveCustomAnnouncementPayload(payload);
   const slug = buildCustomSlug(parsed.internalTitle);
-  const preview = await previewCampaignBySlug(slug);
+  const audience = opts?.audience === "creators" ? "creators" : "all";
+  const preview = await previewCampaignBySlug(slug, audience);
   return {
     ...preview,
     internalTitle: parsed.internalTitle,
@@ -450,7 +472,7 @@ type AnnouncementCampaignResult = {
 
 export async function sendAnnouncementCampaign(
   slug: string,
-  opts?: { dryRun?: boolean; limit?: number },
+  opts?: { dryRun?: boolean; limit?: number; audience?: AnnouncementAudience },
 ): Promise<AnnouncementCampaignResult> {
   const campaign = getCampaign(slug);
   if (!campaign) throw new Error(`Unknown announcement campaign: ${slug}`);
@@ -471,7 +493,7 @@ export async function sendAnnouncementCampaign(
 
 export async function sendCustomAnnouncementCampaign(
   payload: CustomAnnouncementPayload,
-  opts: { slug: string; dryRun?: boolean; limit?: number },
+  opts: { slug: string; dryRun?: boolean; limit?: number; audience?: AnnouncementAudience },
 ) {
   const parsed = parseCustomAnnouncementPayload(payload);
   const content = customPayloadToContent(parsed);
@@ -514,10 +536,16 @@ export async function enqueueAnnouncementCampaign(
 
 export async function enqueueCustomAnnouncement(
   payload: CustomAnnouncementPayload | CustomAnnouncementDraft,
-  opts?: { dryRun?: boolean; limit?: number; requestedBy?: string | null },
+  opts?: {
+    dryRun?: boolean;
+    limit?: number;
+    requestedBy?: string | null;
+    audience?: AnnouncementAudience;
+  },
 ): Promise<{ id: number; status: string; campaignSlug: string }> {
   const parsed = await resolveCustomAnnouncementPayload(payload);
   const slug = buildCustomSlug(parsed.internalTitle);
+  const audience = opts?.audience === "creators" ? "creators" : "all";
 
   const [row] = await db
     .insert(announcementEmailCampaignRuns)
@@ -527,7 +555,7 @@ export async function enqueueCustomAnnouncement(
       limit: opts?.limit && opts.limit > 0 ? Math.floor(opts.limit) : null,
       requestedBy: opts?.requestedBy?.trim() || null,
       status: "pending",
-      summary: { customPayload: parsed } as Record<string, unknown>,
+      summary: { customPayload: parsed, audience } as Record<string, unknown>,
     })
     .returning({
       id: announcementEmailCampaignRuns.id,
@@ -587,13 +615,17 @@ export async function processPendingAnnouncementCampaigns(): Promise<void> {
     try {
       let summary: Record<string, unknown>;
       if (isCustomAnnouncementSlug(claimed.campaignSlug)) {
-        const stored = claimed.summary as { customPayload?: CustomAnnouncementPayload } | null;
+        const stored = claimed.summary as {
+          customPayload?: CustomAnnouncementPayload;
+          audience?: AnnouncementAudience;
+        } | null;
         const payload = stored?.customPayload;
         if (!payload) throw new Error("Missing custom announcement payload");
         summary = (await sendCustomAnnouncementCampaign(payload, {
           slug: claimed.campaignSlug,
           dryRun: claimed.dryRun,
           limit: claimed.limit ?? undefined,
+          audience: stored?.audience === "creators" ? "creators" : "all",
         })) as Record<string, unknown>;
       } else {
         summary = (await sendAnnouncementCampaign(claimed.campaignSlug, {

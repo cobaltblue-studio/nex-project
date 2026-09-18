@@ -2732,7 +2732,9 @@ export async function registerRoutes(
 
     try {
       const payload = await resolveCustomAnnouncementPayload(req.body);
-      const preview = await previewCustomAnnouncement(payload);
+      const audience =
+        req.body?.audience === "creators" || req.body?.creatorsOnly === true ? "creators" : "all";
+      const preview = await previewCustomAnnouncement(payload, { audience });
       res.json(preview);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -2794,10 +2796,13 @@ export async function registerRoutes(
 
     try {
       const payload = await resolveCustomAnnouncementPayload(req.body);
+      const audience =
+        req.body?.audience === "creators" || req.body?.creatorsOnly === true ? "creators" : "all";
       const job = await enqueueCustomAnnouncement(payload, {
         dryRun: Boolean(req.body?.dryRun),
         limit,
         requestedBy: getUserEmail(req) || getUserId(req) || "admin",
+        audience,
       });
       res.json(job);
     } catch (err) {
