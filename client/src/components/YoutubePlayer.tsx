@@ -201,6 +201,7 @@ export function YoutubePlayer({
     });
 
     return () => {
+      // Detach ended callback before destroy — YT often synthesizes ENDED on teardown.
       destroyed = true;
       onEndedRef.current = undefined;
       clearBattlePoll();

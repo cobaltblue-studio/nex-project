@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWork, useWorks } from "@/hooks/use-works";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2, ArrowLeft, Music, ChevronUp, SkipForward, Infinity, Zap } from "lucide-react";
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { useRecordPlayAfterListen } from "@/hooks/use-record-play-after-listen";
 import { recordTrackPlay } from "@/lib/recordPlay";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -18,27 +18,35 @@ import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
 import { SunoInAppPlayer } from "@/components/SunoInAppPlayer";
 import { TrackClaimSection } from "@/components/TrackClaimSection";
 import { TrackNewBadge } from "@/components/TrackNewBadge";
+import { isTrackDetailPath } from "@/lib/trackRoute";
 
 export function TrackDetail() {
   const { t } = useTranslation();
   const [, params] = useRoute("/track/:id");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
 
-  // currentTrackId is the source of truth for the player — decoupled from URL
+  // URL is the route source of truth; currentTrackId mirrors it for player remounts.
   const [currentTrackId, setCurrentTrackId] = useState<number>(() => Number(params?.id) || 0);
-  // Default OFF — continuous AUTO was keeping audio alive across navigation/tab hide.
+  // AUTO is opt-in. Leaving /track/* must never re-enter via onEnded.
   const [autoPlayNext, setAutoPlayNext] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
-  const playerKey = useRef(0); // forces iframe remount on track change
-  const pageMountedRef = useRef(true);
+  const playerKey = useRef(0);
+  /**
+   * Armed in useLayoutEffect so it flips false on leave BEFORE child useEffect
+   * cleanups (YoutubePlayer destroy → synthetic ENDED → onEnded).
+   * React runs parent layout cleanups before child passive effect cleanups.
+   */
+  const playbackSessionRef = useRef(true);
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
-  useEffect(() => {
-    pageMountedRef.current = true;
+  useLayoutEffect(() => {
+    playbackSessionRef.current = true;
     return () => {
-      pageMountedRef.current = false;
+      playbackSessionRef.current = false;
     };
   }, []);
 
@@ -139,19 +147,28 @@ export function TrackDetail() {
     return rankIndex > 0 ? sortedTracks[rankIndex - 1] : null;
   }, [sortedTracks, rankIndex]);
 
+  const canAutoAdvance = useCallback(() => {
+    if (!playbackSessionRef.current) return false;
+    if (!isTrackDetailPath(locationRef.current)) return false;
+    if (typeof window !== "undefined" && !isTrackDetailPath(window.location.pathname)) return false;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
+    return true;
+  }, []);
+
   // Navigate to next track (smooth — only updates state + URL, no full reload)
   const goToNext = useCallback(() => {
-    if (!pageMountedRef.current) return;
+    if (!canAutoAdvance()) return;
     if (!nextTrack || isTransitioning) return;
     setIsTransitioning(true);
     playerKey.current += 1;
     setCurrentTrackId(nextTrack.id);
     setLocation(`/track/${nextTrack.id}`, { replace: false });
     setTimeout(() => setIsTransitioning(false), 400);
-  }, [nextTrack, isTransitioning, setLocation]);
+  }, [canAutoAdvance, nextTrack, isTransitioning, setLocation]);
 
   const goToPrev = useCallback(() => {
-    if (!pageMountedRef.current) return;
+    if (!playbackSessionRef.current) return;
+    if (!isTrackDetailPath(locationRef.current)) return;
     if (!prevTrack || isTransitioning) return;
     setIsTransitioning(true);
     playerKey.current += 1;
@@ -160,23 +177,26 @@ export function TrackDetail() {
     setTimeout(() => setIsTransitioning(false), 400);
   }, [prevTrack, isTransitioning, setLocation]);
 
-  const handleTrackEnded = useCallback(async () => {
-    // Leaving /track/* or hiding the tab must not keep auto-advancing.
-    if (!pageMountedRef.current) return;
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-    if (currentTrackId) {
-      try {
-        await recordTrackPlay(currentTrackId, true);
-        if (!pageMountedRef.current) return;
-        queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
-      } catch {
-        // completion capture is best-effort
-      }
+  const handleTrackEnded = useCallback(() => {
+    // Decide advance synchronously. Awaiting before goToNext raced user navigation
+    // and YouTube destroy→ENDED during unmount (child useEffect runs before parent useEffect).
+    const finishedId = currentTrackId;
+    const shouldAdvance = autoPlayNext && canAutoAdvance();
+
+    if (shouldAdvance) {
+      goToNext();
     }
-    if (!pageMountedRef.current) return;
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-    if (autoPlayNext) goToNext();
-  }, [autoPlayNext, currentTrackId, goToNext]);
+
+    if (finishedId) {
+      void recordTrackPlay(finishedId, true)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
+        })
+        .catch(() => {
+          // completion capture is best-effort
+        });
+    }
+  }, [autoPlayNext, canAutoAdvance, currentTrackId, goToNext]);
 
   const handleVote = async () => {
     if (!track || isVoting) return;

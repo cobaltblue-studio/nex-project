@@ -1,4 +1,7 @@
-/** Live YT.Player instances — paused/stopped when the NEX tab is hidden or closed. */
+/**
+ * Registry of live YT.Player instances for intentional pause/stop.
+ * Do not scrape/remove iframes from the DOM here — React owns mount lifecycle.
+ */
 const livePlayers = new Set<{
   stopVideo?: () => void;
   pauseVideo?: () => void;
@@ -55,27 +58,16 @@ export function stopAllYoutubePlayers(): void {
     }
     livePlayers.delete(player);
   }
-
-  if (typeof document !== "undefined") {
-    document.querySelectorAll('iframe[src*="youtube.com"], iframe[src*="youtube-nocookie.com"]').forEach((el) => {
-      try {
-        el.remove();
-      } catch {
-        /* ignore */
-      }
-    });
-  }
 }
 
 let guardInstalled = false;
 
-/** Install once — halt audio when the tab is backgrounded or the window is closing. */
+/** Pause when the tab is backgrounded; hard-stop registered players on page exit. */
 export function installYoutubePlaybackGuard(): void {
   if (guardInstalled || typeof window === "undefined") return;
   guardInstalled = true;
 
   window.addEventListener("pagehide", () => stopAllYoutubePlayers());
-  window.addEventListener("beforeunload", () => stopAllYoutubePlayers());
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") pauseAllYoutubePlayers();
   });
