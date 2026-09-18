@@ -46,7 +46,8 @@ NEX는 음악 플랫폼이다. 차트·트랙·커뮤니티·크리에이터 흐
 - **BTS/ARMY:** 내부만. 대외 카피 금지.
 - **프로그램:** Arena Wow Upgrade — 매주 단계.
 - **스펙:** `docs/superpowers/specs/2026-09-18-nex-arena-wow-upgrade-design.md`
-- **Week 1–3 로컬 완료:** Verdict · Blind · Intent · Share. Production `51a177f` = W1–W3만.
+- **Week 1–3:** Verdict · Blind · Intent · Share (이전 배포 `51a177f`에 포함).
+- **프로그램 W1–W7 완료 · Production `0d4dee0` (2026-09-19).** 캐시면 강력 새로고침.
 - **Week 4 로컬 완료:** Home Arena glow + Arena Pulse (Ember). 플랜: `docs/superpowers/plans/2026-09-19-nex-arena-week4-arena-pulse.md`
 - **Week 5 로컬 완료 (2026-09-19):** Friday Clash Night — **Violet night frame** + **Founder B+C** (pool + win bonus).  
   - UI 플랜: `docs/superpowers/plans/2026-09-19-nex-arena-week5-friday-clash.md`  
@@ -72,7 +73,7 @@ NEX는 음악 플랫폼이다. 차트·트랙·커뮤니티·크리에이터 흐
   - Rising: **Ember lead** (eyebrow「아레나 급등」·타이틀 Ember glow·배틀 CTA Ember). 네온그린/라이브러리 차트 톤 퇴장
   - a11y: Crest compact `aria-label` · Clash banner `aria-live` · reduced-motion에 pulse/clash chip-dot/rising fuel/crest 포함
   - KO/EN Rising·Clash 카피 정렬 (BTS 없음)
-- **프로그램 W1–W7 로컬 완료.** Production 반영 = 대표 승인 후 commit/push.
+- **프로그램 W1–W7 완료 · Production `0d4dee0`.**
 - **스모크 W7 — Rising Arena 정렬:**
   1. `http://localhost:5001/rising` — 상단 **Ember「아레나 급등」** + RISING 타이틀 Ember glow + Ember「배틀 입장」CTA. 한눈에 Arena (구 cyan/네온그린 차트 느낌이면 Fail)
   2. OS 축소 모션 ON: Rising empty fuel / Home pulse / Clash frame / Crest aura = **정적**, 의미 유지
@@ -99,8 +100,8 @@ NEX는 음악 플랫폼이다. 차트·트랙·커뮤니티·크리에이터 흐
   5. (대체) force 없이 `?clashNight=1`만: non-prod에서 POST body `clashNightPreview: true`로 B/C 적용 (`reason: preview`)
   6. force 끄고 재기동 → B/C off (금요일 아니면)
 - **스모크 W4 (참고):** `http://localhost:5001/` hero ink glow · Live Ember 점 · Battle stats Ember 점
-- **Production:** W4–W7은 **로컬만** — push/배포는 대표 승인 후.
-- **다음:** 대표 로컬 스모크 W7 Rising → 승인 시 **W1–W7 commit/push**. 추가 ritual 없음(스펙 W7+ = polish).
+- **Production:** `0d4dee0` — Arena Wow **W1–W7** 전체 배포 완료 (2026-09-19).
+- **다음:** 라이브 스모크. 선택 후속: Music/New 네온그린 triad 정렬.
 - NEXI/Higgsfield 보류.
 - 코드는 이 `nex-project`.
 
