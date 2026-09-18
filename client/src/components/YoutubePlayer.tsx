@@ -92,13 +92,20 @@ export function YoutubePlayer({
       }
     };
 
+    const emitEnded = () => {
+      // destroy()/unmount often synthesizes YT ENDED — never advance after teardown.
+      if (destroyed) return;
+      onEndedRef.current?.();
+    };
+
     const armBattleEndTimer = () => {
       if (battleTimerRef.current) clearTimeout(battleTimerRef.current);
       battleTimerRef.current = setTimeout(() => {
+        if (destroyed) return;
         try {
           playerRef.current?.pauseVideo();
         } catch {}
-        onEndedRef.current?.();
+        emitEnded();
       }, BATTLE_PREVIEW_SECONDS * 1000);
     };
 
@@ -156,9 +163,15 @@ export function YoutubePlayer({
         },
         events: {
           onStateChange: (e: { data: number }) => {
-            if (e.data === 0) onEndedRef.current?.();
+            if (e.data === 0) emitEnded();
           },
           onReady: (ev: { target: any }) => {
+            if (destroyed) {
+              try {
+                ev.target?.destroy?.();
+              } catch {}
+              return;
+            }
             const p = ev.target;
             try {
               const iframe = typeof p.getIframe === "function" ? p.getIframe() : null;
@@ -178,12 +191,20 @@ export function YoutubePlayer({
 
     return () => {
       destroyed = true;
+      onEndedRef.current = undefined;
       clearBattlePoll();
       if (battleTimerRef.current) clearTimeout(battleTimerRef.current);
-      try {
-        playerRef.current?.destroy();
-      } catch {}
+      const player = playerRef.current;
       playerRef.current = null;
+      try {
+        player?.stopVideo?.();
+      } catch {}
+      try {
+        player?.pauseVideo?.();
+      } catch {}
+      try {
+        player?.destroy?.();
+      } catch {}
       if (wrapperRef.current) wrapperRef.current.innerHTML = "";
     };
   }, [videoId, autoplay, battleMode]);

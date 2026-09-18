@@ -32,6 +32,14 @@ export function TrackDetail() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const playerKey = useRef(0); // forces iframe remount on track change
+  const pageMountedRef = useRef(true);
+
+  useEffect(() => {
+    pageMountedRef.current = true;
+    return () => {
+      pageMountedRef.current = false;
+    };
+  }, []);
 
   useRecordPlayAfterListen(currentTrackId, !!currentTrackId);
 
@@ -132,6 +140,7 @@ export function TrackDetail() {
 
   // Navigate to next track (smooth — only updates state + URL, no full reload)
   const goToNext = useCallback(() => {
+    if (!pageMountedRef.current) return;
     if (!nextTrack || isTransitioning) return;
     setIsTransitioning(true);
     playerKey.current += 1;
@@ -141,6 +150,7 @@ export function TrackDetail() {
   }, [nextTrack, isTransitioning, setLocation]);
 
   const goToPrev = useCallback(() => {
+    if (!pageMountedRef.current) return;
     if (!prevTrack || isTransitioning) return;
     setIsTransitioning(true);
     playerKey.current += 1;
@@ -150,14 +160,18 @@ export function TrackDetail() {
   }, [prevTrack, isTransitioning, setLocation]);
 
   const handleTrackEnded = useCallback(async () => {
+    // Leaving /track/* must not keep auto-advancing into the next song.
+    if (!pageMountedRef.current) return;
     if (currentTrackId) {
       try {
         await recordTrackPlay(currentTrackId, true);
+        if (!pageMountedRef.current) return;
         queryClient.invalidateQueries({ queryKey: ["/api/tracks"] });
       } catch {
         // completion capture is best-effort
       }
     }
+    if (!pageMountedRef.current) return;
     if (autoPlayNext) goToNext();
   }, [autoPlayNext, currentTrackId, goToNext]);
 
