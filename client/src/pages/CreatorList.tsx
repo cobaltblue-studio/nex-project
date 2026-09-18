@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { VerifiedCheckIcon } from "@/components/VerifiedCheckIcon";
 import { VerifiedPillBadge } from "@/components/VerifiedPillBadge";
+import { CreatorCrest } from "@/components/CreatorCrest";
 import { TRACK_PROVENANCE_VERIFIED } from "@shared/constants";
 
 interface CreatorDirectoryRow {
@@ -252,6 +253,11 @@ export function CreatorList() {
                   >
                     {creator.displayName}
                   </h3>
+                  <CreatorCrest
+                    mode="compact"
+                    inputs={{ battleWins: creator.battleWins }}
+                    testId={`crest-creator-${creator.id}`}
+                  />
                   {creator.country ? (
                     <span className="inline-flex items-center gap-0.5 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0">
                       <MapPin className="w-2.5 h-2.5" />

@@ -63,6 +63,12 @@ import {
   sendTrackPlaybackIssueEmail,
 } from "./email";
 import { recordServerAnalyticsEvent } from "./analytics";
+import {
+  addFridayRankingBonus,
+  clashNightPoolExcitementMul,
+  CLASH_NIGHT_WIN_RANKING_BONUS,
+  getFridayRankingBonus,
+} from "./clashNight";
 import { eq, desc, and, or, sql, count, gt, gte, ne, inArray, notInArray, isNotNull, isNull } from "drizzle-orm";
 
 const RANKING_WEIGHT_BATTLE = 0.5;
@@ -403,7 +409,7 @@ export interface IStorage {
   getAvailableBattleGenres(): Promise<string[]>;
   createBattle(
     genre: string,
-    requester?: { profileId?: number | null; userId?: string | null },
+    requester?: { profileId?: number | null; userId?: string | null; clashNightActive?: boolean },
   ): Promise<any | null>;
   getBattle(id: number): Promise<any | null>;
   hasBattleVoted(battleId: number, userId: string): Promise<boolean>;
@@ -413,8 +419,16 @@ export interface IStorage {
     battleId: number,
     userId: string,
     trackId: number,
-    opts?: { skipListenCheck?: boolean },
-  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }>;
+    opts?: { skipListenCheck?: boolean; clashNightActive?: boolean },
+  ): Promise<{
+    trackAVotes: number;
+    trackBVotes: number;
+    winnerId: number;
+    trackAWinStreak: number;
+    trackBWinStreak: number;
+    clashNightWinBonus?: number;
+    rankingScoreAfterBonus?: number;
+  }>;
   getRisingTracks(q?: string): Promise<any[]>;
   addComment(userId: string, trackId: number, content: string): Promise<void>;
   listTrackComments(
@@ -952,6 +966,9 @@ export class DatabaseStorage implements IStorage {
         createdAt: t.createdAt,
       });
     }
+
+    const fridayBonus = getFridayRankingBonus(trackId);
+    if (fridayBonus > 0) rs = Number((rs + fridayBonus).toFixed(4));
 
     await db.update(tracks).set({ rankingScore: rs }).where(eq(tracks.id, trackId));
   }
@@ -2340,10 +2357,11 @@ export class DatabaseStorage implements IStorage {
 
   async createBattle(
     genre: string,
-    requester?: { profileId?: number | null; userId?: string | null },
+    requester?: { profileId?: number | null; userId?: string | null; clashNightActive?: boolean },
   ): Promise<any | null> {
     const requesterProfileId = requester?.profileId ?? null;
     const requesterUserId = requester?.userId?.trim() || null;
+    const clashNightActive = Boolean(requester?.clashNightActive);
     const eligibleSql = battleEligibleTracksFilter();
 
     let pool = await db.select().from(tracks).where(
@@ -2391,6 +2409,10 @@ export class DatabaseStorage implements IStorage {
       ) {
         m *= BATTLE_FAIRNESS_REQUESTER_OWN_MUL;
       }
+      // B — Friday Clash Night: weight toward streak / recent / high-activity tracks.
+      if (clashNightActive) {
+        m *= clashNightPoolExcitementMul(t);
+      }
       fairnessMultiplierByTrackId.set(t.id, m);
     }
 
@@ -2410,7 +2432,13 @@ export class DatabaseStorage implements IStorage {
     void recordServerAnalyticsEvent({
       eventName: "battle_start",
       userId: requesterUserId,
-      properties: { battleId: battle.id, genre: battleGenre, trackAId: trackA.id, trackBId: trackB.id },
+      properties: {
+        battleId: battle.id,
+        genre: battleGenre,
+        trackAId: trackA.id,
+        trackBId: trackB.id,
+        clashNight: clashNightActive,
+      },
     }).catch(() => {});
 
     return this.getBattle(battle.id);
@@ -3279,8 +3307,16 @@ export class DatabaseStorage implements IStorage {
     battleId: number,
     userId: string,
     trackId: number,
-    opts?: { skipListenCheck?: boolean },
-  ): Promise<{ trackAVotes: number; trackBVotes: number; winnerId: number; trackAWinStreak: number; trackBWinStreak: number }> {
+    opts?: { skipListenCheck?: boolean; clashNightActive?: boolean },
+  ): Promise<{
+    trackAVotes: number;
+    trackBVotes: number;
+    winnerId: number;
+    trackAWinStreak: number;
+    trackBWinStreak: number;
+    clashNightWinBonus?: number;
+    rankingScoreAfterBonus?: number;
+  }> {
     const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
     if (!battle) throw new Error("BATTLE_NOT_FOUND");
 
@@ -3344,6 +3380,23 @@ export class DatabaseStorage implements IStorage {
     await db.update(tracks).set({ winStreak: sql`${tracks.winStreak} + 1` }).where(eq(tracks.id, winnerId));
     await db.update(tracks).set({ winStreak: 0 }).where(eq(tracks.id, loserId));
 
+    // C — Friday Clash Night: flat rankingScore bonus on win (Founder-adjustable).
+    let clashNightWinBonus: number | undefined;
+    let rankingScoreAfterBonus: number | undefined;
+    if (opts?.clashNightActive && trackId === winnerId) {
+      clashNightWinBonus = CLASH_NIGHT_WIN_RANKING_BONUS;
+      addFridayRankingBonus(winnerId, clashNightWinBonus);
+      await db
+        .update(tracks)
+        .set({ rankingScore: sql`${tracks.rankingScore} + ${clashNightWinBonus}` })
+        .where(eq(tracks.id, winnerId));
+      const [winnerRow] = await db
+        .select({ rankingScore: tracks.rankingScore })
+        .from(tracks)
+        .where(eq(tracks.id, winnerId));
+      rankingScoreAfterBonus = winnerRow?.rankingScore;
+    }
+
     // Fetch updated streak values
     const [winnerTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, winnerId));
     const [loserTrack] = await db.select({ winStreak: tracks.winStreak }).from(tracks).where(eq(tracks.id, loserId));
@@ -3362,10 +3415,23 @@ export class DatabaseStorage implements IStorage {
     void recordServerAnalyticsEvent({
       eventName: "battle_vote",
       userId,
-      properties: { battleId, trackId, winnerId },
+      properties: {
+        battleId,
+        trackId,
+        winnerId,
+        clashNight: Boolean(opts?.clashNightActive),
+        clashNightWinBonus: clashNightWinBonus ?? 0,
+      },
     }).catch(() => {});
 
-    return { trackAVotes: newAVotes, trackBVotes: newBVotes, winnerId, trackAWinStreak, trackBWinStreak };
+    return {
+      trackAVotes: newAVotes,
+      trackBVotes: newBVotes,
+      winnerId,
+      trackAWinStreak,
+      trackBWinStreak,
+      ...(clashNightWinBonus != null ? { clashNightWinBonus, rankingScoreAfterBonus } : {}),
+    };
   }
 
   async checkAndPromoteToChart(trackId: number): Promise<boolean> {

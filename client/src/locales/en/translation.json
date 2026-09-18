@@ -286,11 +286,14 @@
     "heroSubtitle": "AI Music Ranking Platform",
     "heroBody": "The world's first competitive ranking platform for AI-generated music. Artists submit, battle, and rise through a transparent chart system powered by community voting.",
     "startBattle": "Start Battle",
+    "clashNightEnter": "Enter Friday Clash",
+    "clashNightChip": "Friday Clash Night",
     "submitTrack": "Submit Track",
     "radio": "Radio",
     "discoverMore": "DISCOVER MORE",
     "liveVotingTrends": "Live Voting Trends",
     "live": "LIVE",
+    "arenaPulseLive": "Arena live",
     "votesToday": "Votes Today",
     "battlesToday": "Battles Today",
     "poolTracks": "Pool Tracks",
@@ -397,18 +400,18 @@
     "title": "NEW ON NEX"
   },
   "rising": {
-    "label": "Music Chart",
+    "label": "Arena Climb",
     "title": "RISING",
-    "subtitle": "Tracks outside the top chart — surfaced by play momentum (views).",
+    "subtitle": "Outside the top 100 — climbing on play momentum toward the arena.",
     "badgeAudioOnly": "Audio only",
-    "badgeNotTop100": "Not in top 100",
-    "badgePlaysSort": "Plays ↓ sort",
+    "badgeNotTop100": "Outside top 100",
+    "badgePlaysSort": "Momentum · plays",
     "loading": "Loading rising tracks…",
     "failedLoad": "Failed to load",
-    "empty": "No rising tracks yet",
-    "emptyHint": "When audio tracks pick up plays outside the top 100, they appear here.",
-    "fuelChart": "Fuel the chart",
-    "goBattle": "Go to Battle"
+    "empty": "No climbing tracks yet",
+    "emptyHint": "Audio tracks that pick up plays outside the top 100 rise here. Battle to build momentum.",
+    "fuelChart": "Climb via Battle",
+    "goBattle": "Enter Battle"
   },
   "auth": {
     "title": "Start with Google",
@@ -448,6 +451,23 @@
     "statsLine": "{{plays}} plays · {{likes}} likes · {{wins}} wins",
     "winRateHidden": "—",
     "inactiveHint": "New on NEX"
+  },
+  "crest": {
+    "eyebrow": "Creator Crest",
+    "restingTitle": "Arena Crest",
+    "restingShort": "Crest",
+    "restingSub": "Win battles, hold a streak, or climb the chart to stamp your crest.",
+    "earnedTitle": "{{tier}} Crest",
+    "earnedSub": "Proof on the arena — {{tier}} unlocked.",
+    "stamp": "Earned",
+    "meta": "Wins {{wins}} · Streak {{streak}} · Best {{rank}}",
+    "shareDefault": "My NEX Creator Crest: {{tier}} — nexmusic.ai",
+    "tier": {
+      "spark": "Spark",
+      "contender": "Contender",
+      "champion": "Champion",
+      "legend": "Legend"
+    }
   },
   "new": {
     "badge": "NEW",
@@ -511,7 +531,15 @@
       "craft": "Full craft"
     },
     "shareCardEyebrow": "Share proof",
-    "shareCardBy": "by {{creator}}"
+    "shareCardBy": "by {{creator}}",
+    "clashNightAria": "Friday Clash Night is live",
+    "clashNightKicker": "Tonight only",
+    "clashNightTitle": "Friday Clash",
+    "clashNightSub": "Hot streak · win-streak weighted match · Friday win bonus",
+    "clashNightPoolBadge": "Hot streak · win-streak weighted",
+    "clashNightBonusBadge": "Friday win bonus +15",
+    "clashNightWinBonus": "Friday bonus +{{bonus}}",
+    "clashNightEnter": "Enter Friday Clash"
   },
   "radio": {
     "platform": "NEX Platform",

@@ -29,6 +29,7 @@ import {
   sanitizePublicTrack,
 } from "./public-response";
 import { apiMsg } from "./api-i18n";
+import { readClashNightPreviewFlag, resolveClashNight } from "./clashNight";
 import { publicTrackProvenanceExtras } from "./trackProvenance";
 import { adminCreatorTrackExportCsv, adminCreatorTrackExportFilename } from "./adminExport";
 import {
@@ -2338,9 +2339,13 @@ export async function registerRoutes(
 
     const userId = getUserId(req);
     const requesterProfile = await storage.getProfileByUserId(userId);
+    const clashNight = resolveClashNight({
+      previewRequest: readClashNightPreviewFlag(req),
+    });
     const battle = await storage.createBattle(String(genre), {
       profileId: requesterProfile?.id ?? null,
       userId,
+      clashNightActive: clashNight.active,
     });
     if (!battle) {
       return res.status(409).json({
@@ -2351,7 +2356,13 @@ export async function registerRoutes(
       });
     }
 
-    res.json(await enrichBattleForPublic(battle as Record<string, unknown>));
+    const enriched = await enrichBattleForPublic(battle as Record<string, unknown>);
+    res.json({
+      ...enriched,
+      clashNight: clashNight.active
+        ? { active: true, reason: clashNight.reason, poolWeighted: true }
+        : { active: false },
+    });
   });
 
   // Get a specific battle
@@ -2399,7 +2410,13 @@ export async function registerRoutes(
       if (bypass) {
         await db.delete(battleVotes).where(and(eq(battleVotes.userId, userId), eq(battleVotes.battleId, battleId)));
       }
-      const result = await storage.recordBattleVote(battleId, userId, Number(trackId), { skipListenCheck: bypass });
+      const clashNight = resolveClashNight({
+        previewRequest: readClashNightPreviewFlag(req),
+      });
+      const result = await storage.recordBattleVote(battleId, userId, Number(trackId), {
+        skipListenCheck: bypass,
+        clashNightActive: clashNight.active,
+      });
       res.json(result);
     } catch (err: any) {
       if (err?.message === "ALREADY_VOTED")
@@ -2444,7 +2461,13 @@ export async function registerRoutes(
       if (bypass) {
         await db.delete(battleVotes).where(and(eq(battleVotes.userId, userId), eq(battleVotes.battleId, parsedBattleId)));
       }
-      const result = await storage.recordBattleVote(parsedBattleId, userId, parsedTrackId, { skipListenCheck: bypass });
+      const clashNight = resolveClashNight({
+        previewRequest: readClashNightPreviewFlag(req),
+      });
+      const result = await storage.recordBattleVote(parsedBattleId, userId, parsedTrackId, {
+        skipListenCheck: bypass,
+        clashNightActive: clashNight.active,
+      });
       res.json(result);
     } catch (err: any) {
       if (err?.message === "ALREADY_VOTED")
@@ -2482,6 +2505,18 @@ export async function registerRoutes(
   app.get("/api/stats/today", async (_req, res) => {
     const stats = await storage.getTodayStats();
     res.json(stats);
+  });
+
+  /**
+   * Friday Clash Night (W5) — product TZ Asia/Seoul.
+   * Env: CLASH_NIGHT_FORCE=1 always on; CLASH_NIGHT_DISABLED=1 always off.
+   * B/C rules exposed for client copy (Founder-adjustable constants).
+   */
+  app.get("/api/arena/clash-night", (req, res) => {
+    const state = resolveClashNight({
+      previewRequest: readClashNightPreviewFlag(req),
+    });
+    res.json(state);
   });
 
   // Admin: requires authenticated user whose profile role is admin

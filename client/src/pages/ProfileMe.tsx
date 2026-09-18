@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { publicAudioChartSearchParams, isCreatorProfileRole } from "@shared/constants";
 import { GuestCheerModal } from "@/components/GuestCheerModal";
 import { TrackNewBadge } from "@/components/TrackNewBadge";
+import { CreatorCrest } from "@/components/CreatorCrest";
+import { crestInputsFromTracks } from "@/lib/creatorCrest";
 
 type BattleSummary = {
   trackId: number;
@@ -145,6 +147,16 @@ export function ProfileMe() {
     }
     return best;
   }, [creatorTracks, chartRankByTrackId]);
+
+  const crestInputs = useMemo(
+    () => crestInputsFromTracks(creatorTracks, chartRankByTrackId),
+    [creatorTracks, chartRankByTrackId],
+  );
+
+  const profileShareUrl =
+    typeof window !== "undefined" && creatorName
+      ? `${window.location.origin}/profile/${encodeURIComponent(creatorName.toLowerCase())}`
+      : "";
 
   const isLoading =
     waitingForMyUsername ||
@@ -327,6 +339,13 @@ export function ProfileMe() {
           )}
         </div>
       </div>
+
+      <CreatorCrest
+        inputs={crestInputs}
+        mode="full"
+        shareUrl={profileShareUrl || undefined}
+        testId="profile-creator-crest"
+      />
 
       <div className="bg-[#0A0A0A] border border-white/5 p-5 rounded-sm space-y-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">

@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { BattleGuide } from "@/components/BattleGuide";
 import { useTranslation } from "react-i18next";
 import { hasPublicCount } from "@/lib/displayStats";
+import { useClashNight } from "@/hooks/use-clash-night";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -112,12 +113,6 @@ function LiveVotingWidget({
   };
 }) {
   const { t } = useTranslation();
-  const [pulse, setPulse] = useState(true);
-
-  useEffect(() => {
-    const interval = setInterval(() => setPulse((p) => !p), 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const statVal = (n?: number) => (hasPublicCount(n) ? String(n) : "—");
 
@@ -128,9 +123,10 @@ function LiveVotingWidget({
       transition={{ delay: 0.35, duration: 0.5 }}
       className="relative z-10 mx-auto mt-5 md:mt-6 w-full max-w-2xl px-4"
       data-testid="widget-live-voting"
+      data-arena-pulse="ember"
     >
       <div
-        className="rounded-xl p-5 md:p-6 border border-primary/25 shadow-[0_0_40px_rgba(0,255,128,0.08)]"
+        className="nex-arena-pulse-card rounded-xl p-5 md:p-6 border"
         style={{
           background: "rgba(0, 0, 0, 0.55)",
           backdropFilter: "blur(14px)",
@@ -140,16 +136,13 @@ function LiveVotingWidget({
           <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-zinc-300">
             {t("home.liveVotingTrends")}
           </span>
-          <span className="flex items-center gap-1.5" data-testid="badge-live">
-            <span
-              className="w-2.5 h-2.5 rounded-full bg-red-500"
-              style={{
-                opacity: pulse ? 1 : 0.45,
-                transition: "opacity 0.3s",
-                boxShadow: pulse ? "0 0 8px rgba(255, 0, 0, 0.65)" : "none",
-              }}
-            />
-            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-red-400">
+          <span
+            className="flex items-center gap-1.5"
+            data-testid="badge-live"
+            aria-label={t("home.arenaPulseLive")}
+          >
+            <span className="nex-arena-pulse-dot" aria-hidden />
+            <span className="nex-arena-pulse-live text-[9px] md:text-[10px] font-black uppercase tracking-widest">
               {t("home.live")}
             </span>
           </span>
@@ -157,7 +150,7 @@ function LiveVotingWidget({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
           <div className="rounded-lg border border-white/10 bg-black/40 py-3 px-2">
             <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{t("home.votesToday")}</p>
-            <p className="text-lg md:text-xl font-display font-bold text-green-400">{statVal(todayStats?.totalVotesToday)}</p>
+            <p className="text-lg md:text-xl font-display font-bold text-white">{statVal(todayStats?.totalVotesToday)}</p>
           </div>
           <div className="rounded-lg border border-white/10 bg-black/40 py-3 px-2">
             <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{t("home.battlesToday")}</p>
@@ -179,6 +172,7 @@ function LiveVotingWidget({
 
 export function Home() {
   const { t } = useTranslation();
+  const { active: clashNight } = useClashNight();
   const { data: tracks, isLoading } = useWorks();
   const [, setLocation] = useLocation();
   const { isAuthenticated } = useAuth();
@@ -205,6 +199,8 @@ export function Home() {
 
   const { data: todayStats } = useQuery<any>({
     queryKey: ["/api/stats/today"],
+    refetchInterval: 60_000,
+    staleTime: 15_000,
   });
 
   const trending = (tracks || [])
@@ -231,7 +227,12 @@ export function Home() {
           className="absolute inset-0 pointer-events-none opacity-40"
           style={{ backgroundImage: grainySvg, backgroundRepeat: "repeat", backgroundSize: "256px 256px" }}
         />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 0%, hsla(189,100%,50%,0.06) 0%, transparent 100%)" }} />
+        {/* W4 — one ink Arena glow layer (not site-wide neon) */}
+        <div
+          className="nex-home-arena-glow absolute inset-0 pointer-events-none"
+          data-testid="home-arena-glow"
+          aria-hidden
+        />
 
         <div
           ref={heroVisualizerRef}
@@ -274,10 +275,14 @@ export function Home() {
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-battle"
-              className="px-5 py-2.5 glass-button text-primary font-bold text-xs uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
-              style={{ animation: "cta-breathe 4s ease-in-out infinite" }}
+              className={
+                clashNight
+                  ? "px-5 py-2.5 bg-arena text-[hsl(var(--nex-on-wow))] cta-arena-glow font-bold text-xs uppercase tracking-widest transition-premium rounded-full border border-[hsl(var(--nex-wow-ember)/0.45)]"
+                  : "px-5 py-2.5 glass-button text-primary font-bold text-xs uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              }
+              style={clashNight ? undefined : { animation: "cta-breathe 4s ease-in-out infinite" }}
             >
-              {t("home.startBattle")}
+              {clashNight ? t("home.clashNightEnter") : t("home.startBattle")}
             </button>
             <button
               onClick={goSubmitTrack}
@@ -295,6 +300,14 @@ export function Home() {
               {t("home.radio")}
             </button>
           </div>
+          {clashNight ? (
+            <div className="flex justify-center" data-testid="home-clash-night-chip">
+              <span className="nex-home-clash-night-chip">
+                <span className="nex-home-clash-night-chip-dot" aria-hidden />
+                {t("home.clashNightChip")}
+              </span>
+            </div>
+          ) : null}
         </motion.div>
 
         <LiveVotingWidget todayStats={todayStats} />

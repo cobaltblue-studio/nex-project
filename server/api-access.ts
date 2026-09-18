@@ -32,6 +32,7 @@ export function createApiAccessControl(isAdmin: AdminChecker) {
       p === "/api/creators" ||
       p === "/api/creators/directory" ||
       p === "/api/stats/today" ||
+      p === "/api/arena/clash-night" ||
       p === "/api/battles/recent" ||
       p === "/api/battles/genres"
     ) {

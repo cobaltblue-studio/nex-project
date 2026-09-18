@@ -286,11 +286,14 @@
     "heroSubtitle": "AI 뮤직 랭킹 플랫폼",
     "heroBody": "세계 최초의 AI 생성 음악 경쟁 랭킹 플랫폼입니다. 아티스트는 곡을 제출하고 배틀하며, 커뮤니티 투표로 움직이는 투명한 차트 시스템을 통해 순위를 올립니다.",
     "startBattle": "배틀 시작",
+    "clashNightEnter": "금요일 클래시 입장",
+    "clashNightChip": "금요일 클래시 나이트",
     "submitTrack": "트랙 제출",
     "radio": "라디오",
     "discoverMore": "더 알아보기",
     "liveVotingTrends": "실시간 투표 트렌드",
     "live": "LIVE",
+    "arenaPulseLive": "아레나 실시간",
     "votesToday": "오늘 투표",
     "battlesToday": "오늘 배틀",
     "poolTracks": "풀 트랙",
@@ -397,18 +400,18 @@
     "title": "NEX 신곡"
   },
   "rising": {
-    "label": "뮤직 차트",
+    "label": "아레나 급등",
     "title": "RISING",
-    "subtitle": "TOP 100 밖 트랙 — 재생 모멘텀(조회) 기준으로 노출됩니다.",
+    "subtitle": "TOP 100 밖 — 재생 모멘텀으로 올라오는 트랙. 아레나를 향한 길.",
     "badgeAudioOnly": "오디오만",
-    "badgeNotTop100": "TOP 100 제외",
-    "badgePlaysSort": "재생순 정렬",
+    "badgeNotTop100": "TOP 100 밖",
+    "badgePlaysSort": "모멘텀 재생순",
     "loading": "라이징 트랙 불러오는 중…",
     "failedLoad": "불러오기 실패",
-    "empty": "아직 라이징 트랙이 없습니다",
-    "emptyHint": "TOP 100 밖에서 재생이 늘어난 오디오 트랙이 여기에 표시됩니다.",
-    "fuelChart": "차트에 불을 지피세요",
-    "goBattle": "배틀 하러 가기"
+    "empty": "아직 급등 트랙이 없습니다",
+    "emptyHint": "TOP 100 밖에서 재생이 붙은 오디오가 여기에 올라옵니다. 배틀로 모멘텀을 만드세요.",
+    "fuelChart": "배틀로 차트에 오르세요",
+    "goBattle": "배틀 입장"
   },
   "auth": {
     "title": "Google로 시작하기",
@@ -448,6 +451,23 @@
     "statsLine": "재생 {{plays}} · 좋아요 {{likes}} · 승리 {{wins}}",
     "winRateHidden": "—",
     "inactiveHint": "NEX 신규"
+  },
+  "crest": {
+    "eyebrow": "크리에이터 크레스트",
+    "restingTitle": "아레나 크레스트",
+    "restingShort": "크레스트",
+    "restingSub": "배틀 승리·연승·차트 진입으로 크레스트를 각인하세요.",
+    "earnedTitle": "{{tier}} 크레스트",
+    "earnedSub": "아레나 증명 — {{tier}} 해금.",
+    "stamp": "획득",
+    "meta": "승 {{wins}} · 연승 {{streak}} · 최고 {{rank}}",
+    "shareDefault": "내 NEX 크리에이터 크레스트: {{tier}} — nexmusic.ai",
+    "tier": {
+      "spark": "스파크",
+      "contender": "도전자",
+      "champion": "챔피언",
+      "legend": "레전드"
+    }
   },
   "new": {
     "badge": "NEW",
@@ -511,7 +531,15 @@
       "craft": "완성도"
     },
     "shareCardEyebrow": "Share proof",
-    "shareCardBy": "by {{creator}}"
+    "shareCardBy": "by {{creator}}",
+    "clashNightAria": "금요일 클래시 나이트 진행 중",
+    "clashNightKicker": "오늘 밤만",
+    "clashNightTitle": "금요일 클래시",
+    "clashNightSub": "급등·연승 가중 매치 · 금요 승 보너스",
+    "clashNightPoolBadge": "급등·연승 가중 매치",
+    "clashNightBonusBadge": "금요 승 보너스 +15",
+    "clashNightWinBonus": "금요 보너스 +{{bonus}}",
+    "clashNightEnter": "금요일 클래시 입장"
   },
   "radio": {
     "platform": "NEX 플랫폼",

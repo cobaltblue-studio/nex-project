@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { TrendingUp, Loader2, Flame, Clock, Search } from "lucide-react";
 import { BattleWinsIndicator } from "@/components/BattleWinsIndicator";
 import { TrackPlaysStat } from "@/components/TrackPlaysStat";
@@ -38,6 +38,7 @@ interface RisingTrack {
 
 export function Rising() {
   const { t } = useTranslation();
+  const reduceMotion = useReducedMotion();
   const [playId, setPlayId] = useState<number | null>(null);
   const [feed, setFeed] = useState<{ track: TrackFeedSnapshot; focusComment: boolean } | null>(null);
   const [search, setSearch] = useState("");
@@ -81,55 +82,57 @@ export function Rising() {
         focusCommentOnOpen={feed?.focusComment ?? false}
       />
 
-      <div className="mb-10">
+      <header className="mb-10 nex-rising-header" data-testid="rising-arena-header">
         <div className="flex items-center gap-3 mb-2">
-          <TrendingUp className="w-5 h-5 text-primary" />
-          <h1 className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary">{t("rising.label")}</h1>
+          <TrendingUp className="w-5 h-5 text-arena" aria-hidden />
+          <p className="nex-rising-eyebrow">{t("rising.label")}</p>
         </div>
-        <h2 className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green">
-          {t("rising.title")}
-        </h2>
+        <h1 className="nex-rising-title">{t("rising.title")}</h1>
         <p className="text-zinc-500 text-sm mt-2">{t("rising.subtitle")}</p>
 
         <div className="flex flex-wrap gap-2 mt-4">
-          <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            {t("rising.badgeAudioOnly")}
+          <span className="nex-rising-badge nex-rising-badge--lead">
+            {t("rising.badgePlaysSort")}
           </span>
-          <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
+          <span className="nex-rising-badge">
             {t("rising.badgeNotTop100")}
           </span>
-          <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 border border-white/10 rounded-sm text-zinc-500">
-            {t("rising.badgePlaysSort")}
+          <span className="nex-rising-badge">
+            {t("rising.badgeAudioOnly")}
           </span>
         </div>
         <div className="mt-4 relative max-w-md">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("common.searchPlaceholder")}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/40"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-black/40 border border-white/10 rounded-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[hsl(var(--nex-wow-ember)/0.45)]"
             data-testid="input-search-rising"
+            aria-label={t("common.searchPlaceholder")}
           />
         </div>
-      </div>
+      </header>
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Loader2 className="w-8 h-8 text-arena animate-spin" />
           <p className="text-[11px] font-bold tracking-[0.3em] uppercase text-zinc-500">{t("rising.loading")}</p>
         </div>
       ) : !tracks || tracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-          <Flame className="w-10 h-10 text-zinc-700" />
+          <Flame className="w-10 h-10 text-zinc-700" aria-hidden />
           <p className="text-zinc-500 font-bold uppercase tracking-widest text-sm">{t("rising.empty")}</p>
           <p className="text-zinc-700 text-[11px] max-w-sm">{t("rising.emptyHint")}</p>
           <div className="flex items-center gap-2 mt-2">
-            <Clock className="w-4 h-4 text-primary" style={{ filter: "drop-shadow(0 0 6px hsla(189,100%,50%,0.6))", animation: "neon-pulse 2s ease-in-out infinite" }} />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">{t("rising.fuelChart")}</span>
+            <Clock className="w-4 h-4 text-arena nex-rising-fuel-icon" aria-hidden />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-arena/80">{t("rising.fuelChart")}</span>
           </div>
           <Link href="/battle">
-            <button className="mt-2 px-6 py-2.5 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all">
+            <button
+              type="button"
+              className="mt-2 px-6 py-2.5 bg-arena text-[hsl(var(--nex-on-wow))] cta-arena-glow font-bold text-[10px] uppercase tracking-widest rounded-full border border-[hsl(var(--nex-wow-ember)/0.45)] transition-premium"
+            >
               {t("rising.goBattle")}
             </button>
           </Link>
@@ -141,17 +144,17 @@ export function Rising() {
             return (
             <motion.div
               key={track.id}
-              initial={{ opacity: 0, y: 10 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(idx * 0.02, 1) }}
-              className="flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
+              transition={reduceMotion ? { duration: 0 } : { delay: Math.min(idx * 0.02, 1) }}
+              className="nex-rising-row flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/[0.03] transition-all group"
               data-testid={`row-rising-${track.id}`}
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <button
                   type="button"
                   onClick={() => setPlayId(track.id)}
-                  className="shrink-0 w-10 h-10 rounded-md overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  className="shrink-0 w-10 h-10 rounded-md overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--nex-wow-ember)/0.5)]"
                   aria-label={t("common.playTrackAria", { title: track.title })}
                 >
                   {track.coverImageUrl ? (
@@ -170,7 +173,7 @@ export function Rising() {
                     <CreatorNameWithBadge
                       name={track.creatorName}
                       provenanceStatus={track.provenanceStatus}
-                      nameClassName="text-[9px] sm:text-[10px] font-bold text-primary/70 uppercase tracking-widest"
+                      nameClassName="text-[9px] sm:text-[10px] font-bold text-arena/75 uppercase tracking-widest"
                       testId={`text-rising-creator-${track.id}`}
                     />
                     <span className="text-[8px] text-zinc-700 px-1.5 py-0.5 border border-white/5 rounded-sm">

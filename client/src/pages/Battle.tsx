@@ -32,6 +32,8 @@ import { ClashVerdictRitual } from "@/components/ClashVerdictRitual";
 import { BlindRevealRitual } from "@/components/BlindRevealRitual";
 import { IntentDuelChips, readLastClashIntent, type ClashIntentId } from "@/components/IntentDuelChips";
 import { ArenaShareCard } from "@/components/ArenaShareCard";
+import { FridayClashNightChrome } from "@/components/FridayClashNightChrome";
+import { useClashNight } from "@/hooks/use-clash-night";
 import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
 import { SunoInAppPlayer } from "@/components/SunoInAppPlayer";
 import { NexiCompanion, type NexiAnchor, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
@@ -453,6 +455,7 @@ function BattleTrackPlayer({
 
 export function Battle() {
   const { t } = useTranslation();
+  const { active: clashNight, sendServerPreview } = useClashNight();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
@@ -467,6 +470,7 @@ export function Battle() {
     winnerId: number;
     trackAWinStreak: number;
     trackBWinStreak: number;
+    clashNightWinBonus?: number;
   } | null>(null);
   const [listenedA, setListenedA] = useState(false);
   const [listenedB, setListenedB] = useState(false);
@@ -546,7 +550,10 @@ export function Battle() {
 
   const createBattleMutation = useMutation({
     mutationFn: (genre: string) =>
-      apiRequest("POST", "/api/battles/new", { genre }),
+      apiRequest("POST", "/api/battles/new", {
+        genre,
+        ...(sendServerPreview ? { clashNightPreview: true } : {}),
+      }),
     onSuccess: async (res: any) => {
       const data = await res.json();
       setBattle(data);
@@ -599,7 +606,11 @@ export function Battle() {
     }: {
       battleId: number;
       trackId: number;
-    }) => apiRequest("POST", `/api/battles/${battleId}/vote`, { trackId }),
+    }) =>
+      apiRequest("POST", `/api/battles/${battleId}/vote`, {
+        trackId,
+        ...(sendServerPreview ? { clashNightPreview: true } : {}),
+      }),
     onSuccess: async (res: any, variables) => {
       if (variables.battleId !== activeBattleIdRef.current) return;
       const data = await res.json();
@@ -884,6 +895,7 @@ export function Battle() {
   const voteReady = listenedA && listenedB;
 
   return (
+    <FridayClashNightChrome active={clashNight}>
     <div className="max-w-3xl mx-auto w-full min-w-0">
       <NexiCompanion cue={nexiCue} />
       <div className="mb-6 w-full min-w-0">
@@ -893,9 +905,9 @@ export function Battle() {
         */}
         <div className="flex flex-col gap-2 mb-2 w-full min-w-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Zap className="w-5 h-5 text-zinc-400 shrink-0" />
+            <Zap className={`w-5 h-5 shrink-0 ${clashNight ? "text-clash" : "text-zinc-400"}`} />
             <h1
-              className="battle-arena-eyebrow text-[10px] md:text-[11px] text-zinc-400"
+              className={`battle-arena-eyebrow text-[10px] md:text-[11px] ${clashNight ? "text-clash" : "text-zinc-400"}`}
               data-testid="text-battle-label"
             >
               {t("battle.label")}
@@ -955,30 +967,31 @@ export function Battle() {
       {phase !== "vote" && (
       <div className="mb-2 premium-card p-2.5 battle-stats-panel" data-testid="panel-today-stats">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400">
-            🔥 TODAY BATTLE STATS
+          <span className="nex-arena-pulse-dot shrink-0" aria-hidden />
+          <span className="nex-arena-pulse-live text-[10px] font-bold uppercase tracking-[0.3em]">
+            {t("battle.statsTitle")}
           </span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div className="text-center" data-testid="stat-votes-today">
-            <Vote className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <Vote className="w-3 h-3 text-zinc-500 mx-auto mb-0.5" />
             <p className="text-sm font-display font-bold text-white">{todayStats?.totalVotesToday ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Votes Today</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.votesToday")}</p>
           </div>
           <div className="text-center" data-testid="stat-battles-today">
-            <BarChart3 className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <BarChart3 className="w-3 h-3 text-zinc-500 mx-auto mb-0.5" />
             <p className="text-sm font-display font-bold text-white">{todayStats?.battlesPlayedToday ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Battles Played</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.battlesPlayed")}</p>
           </div>
           <div className="text-center" data-testid="stat-tracks-pool">
-            <ListMusic className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <ListMusic className="w-3 h-3 text-zinc-500 mx-auto mb-0.5" />
             <p className="text-sm font-display font-bold text-white">{todayStats?.tracksInPool ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">Current Battle Pool</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.poolTracks")}</p>
           </div>
           <div className="text-center" data-testid="stat-new-tracks">
-            <Plus className="w-3 h-3 text-primary mx-auto mb-0.5" />
+            <Plus className="w-3 h-3 text-zinc-500 mx-auto mb-0.5" />
             <p className="text-sm font-display font-bold text-white">{todayStats?.newTracksToday ?? 0}</p>
-            <p className="text-[7px] uppercase tracking-widest text-zinc-600">New Today (Created)</p>
+            <p className="text-[7px] uppercase tracking-widest text-zinc-600">{t("battle.newToday")}</p>
           </div>
         </div>
       </div>
@@ -1006,7 +1019,11 @@ export function Battle() {
                 <a
                   href={battleLoginHref}
                   data-testid="button-battle-login"
-                  className="px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105 inline-block"
+                  className={
+                    clashNight
+                      ? "px-10 py-5 bg-arena text-[hsl(var(--nex-on-wow))] cta-arena-glow font-bold text-sm uppercase tracking-[0.3em] rounded-full transition-premium border border-[hsl(var(--nex-wow-ember)/0.45)] hover:scale-105 inline-block"
+                      : "px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105 inline-block"
+                  }
                 >
                   START WITH GOOGLE
                 </a>
@@ -1015,9 +1032,13 @@ export function Battle() {
               <button
                 onClick={() => startBattle("ALL")}
                 data-testid="button-start-battle"
-                className="px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105"
+                className={
+                  clashNight
+                    ? "px-10 py-5 bg-arena text-[hsl(var(--nex-on-wow))] cta-arena-glow font-bold text-sm uppercase tracking-[0.3em] rounded-full transition-premium border border-[hsl(var(--nex-wow-ember)/0.45)] hover:scale-105"
+                    : "px-10 py-5 glass-button text-primary text-sm font-bold uppercase tracking-[0.3em] rounded-xl transition-premium hover:scale-105"
+                }
               >
-                ⚡ NOW START BATTLE ⚡
+                {clashNight ? t("battle.clashNightEnter") : "⚡ NOW START BATTLE ⚡"}
               </button>
             )}
           </motion.div>
@@ -1236,6 +1257,14 @@ export function Battle() {
                   by {winnerTrack.creatorName}
                 </p>
                 <p className="text-[8px] text-zinc-700 uppercase tracking-[0.2em]">AI Music Creator</p>
+                {voteResult.clashNightWinBonus != null && voteResult.clashNightWinBonus > 0 && (
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-[0.14em] text-[hsl(var(--nex-wow-ember))] pt-1"
+                    data-testid="text-clash-night-win-bonus"
+                  >
+                    {t("battle.clashNightWinBonus", { bonus: voteResult.clashNightWinBonus })}
+                  </p>
+                )}
                 <div className="pt-1.5 flex justify-center">
                   <Link
                     href={`/track/${winnerTrack.id}`}
@@ -1356,5 +1385,6 @@ export function Battle() {
         </>
       )}
     </div>
+    </FridayClashNightChrome>
   );
 }
