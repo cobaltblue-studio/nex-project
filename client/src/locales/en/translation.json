@@ -486,6 +486,7 @@
     "blindOff": "Blind · Off",
     "blindTitleOn": "Blind mode: titles stay hidden until you vote.",
     "blindTitleOff": "Blind mode off — click for blind judging.",
+    "blindVeil": "Behind the veil…",
     "dailyProgress": "Today's battles {{count}} / {{max}} (daily limit {{max}})",
     "statsTitle": "Today battle stats",
     "votesToday": "Votes today",
@@ -501,7 +502,16 @@
     "syncingListen": "Saving listen progress…",
     "votingUnlocked": "Voting unlocked. Choose your winner.",
     "tapToVote": "Tap to vote · Track {{badge}}",
-    "listenFirst": "Listen to both tracks first"
+    "listenFirst": "Listen to both tracks first",
+    "intentLabel": "Clash call",
+    "intent": {
+      "hook": "Hook hits",
+      "mood": "Mood wins",
+      "voice": "Voice & tone",
+      "craft": "Full craft"
+    },
+    "shareCardEyebrow": "Share proof",
+    "shareCardBy": "by {{creator}}"
   },
   "radio": {
     "platform": "NEX Platform",

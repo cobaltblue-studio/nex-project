@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <rect width="512" height="512" rx="96" fill="#050505"/>
-  <!-- Matches header: lucide Disc3-style vinyl mark in NEX primary cyan -->
-  <circle cx="256" cy="256" r="168" stroke="#00f0ff" stroke-width="36"/>
-  <circle cx="256" cy="256" r="52" stroke="#00f0ff" stroke-width="28"/>
-  <circle cx="256" cy="256" r="20" fill="#00f0ff"/>
+  <rect width="512" height="512" rx="108" fill="#0B0E16"/>
+  <path fill="#8A5AF2" d="M118 112h78c8 0 14 6 14 14v260c0 8-6 14-14 14h-78c-8 0-14-6-14-14V126c0-8 6-14 14-14z"/>
+  <path fill="#8A5AF2" d="M316 96h78c8 0 14 6 14 14v276c0 8-6 14-14 14h-78c-8 0-14-6-14-14V110c0-8 6-14 14-14z"/>
+  <path fill="#9B6AF5" d="M196 128h78l42 238h-78z"/>
+  <circle cx="394" cy="118" r="28" fill="#FE9135"/>
+  <circle cx="394" cy="118" r="10" fill="#FFF8F0"/>
 </svg>

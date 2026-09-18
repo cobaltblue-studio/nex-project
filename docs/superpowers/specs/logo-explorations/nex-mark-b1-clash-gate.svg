@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="NEX">
+  <!-- B1 Strong Spark — clean geometric N (matches approved dir-b1 look, not the failed draft) -->
+  <defs>
+    <linearGradient id="violet" x1="140" y1="90" x2="380" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9B6AF5"/>
+      <stop offset="50%" stop-color="#8A5AF2"/>
+      <stop offset="100%" stop-color="#7340E8"/>
+    </linearGradient>
+    <linearGradient id="violetHi" x1="200" y1="120" x2="340" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B892FF"/>
+      <stop offset="100%" stop-color="#8A5AF2"/>
+    </linearGradient>
+    <radialGradient id="spark" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="25%" stop-color="#FFE0A8"/>
+      <stop offset="55%" stop-color="#FE9135"/>
+      <stop offset="100%" stop-color="#FE9135" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="bloom" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="g"/>
+      <feMerge>
+        <feMergeNode in="g"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#0B0E16"/>
+  <!-- subtle field -->
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="#12162A" opacity="0.65"/>
+
+  <g filter="url(#soft)">
+    <!-- Left upright of N -->
+    <rect x="118" y="118" width="78" height="276" rx="10" fill="url(#violet)"/>
+    <!-- Right upright of N -->
+    <rect x="316" y="118" width="78" height="276" rx="10" fill="url(#violet)"/>
+    <!-- Diagonal of N (parallelogram) — clearly N, not M -->
+    <path fill="url(#violetHi)" d="
+      M196 128
+      L274 128
+      L316 366
+      L238 366
+      Z"/>
+  </g>
+  <!-- Fold shadow under diagonal where it crosses -->
+  <path fill="#050814" opacity="0.28" d="M196 128 L214 128 L256 250 L238 250 Z"/>
+  <path fill="#050814" opacity="0.22" d="M296 280 L316 366 L298 366 L278 280 Z"/>
+
+  <!-- Strong Ember spark — top-right tip -->
+  <g transform="translate(394 128)" filter="url(#bloom)">
+    <circle r="42" fill="url(#spark)"/>
+    <circle r="9" fill="#FFF9F0"/>
+    <g stroke="#FE9135" stroke-linecap="round">
+      <path stroke-width="3.5" d="M0-32 V-48 M0 32 V48 M32 0 H48 M-32 0 H-48"/>
+      <path stroke-width="2.5" stroke="#FFC878" d="M22-22 L34-34 M22 22 L34 34 M-22 22 L-34 34 M-22-22 L-34-34"/>
+    </g>
+  </g>
+</svg>

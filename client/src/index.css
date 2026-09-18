@@ -29,6 +29,18 @@
     --card: 240 10% 6%;
     --card-foreground: 210 40% 98%;
     --ring: 191 100% 50%;
+
+    /* Arena Wow triad (Yurika) — W1 Teal+Ember; W2 Violet lead on Blind */
+    --nex-wow-teal: 183 76% 45%;
+    --nex-wow-violet: 258 85% 65%;
+    --nex-wow-ember: 28 99% 60%;
+    --nex-wow-ember-600: 24 80% 53%;
+    --nex-on-wow: 222 47% 6%;
+    --nex-ink-950: 222 47% 6%;
+    --nex-cta-primary: var(--nex-wow-ember);
+    --nex-verdict-accent: var(--nex-wow-teal);
+    --nex-spike-accent: var(--nex-wow-ember);
+    --nex-clash-accent: var(--nex-wow-violet);
   }
 
   a, button, input, select, textarea,
@@ -63,6 +75,56 @@
 }
 
 @layer utilities {
+  .text-arena {
+    color: hsl(var(--nex-wow-ember));
+  }
+  .bg-arena {
+    background-color: hsl(var(--nex-wow-ember));
+  }
+  .text-verdict {
+    color: hsl(var(--nex-wow-teal));
+  }
+  .border-verdict {
+    border-color: hsl(var(--nex-wow-teal) / 0.55);
+  }
+  .text-clash {
+    color: hsl(var(--nex-wow-violet));
+  }
+  .bg-clash {
+    background-color: hsl(var(--nex-wow-violet));
+  }
+  .border-clash {
+    border-color: hsl(var(--nex-wow-violet) / 0.55);
+  }
+  .cta-arena-glow {
+    box-shadow: 0 0 16px hsl(var(--nex-wow-ember) / 0.35);
+  }
+  .nex-ritual-anim {
+    animation: nex-verdict-stamp 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+  .nex-spike-anim {
+    animation: nex-spike-pop 0.4s ease-out both;
+  }
+  .nex-blind-reveal-anim {
+    animation: nex-blind-reveal 0.65s cubic-bezier(0.2, 0.85, 0.3, 1) both;
+  }
+  .nex-share-handoff-anim {
+    animation: nex-share-handoff 0.45s cubic-bezier(0.2, 0.85, 0.3, 1) both;
+  }
+  .battle-arena-eyebrow {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+  }
+  .battle-arena-display {
+    font-family: var(--font-display);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.1;
+  }
+
   .neon-text-green {
     text-shadow: 0 0 15px rgba(0, 255, 128, 0.7);
   }
@@ -170,6 +232,65 @@
   }
 }
 
+@keyframes nex-verdict-stamp {
+  0% { opacity: 0; transform: scale(1.35); }
+  55% { opacity: 1; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes nex-spike-pop {
+  0% { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nex-blind-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+    filter: blur(8px);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(0);
+  }
+}
+
+@keyframes nex-share-handoff {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nex-ritual-anim,
+  .nex-spike-anim,
+  .nex-blind-reveal-anim,
+  .nex-share-handoff-anim,
+  .cta-breathe,
+  .main-logo-icon {
+    animation: none !important;
+    transition: none !important;
+  }
+  .battle-cover-hidden {
+    filter: brightness(0.35) saturate(0.5);
+    transform: none;
+  }
+  .battle-cover-overlay {
+    backdrop-filter: none;
+  }
+}
+
 @keyframes radio-breathe {
   0%, 100% {
     opacity: 0.7;
@@ -222,10 +343,20 @@
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: hsla(240, 10%, 3%, 0.45);
-  backdrop-filter: blur(20px);
+  gap: 0.4rem;
+  background:
+    radial-gradient(ellipse at 50% 40%, hsl(var(--nex-wow-violet) / 0.42) 0%, transparent 65%),
+    hsl(var(--nex-ink-950) / 0.55);
+  backdrop-filter: blur(18px);
+}
+
+.battle-player-veil {
+  background:
+    radial-gradient(ellipse at 50% 35%, hsl(var(--nex-wow-violet) / 0.38) 0%, transparent 70%),
+    hsl(var(--nex-ink-950) / 0.5);
 }
 
 .battle-cover-fallback {
@@ -289,6 +420,176 @@
   text-transform: uppercase;
   text-align: center;
   padding: 0.85rem 1rem;
+}
+
+/* W3 — Intent Duel chips (Violet lead → Teal confirm) */
+.nex-intent-duel {
+  margin: 0.65rem 0 0.85rem;
+  text-align: center;
+}
+
+.nex-intent-duel-label {
+  margin-bottom: 0.45rem;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: hsl(var(--nex-wow-violet) / 0.85);
+}
+
+.nex-intent-duel[data-confirmed="true"] .nex-intent-duel-label {
+  color: hsl(var(--nex-wow-teal) / 0.9);
+}
+
+.nex-intent-duel-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.nex-intent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--nex-wow-violet) / 0.4);
+  background: hsl(var(--nex-wow-violet) / 0.1);
+  color: hsl(var(--nex-wow-violet));
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.75rem;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nex-intent-chip:hover:not(:disabled) {
+  border-color: hsl(var(--nex-wow-violet) / 0.7);
+  background: hsl(var(--nex-wow-violet) / 0.18);
+  box-shadow: 0 0 14px hsl(var(--nex-wow-violet) / 0.22);
+}
+
+.nex-intent-chip--picked {
+  border-color: hsl(var(--nex-wow-violet) / 0.85);
+  background: hsl(var(--nex-wow-violet) / 0.28);
+  color: #fff;
+  box-shadow: 0 0 16px hsl(var(--nex-wow-violet) / 0.28);
+}
+
+.nex-intent-chip--confirmed {
+  border-color: hsl(var(--nex-wow-teal) / 0.75);
+  background: hsl(var(--nex-wow-teal) / 0.16);
+  color: hsl(var(--nex-wow-teal));
+  box-shadow: 0 0 14px hsl(var(--nex-wow-teal) / 0.22);
+}
+
+.nex-intent-chip:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.nex-intent-chip--confirmed:disabled {
+  opacity: 1;
+}
+
+.nex-intent-chip--dim:disabled {
+  opacity: 0.28;
+}
+
+.nex-intent-chip-check {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* W3 — Share Card v1 (navy + Teal bar, Ember CTA via ShareButtons) */
+.nex-arena-share-card {
+  position: relative;
+  margin: 0.75rem auto 0;
+  width: min(100%, 22rem);
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid hsl(222 40% 18% / 0.9);
+  background:
+    radial-gradient(ellipse at 50% 0%, hsl(222 40% 16% / 0.9) 0%, transparent 55%),
+    hsl(var(--nex-ink-950));
+  padding: 1rem 1rem 1.1rem;
+  text-align: center;
+}
+
+.nex-arena-share-card--waiting {
+  opacity: 0.55;
+}
+
+.nex-arena-share-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--nex-wow-teal)) 20%,
+    hsl(var(--nex-wow-teal)) 80%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px hsl(var(--nex-wow-teal) / 0.45);
+}
+
+.nex-arena-share-eyebrow {
+  margin-top: 0.25rem;
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: hsl(var(--nex-wow-teal) / 0.9);
+}
+
+.nex-arena-share-title {
+  margin-top: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1.25;
+}
+
+.nex-arena-share-creator {
+  margin-top: 0.2rem;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(215 16% 55%);
+}
+
+.nex-arena-share-intent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.65rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--nex-wow-teal) / 0.45);
+  background: hsl(var(--nex-wow-teal) / 0.1);
+  color: hsl(var(--nex-wow-teal));
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.7rem;
+}
+
+.nex-arena-share-intent-check {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.nex-arena-share-actions {
+  margin-top: 0.85rem;
 }
 
 .battle-vote-button-b {

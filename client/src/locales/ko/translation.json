@@ -486,6 +486,7 @@
     "blindOff": "블라인드 · 꺼짐",
     "blindTitleOn": "블라인드: 투표 전까지 제목이 숨겨집니다.",
     "blindTitleOff": "블라인드 끔 — 클릭하면 블라인드 심사 모드.",
+    "blindVeil": "장막 뒤…",
     "dailyProgress": "오늘 배틀 {{count}} / {{max}} (일일 한도 {{max}})",
     "statsTitle": "오늘 배틀 통계",
     "votesToday": "오늘 투표",
@@ -501,7 +502,16 @@
     "syncingListen": "청취 기록 저장 중…",
     "votingUnlocked": "투표 가능합니다. 승자를 골라 주세요.",
     "tapToVote": "탭하여 투표 · 트랙 {{badge}}",
-    "listenFirst": "양쪽 트랙을 모두 들어 주세요"
+    "listenFirst": "양쪽 트랙을 모두 들어 주세요",
+    "intentLabel": "클래시 콜",
+    "intent": {
+      "hook": "훅이 세다",
+      "mood": "분위기가 맞다",
+      "voice": "보이스·톤",
+      "craft": "완성도"
+    },
+    "shareCardEyebrow": "Share proof",
+    "shareCardBy": "by {{creator}}"
   },
   "radio": {
     "platform": "NEX 플랫폼",

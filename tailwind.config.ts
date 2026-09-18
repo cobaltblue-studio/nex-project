@@ -54,6 +54,12 @@ export default {
         ring: "hsl(var(--ring) / <alpha-value>)",
         electric: "#00D1FF",
         violet: "#BD00FF",
+        arena: {
+          DEFAULT: "hsl(var(--nex-wow-ember) / <alpha-value>)",
+          foreground: "hsl(var(--nex-on-wow) / <alpha-value>)",
+        },
+        verdict: "hsl(var(--nex-wow-teal) / <alpha-value>)",
+        clash: "hsl(var(--nex-wow-violet) / <alpha-value>)",
         chart: {
           "1": "hsl(var(--chart-1) / <alpha-value>)",
           "2": "hsl(var(--chart-2) / <alpha-value>)",

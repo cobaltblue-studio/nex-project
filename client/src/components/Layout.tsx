@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Home, Music, Disc3, LogOut, ChevronDown, Send, Swords, ShieldCheck, Users, CircleUserRound, Sparkles, Video, TrendingUp, Radio, BarChart3, MessageSquare } from "lucide-react";
+import { Home, Music, LogOut, ChevronDown, Send, Swords, ShieldCheck, Users, CircleUserRound, Sparkles, Video, TrendingUp, Radio, BarChart3, MessageSquare } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -150,7 +150,13 @@ export function Layout({ children }: LayoutProps) {
           href="/"
           className="flex shrink-0 items-center gap-2 justify-self-start text-primary font-display font-bold tracking-tighter group border-none shadow-none outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
         >
-          <Disc3 className="w-5 h-5 md:w-8 md:h-8 main-logo-icon animate-[spin_8s_linear_infinite]" />
+          <img
+            src="/brand/nex-icon.png"
+            alt=""
+            width={32}
+            height={32}
+            className="w-7 h-7 md:w-8 md:h-8 rounded-[22%] main-logo-icon"
+          />
           <span className="text-[1.1rem] md:text-[1.5rem] main-logo-text">NEX</span>
         </Link>
 

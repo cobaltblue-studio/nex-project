@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Music as MusicIcon, Loader2, Crown, Star, TrendingUp, Search } from "lucide-react";
 import { BattleWinsIndicator } from "@/components/BattleWinsIndicator";
+import { RankSpike } from "@/components/RankSpike";
 import { getOfficialGenreIcon } from "@/lib/officialGenreIcon";
 import { TrackAdminActions } from "@/components/TrackAdminActions";
 import { TrackPlayModal } from "@/components/TrackPlayModal";
@@ -41,7 +42,7 @@ function getZoneForRank(
   rank: number,
   zoneLabel: (key: "zoneLegend" | "zoneElite" | "zoneRising") => string,
 ): { label: string; icon: typeof Crown; color: string; bgColor: string; borderColor: string } | null {
-  if (rank === 1) return { label: zoneLabel("zoneLegend"), icon: Crown, color: "text-[#FFD700]", bgColor: "bg-[#FFD700]/10", borderColor: "border-[#FFD700]/30" };
+  if (rank === 1) return { label: zoneLabel("zoneLegend"), icon: Crown, color: "text-arena", bgColor: "bg-[hsl(var(--nex-wow-ember)/0.12)]", borderColor: "border-[hsl(var(--nex-wow-ember)/0.35)]" };
   if (rank === 11) return { label: zoneLabel("zoneElite"), icon: Star, color: "text-[#00D1FF]", bgColor: "bg-[#00D1FF]/10", borderColor: "border-[#00D1FF]/30" };
   if (rank === 51) return { label: zoneLabel("zoneRising"), icon: TrendingUp, color: "text-[#00FF9C]", bgColor: "bg-[#00FF9C]/10", borderColor: "border-[#00FF9C]/30" };
   return null;
@@ -75,6 +76,34 @@ export function Music() {
 
   const chartTracks = tracks ?? [];
   const slots = chartTracks.map((track, i) => ({ rank: i + 1, track }));
+
+  /** Session previous-rank snapshot — no rank-delta API yet (Week 1 heuristic). */
+  const [rankDeltas, setRankDeltas] = useState<Record<number, number>>({});
+  const chartRankSig = slots.map(({ rank, track }) => `${track.id}:${rank}`).join(",");
+  useEffect(() => {
+    if (!chartRankSig) return;
+    const key = "nex.chart.prevRanks.v1";
+    let prev: Record<string, number> = {};
+    try {
+      prev = JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, number>;
+    } catch {
+      prev = {};
+    }
+    const next: Record<string, number> = {};
+    const deltas: Record<number, number> = {};
+    for (const part of chartRankSig.split(",")) {
+      const [idStr, rankStr] = part.split(":");
+      const id = Number(idStr);
+      const rank = Number(rankStr);
+      next[idStr] = rank;
+      const before = prev[idStr];
+      if (typeof before === "number" && before > rank) {
+        deltas[id] = before - rank;
+      }
+    }
+    sessionStorage.setItem(key, JSON.stringify(next));
+    setRankDeltas(deltas);
+  }, [chartRankSig]);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -188,10 +217,11 @@ export function Music() {
                     className="flex items-center gap-3 sm:gap-4 p-4 border border-white/5 rounded-sm bg-black/20 hover:bg-white/3 hover:border-primary/20 transition-all group"
                     data-testid={`row-chart-${track.id}`}
                   >
-                    <div className="w-8 sm:w-10 text-center shrink-0">
+                    <div className="w-8 sm:w-10 text-center shrink-0 flex flex-col items-center gap-0.5">
                       <span className="text-xs sm:text-sm font-mono font-bold text-zinc-500">
                         {String(rank).padStart(2, "0")}
                       </span>
+                      <RankSpike delta={rankDeltas[track.id] ?? 0} />
                     </div>
 
                     <div className="flex items-center gap-3 min-w-0 flex-1">

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NEX Logo Explorations A / B / C</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; padding: 32px 24px 64px;
+      font-family: "SF Pro Display", "Pretendard", system-ui, sans-serif;
+      background: #0B0E16; color: #E8EAF0;
+    }
+    h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 8px; }
+    .hint { color: #8B93A7; margin: 0 0 32px; font-size: 0.9rem; }
+    .rec { color: #FE9135; font-weight: 600; }
+    grid, .grid { display: grid; gap: 28px; }
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    section {
+      background: #101423; border: 1px solid #242B3F;
+      border-radius: 16px; padding: 20px;
+    }
+    section h2 { margin: 0 0 4px; font-size: 1.05rem; }
+    section p { margin: 0 0 16px; color: #8B93A7; font-size: 0.85rem; }
+    img.icon {
+      width: 100%; max-width: 280px; aspect-ratio: 1;
+      border-radius: 28px; display: block; margin: 0 auto 16px;
+      background: #000;
+    }
+    img.word {
+      width: 100%; max-width: 320px; display: block; margin: 0 auto;
+      border-radius: 12px; background: #000;
+    }
+    .label { font-size: 0.75rem; color: #8B93A7; text-align: center; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h1>NEX Logo · Icon Explorations</h1>
+  <p class="hint">Blue 권고: <span class="rec">A — Verdict Disc</span>. 보고 A / B / C 중 골라 주세요.</p>
+  <div class="grid">
+    <section>
+      <h2>A — Verdict Disc</h2>
+      <p>판결 링 · Teal + Ember · 권고</p>
+      <div class="label">App Icon</div>
+      <img class="icon" src="dir-a-verdict-disc-icon.png" alt="A Verdict Disc icon" />
+      <div class="label">Wordmark</div>
+      <img class="word" src="dir-a-verdict-disc-wordmark.png" alt="A wordmark" />
+    </section>
+    <section>
+      <h2>B — Clash Gate</h2>
+      <p>대결 게이트 N · Violet + Ember</p>
+      <div class="label">App Icon</div>
+      <img class="icon" src="dir-b-clash-gate-icon.png" alt="B Clash Gate icon" />
+      <div class="label">Wordmark</div>
+      <img class="word" src="dir-b-clash-gate-wordmark.png" alt="B wordmark" />
+    </section>
+    <section>
+      <h2>C — Crest Seal</h2>
+      <p>증명 인장 N · Ember + Teal</p>
+      <div class="label">App Icon</div>
+      <img class="icon" src="dir-c-crest-seal-icon.png" alt="C Crest Seal icon" />
+      <div class="label">Wordmark</div>
+      <img class="word" src="dir-c-crest-seal-wordmark.png" alt="C wordmark" />
+    </section>
+  </div>
+</body>
+</html>

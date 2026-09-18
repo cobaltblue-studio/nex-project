@@ -1,11 +1,11 @@
 {
-  "name": "NEX — AI Music Ranking",
+  "name": "NEX — Music Arena",
   "short_name": "NEX",
-  "description": "AI Music Ranking Platform — battle, chart, discover.",
+  "description": "The music arena — listen, clash, climb.",
   "start_url": "/",
   "display": "browser",
-  "background_color": "#0a0a0a",
-  "theme_color": "#050505",
+  "background_color": "#0B0E16",
+  "theme_color": "#8A5AF2",
   "icons": [
     {
       "src": "/favicon.png",

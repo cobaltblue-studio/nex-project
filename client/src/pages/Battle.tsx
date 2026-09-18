@@ -28,12 +28,15 @@ import {
 } from "@/components/YoutubePlayer";
 import { classifyStreamingSource, buildStreamingIframeSrc } from "@/lib/streamingEmbed";
 import { usePlayableStreamingSrc } from "@/hooks/use-playable-streaming-src";
+import { ClashVerdictRitual } from "@/components/ClashVerdictRitual";
+import { BlindRevealRitual } from "@/components/BlindRevealRitual";
+import { IntentDuelChips, readLastClashIntent, type ClashIntentId } from "@/components/IntentDuelChips";
+import { ArenaShareCard } from "@/components/ArenaShareCard";
 import { prefetchPlayableStreamingEmbed, warmStreamingEmbedOrigins } from "@/lib/prefetchStreamingEmbed";
 import { SunoInAppPlayer } from "@/components/SunoInAppPlayer";
 import { NexiCompanion, type NexiAnchor, type NexiCue, type NexiCueType } from "@/components/NexiCompanion";
-import { ShareButtons } from "@/components/ShareButtons";
-import { trackShareUrl } from "@/lib/siteUrl";
 import { useTranslation } from "react-i18next";
+import { trackShareUrl } from "@/lib/siteUrl";
 import { hasPublicCount } from "@/lib/displayStats";
 
 type Phase =
@@ -100,6 +103,7 @@ function BattleBlindCard({
   voteReady,
   onVote,
   dataTestIdPrefix,
+  veilLabel,
 }: {
   track: BattleTrack;
   trackId: number;
@@ -113,8 +117,8 @@ function BattleBlindCard({
   voteReady: boolean;
   onVote: () => void;
   dataTestIdPrefix: string;
+  veilLabel: string;
 }) {
-  const maskedLabel = "[HIDDEN] · UNLOCK AFTER VOTE";
   const [coverBroken, setCoverBroken] = useState(false);
   const isPicked = pickedTrackId === trackId;
   const voteLocked = pickedTrackId != null;
@@ -185,8 +189,11 @@ function BattleBlindCard({
           </div>
         )}
         {!isRevealed && (
-          <div className="battle-cover-overlay">
-            <CircleHelp className="w-7 h-7 text-primary/80" />
+          <div className="battle-cover-overlay" aria-hidden>
+            <CircleHelp className="w-7 h-7 text-clash" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-clash/90">
+              {veilLabel}
+            </span>
           </div>
         )}
       </div>
@@ -205,10 +212,10 @@ function BattleBlindCard({
           </>
         ) : (
           <p
-            className="font-bold text-white text-[11px] uppercase tracking-[0.08em] whitespace-normal break-words leading-relaxed"
+            className="font-bold text-clash text-[11px] uppercase tracking-[0.12em] whitespace-normal break-words leading-relaxed"
             data-testid={`text-${dataTestIdPrefix}-title`}
           >
-            {maskedLabel}
+            {veilLabel}
           </p>
         )}
       </div>
@@ -242,12 +249,14 @@ function BattleTrackPlayer({
   label,
   autoplay = false,
   blindMode = true,
+  veilLabel = "Behind the veil…",
   onEnded,
 }: {
   track: BattleTrack;
   label: string;
   autoplay?: boolean;
   blindMode?: boolean;
+  veilLabel?: string;
   onEnded?: () => void;
 }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -425,14 +434,14 @@ function BattleTrackPlayer({
         )}
         {blindMode ? (
           <div
-            className="pointer-events-none absolute inset-0 z-[15] rounded-2xl bg-black/45 backdrop-blur-md motion-reduce:backdrop-blur-none"
+            className="pointer-events-none absolute inset-0 z-[15] rounded-2xl battle-player-veil motion-reduce:backdrop-blur-none"
             aria-hidden
           />
         ) : null}
         {blindMode ? (
           <div className="pointer-events-none absolute top-2 left-2 z-20">
-            <span className="rounded-md border border-primary/35 bg-black/60 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.22em] text-primary/90">
-              Blind Mode
+            <span className="rounded-md border border-clash/50 bg-black/60 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.22em] text-clash">
+              {veilLabel}
             </span>
           </div>
         ) : null}
@@ -465,6 +474,8 @@ export function Battle() {
   const [listenReplayA, setListenReplayA] = useState(0);
   const [listenReplayB, setListenReplayB] = useState(0);
   const [votedId, setVotedId] = useState<number | null>(null);
+  const [verdictRitualOpen, setVerdictRitualOpen] = useState(false);
+  const [blindRevealOpen, setBlindRevealOpen] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
   const activeBattleIdRef = useRef<number | null>(null);
   const [blindMode, setBlindMode] = useState(() => {
@@ -477,6 +488,7 @@ export function Battle() {
     }
   });
   const [showSharePopup, setShowSharePopup] = useState(false);
+  const [clashIntent, setClashIntent] = useState<ClashIntentId | null>(() => readLastClashIntent());
   const countedImpressionsRef = useRef<Set<string>>(new Set());
 
   /**
@@ -544,6 +556,9 @@ export function Battle() {
       setListenReplayB(0);
       setIsRevealed(false);
       setShowSharePopup(false);
+      setBlindRevealOpen(false);
+      setVerdictRitualOpen(false);
+      setClashIntent(readLastClashIntent());
       setPhase("track-a");
     },
     onError: (err: Error) => {
@@ -701,6 +716,9 @@ export function Battle() {
       setVoteResult(null);
       setIsRevealed(false);
       setShowSharePopup(false);
+      setBlindRevealOpen(false);
+      setVerdictRitualOpen(false);
+      setClashIntent(readLastClashIntent());
       createBattleMutation.mutate(genre);
     },
     [createBattleMutation, isAuthenticated, toast],
@@ -708,6 +726,8 @@ export function Battle() {
 
   const nextBattle = useCallback(() => {
     setBattle(null);
+    setVerdictRitualOpen(false);
+    setBlindRevealOpen(false);
     setVoteResult(null);
     setListenedA(false);
     setListenedB(false);
@@ -716,6 +736,7 @@ export function Battle() {
     setIsRevealed(false);
     setVotedId(null);
     setShowSharePopup(false);
+    setClashIntent(readLastClashIntent());
     if (limitReachedRef.current) {
       setPhase("genre-select");
       return;
@@ -843,10 +864,15 @@ export function Battle() {
       setIsRevealed(true);
       setShowSharePopup(true);
       setPhase("result");
+      if (blindMode) {
+        setBlindRevealOpen(true);
+      } else {
+        setVerdictRitualOpen(true);
+      }
 
       voteMutation.mutate({ battleId: battle.id, trackId });
     },
-    [isAuthenticated, battle, voteMutation, toast],
+    [isAuthenticated, battle, voteMutation, toast, blindMode],
   );
 
   const winnerTrack =
@@ -867,9 +893,9 @@ export function Battle() {
         */}
         <div className="flex flex-col gap-2 mb-2 w-full min-w-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Zap className="w-5 h-5 text-primary shrink-0" />
+            <Zap className="w-5 h-5 text-zinc-400 shrink-0" />
             <h1
-              className="text-[11px] font-bold tracking-[0.4em] uppercase text-primary"
+              className="battle-arena-eyebrow text-[10px] md:text-[11px] text-zinc-400"
               data-testid="text-battle-label"
             >
               {t("battle.label")}
@@ -884,7 +910,7 @@ export function Battle() {
             className={[
               "inline-flex items-center gap-1.5 sm:gap-2 self-start sm:self-auto shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9px] font-bold uppercase tracking-[0.14em] sm:tracking-[0.18em] transition-premium",
               blindMode
-                ? "border-primary/40 text-primary bg-primary/10"
+                ? "border-clash/50 text-clash bg-clash/15"
                 : "border-white/20 text-zinc-400 bg-white/5 hover:border-white/30 hover:text-zinc-300",
             ].join(" ")}
           >
@@ -900,7 +926,7 @@ export function Battle() {
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
           <h2
-            className="text-3xl md:text-4xl font-display font-bold text-white tracking-tight uppercase neon-text-strong neon-text-green"
+            className="battle-arena-display text-3xl md:text-5xl text-white"
             data-testid="text-battle-arena-title"
           >
             {t("battle.title")}
@@ -1048,6 +1074,7 @@ export function Battle() {
                 label="Track A"
                 autoplay={true}
                 blindMode={blindMode}
+                veilLabel={t("battle.blindVeil")}
                 onEnded={onBattleTrackAEnded}
               />
             </div>
@@ -1081,6 +1108,7 @@ export function Battle() {
                 label="Track B"
                 autoplay={true}
                 blindMode={blindMode}
+                veilLabel={t("battle.blindVeil")}
                 onEnded={onBattleTrackBEnded}
               />
             </div>
@@ -1127,8 +1155,17 @@ export function Battle() {
             )}
             {voteReady && votedId == null && (
               <p className="text-[10px] text-primary uppercase tracking-widest text-center mb-2 animate-pulse">
-                Voting unlocked. Choose your winner.
+                {t("battle.votingUnlocked")}
               </p>
+            )}
+
+            {voteReady && (
+              <IntentDuelChips
+                value={clashIntent}
+                onChange={setClashIntent}
+                confirmed={votedId != null}
+                disabled={voteMutation.isPending || votedId != null}
+              />
             )}
 
             <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-1 md:mb-3">
@@ -1148,6 +1185,7 @@ export function Battle() {
                 voteReady={voteReady}
                 onVote={() => castVote(battle.trackAId)}
                 dataTestIdPrefix="vote-track-a"
+                veilLabel={t("battle.blindVeil")}
               />
 
               <BattleBlindCard
@@ -1163,6 +1201,7 @@ export function Battle() {
                 voteReady={voteReady}
                 onVote={() => castVote(battle.trackBId)}
                 dataTestIdPrefix="vote-track-b"
+                veilLabel={t("battle.blindVeil")}
               />
             </div>
           </motion.div>
@@ -1266,27 +1305,21 @@ export function Battle() {
               Total Votes: {totalVotes}
             </p>
 
-            {showSharePopup && winnerTrack && (
-              <motion.p
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-[11px] text-primary/90 font-medium"
-                data-testid="battle-share-popup"
-              >
-                {t("battle.shareResultText", {
-                  creator: winnerTrack.creatorName,
-                  title: winnerTrack.title,
-                })}
-              </motion.p>
+            {clashIntent && (
+              <IntentDuelChips value={clashIntent} confirmed />
             )}
 
-            {winnerTrack && (
-              <ShareButtons
-                url={trackShareUrl(winnerTrack.id)}
-                text={t("battle.shareResultText", {
+            {showSharePopup && winnerTrack && (
+              <ArenaShareCard
+                title={winnerTrack.title}
+                creator={winnerTrack.creatorName}
+                shareUrl={trackShareUrl(winnerTrack.id)}
+                shareText={t("battle.shareResultText", {
                   creator: winnerTrack.creatorName,
                   title: winnerTrack.title,
                 })}
+                intent={clashIntent}
+                handoffReady={!verdictRitualOpen && !blindRevealOpen}
               />
             )}
 
@@ -1294,7 +1327,7 @@ export function Battle() {
               <button
                 onClick={nextBattle}
                 data-testid="button-next-battle"
-                className="px-8 py-3 glass-button text-primary font-bold text-[11px] uppercase tracking-[0.25em] rounded-xl transition-premium"
+                className="px-8 py-3 bg-arena text-[hsl(var(--nex-on-wow))] cta-arena-glow font-bold text-[11px] uppercase tracking-[0.25em] rounded-full transition-premium border border-[hsl(var(--nex-wow-ember)/0.4)]"
               >
                 Next Battle <ChevronRight className="w-4 h-4 inline ml-1" />
               </button>
@@ -1304,6 +1337,24 @@ export function Battle() {
         })()}
       </AnimatePresence>
       </div>
+      {winnerTrack && battle && (
+        <>
+          <BlindRevealRitual
+            open={blindRevealOpen}
+            label={t("battle.blindVeil")}
+            onDone={() => {
+              setBlindRevealOpen(false);
+              setVerdictRitualOpen(true);
+            }}
+          />
+          <ClashVerdictRitual
+            open={verdictRitualOpen}
+            winnerLabel={winnerTrack.title}
+            side={voteResult?.winnerId === battle.trackAId ? "A" : "B"}
+            onDone={() => setVerdictRitualOpen(false)}
+          />
+        </>
+      )}
     </div>
   );
 }
