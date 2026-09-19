@@ -165,3 +165,67 @@ export function getCommunitySystemSeed(
   return COMMUNITY_SYSTEM_SEED_POSTS.find((seed) => seed.category === category) ?? null;
 }
 
+function containsHangul(text: string): boolean {
+  return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(text);
+}
+
+/**
+ * DB sometimes stores intro titles as "한글 / ENGLISH".
+ * Pick the side matching the UI language when both sides exist.
+ */
+export function pickLocalizedBilingualText(text: string, isKorean: boolean): string {
+  const raw = String(text ?? "").trim();
+  if (!raw) return raw;
+  const parts = raw.split(/\s+\/\s+/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return raw;
+  const left = parts[0]!;
+  const right = parts.slice(1).join(" / ");
+  const leftKo = containsHangul(left);
+  const rightKo = containsHangul(right);
+  if (leftKo === rightKo) return raw;
+  if (isKorean) return leftKo ? left : right;
+  return leftKo ? right : left;
+}
+
+/** Match pinned system intros when authorUserId is stripped from public API. */
+export function matchCommunitySystemSeedByTitle(
+  title: string,
+): (typeof COMMUNITY_SYSTEM_SEED_POSTS)[number] | null {
+  const raw = String(title ?? "").trim();
+  if (!raw) return null;
+  const normalized = raw.toLowerCase();
+  const bilingualEn = pickLocalizedBilingualText(raw, false).toLowerCase();
+  const bilingualKo = pickLocalizedBilingualText(raw, true);
+
+  return (
+    COMMUNITY_SYSTEM_SEED_POSTS.find((seed) => {
+      if (seed.titleKo === raw || seed.titleEn === raw) return true;
+      if (bilingualKo === seed.titleKo || bilingualEn === seed.titleEn.toLowerCase()) return true;
+      if (normalized.includes(seed.titleKo.toLowerCase())) return true;
+      if (normalized.includes(seed.titleEn.toLowerCase())) return true;
+      return false;
+    }) ?? null
+  );
+}
+
+/** Resolve title/body for community UI (seeds + bilingual titles). */
+export function resolveCommunityPostDisplay(
+  post: { title: string; body: string; category?: string; authorUserId?: string | null },
+  isKorean: boolean,
+): { title: string; body: string } {
+  const category = post.category as CommunityCategorySlug | undefined;
+  const seed =
+    (category ? getCommunitySystemSeed(category, post.authorUserId) : null) ??
+    matchCommunitySystemSeedByTitle(post.title);
+  if (seed) {
+    return {
+      title: formatCommunitySeedTitle(seed, isKorean),
+      body: formatCommunitySeedBody(seed, isKorean),
+    };
+  }
+  return {
+    title: pickLocalizedBilingualText(post.title, isKorean),
+    body: pickLocalizedBilingualText(post.body, isKorean),
+  };
+}
+

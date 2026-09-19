@@ -78,6 +78,14 @@ import { normalizeStoredTrackLink } from "@shared/normalizeTrackLink";
 import { isCommunityCategorySlug } from "@shared/community";
 import { rejectArtisticIntent } from "./artisticIntent";
 import { describePlaybackIssue, inspectTrackPlaybackAvailability } from "./media-availability";
+import {
+  localizeCommunityComments,
+  localizeCommunityPostFields,
+  localizeCommunityPosts,
+  parseCommunityLang,
+  warmCommunityCommentTranslation,
+  warmCommunityPostTranslation,
+} from "./communityLocalize";
 
 
 function stripCommunityAuthorUserId<T extends { authorUserId?: unknown }>(
@@ -396,6 +404,7 @@ export async function registerRoutes(
     const sortRaw = typeof req.query.sort === "string" ? req.query.sort.trim() : "";
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
     const limit = Number(req.query.limit);
+    const lang = parseCommunityLang(req.query.lang);
     const viewerUserId = req.user ? getUserId(req) : "";
     const includeHidden = req.user ? await isAdmin(req) : false;
     const rows = await storage.listCommunityPosts({
@@ -406,7 +415,8 @@ export async function registerRoutes(
       viewerUserId: viewerUserId || null,
       includeHidden,
     });
-    res.json(rows.map((row) => stripCommunityAuthorUserId(row, includeHidden)));
+    const localized = await localizeCommunityPosts(rows, lang);
+    res.json(localized.map((row) => stripCommunityAuthorUserId(row, includeHidden)));
   });
 
   app.post("/api/community/posts", isAuthenticated, async (req: any, res) => {
@@ -421,15 +431,18 @@ export async function registerRoutes(
     const category = typeof req.body?.category === "string" ? req.body.category.trim() : "track-share";
     const kind = typeof req.body?.kind === "string" ? req.body.kind.trim() : "talk";
     try {
+      const title = String(req.body?.title ?? "");
+      const body = String(req.body?.body ?? "");
       const postId = await storage.createCommunityPost({
         authorUserId: userId,
         category,
         kind,
-        title: String(req.body?.title ?? ""),
-        body: String(req.body?.body ?? ""),
+        title,
+        body,
         attachedTrackId: req.body?.attachedTrackId ?? null,
         externalUrl: req.body?.externalUrl ?? null,
       });
+      warmCommunityPostTranslation(title, body);
       res.status(201).json({ message: apiMsg("커뮤니티 글이 등록되었습니다", "Community post created"), postId });
     } catch (err: any) {
       const msg = err?.message;
@@ -463,6 +476,7 @@ export async function registerRoutes(
     if (!Number.isFinite(postId)) {
       return res.status(400).json({ message: apiMsg("잘못된 글 ID입니다", "Invalid post id") });
     }
+    const lang = parseCommunityLang(req.query.lang);
     const viewerUserId = req.user ? getUserId(req) : "";
     const admin = req.user ? await isAdmin(req) : false;
     const post = await storage.getCommunityPost(postId, {
@@ -473,7 +487,8 @@ export async function registerRoutes(
     if (post.hiddenAt && !admin && post.authorUserId !== viewerUserId) {
       return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
     }
-    res.json(stripCommunityAuthorUserId(post, admin));
+    const localized = await localizeCommunityPostFields(post, lang);
+    res.json(stripCommunityAuthorUserId(localized, admin));
   });
 
   app.post("/api/community/posts/:id/like", isAuthenticated, async (req: any, res) => {
@@ -502,6 +517,7 @@ export async function registerRoutes(
     if (!Number.isFinite(postId)) {
       return res.status(400).json({ message: apiMsg("잘못된 글 ID입니다", "Invalid post id") });
     }
+    const lang = parseCommunityLang(req.query.lang);
     const viewerUserId = req.user ? getUserId(req) : "";
     const admin = req.user ? await isAdmin(req) : false;
     const post = await storage.getCommunityPost(postId, {
@@ -513,7 +529,8 @@ export async function registerRoutes(
       return res.status(404).json({ message: apiMsg("글을 찾을 수 없습니다", "Post not found") });
     }
     const rows = await storage.listCommunityComments(postId, { includeHidden: admin });
-    res.json(rows.map((row) => stripCommunityAuthorUserId(row, admin)));
+    const localized = await localizeCommunityComments(rows, lang);
+    res.json(localized.map((row) => stripCommunityAuthorUserId(row, admin)));
   });
 
   app.post("/api/community/posts/:id/comments", isAuthenticated, async (req: any, res) => {
@@ -529,6 +546,7 @@ export async function registerRoutes(
     }
     try {
       await storage.addCommunityComment(userId, postId, content);
+      warmCommunityCommentTranslation(content);
       res.status(201).json({ message: apiMsg("댓글이 등록되었습니다", "Comment posted") });
     } catch (err: any) {
       const msg = err?.message;

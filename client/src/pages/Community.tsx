@@ -42,8 +42,9 @@ export default function Community() {
   const listUrl = useMemo(() => {
     const qs = new URLSearchParams({ sort: "latest", limit: "80" });
     if (filter !== "all") qs.set("category", filter);
+    if (!isKorean) qs.set("lang", "en");
     return `/api/community/posts?${qs.toString()}`;
-  }, [filter]);
+  }, [filter, isKorean]);
 
   const { data: posts, isLoading } = useQuery<CommunityPost[]>({
     queryKey: [listUrl],

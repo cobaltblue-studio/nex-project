@@ -4,6 +4,7 @@ import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_IVORY,
   COMMUNITY_IVORY_INK,
+  resolveCommunityPostDisplay,
   type CommunityCategorySlug,
   type CommunityPostKind,
 } from "@shared/community";
@@ -47,6 +48,7 @@ export function CommunityFeedCard({
   const kindLabel = KIND_LABEL[kind]?.[isKorean ? "ko" : "en"] ?? kind;
   const category = COMMUNITY_CATEGORIES.find((c) => c.slug === post.category);
   const categoryLabel = isKorean ? category?.titleKo : category?.title;
+  const { title, body } = resolveCommunityPostDisplay(post, isKorean);
   const trackHref = post.attachedTrack
     ? post.attachedTrack.trackType === "video"
       ? `/mv/${post.attachedTrack.id}`
@@ -77,8 +79,8 @@ export function CommunityFeedCard({
       </div>
 
       <button type="button" onClick={onOpen} className="mt-2 w-full text-left">
-        <h3 className="text-base font-bold leading-snug text-stone-900 md:text-lg">{post.title}</h3>
-        <p className="mt-2 text-sm leading-6 text-stone-700">{excerpt(post.body)}</p>
+        <h3 className="text-base font-bold leading-snug text-stone-900 md:text-lg">{title}</h3>
+        <p className="mt-2 text-sm leading-6 text-stone-700">{excerpt(body)}</p>
       </button>
 
       {post.attachedTrack && trackHref ? (

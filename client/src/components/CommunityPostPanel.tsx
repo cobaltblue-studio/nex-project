@@ -15,9 +15,7 @@ import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_IVORY,
   COMMUNITY_IVORY_INK,
-  formatCommunitySeedBody,
-  formatCommunitySeedTitle,
-  getCommunitySystemSeed,
+  resolveCommunityPostDisplay,
   type CommunityCategorySlug,
 } from "@shared/community";
 import { useAuth } from "@/hooks/use-auth";
@@ -160,8 +158,12 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
     [isKorean],
   );
 
-  const postUrl = Number.isFinite(postId) ? `/api/community/posts/${postId}` : "";
-  const commentsUrl = Number.isFinite(postId) ? `/api/community/posts/${postId}/comments` : "";
+  const postUrl = Number.isFinite(postId)
+    ? `/api/community/posts/${postId}${isKorean ? "" : "?lang=en"}`
+    : "";
+  const commentsUrl = Number.isFinite(postId)
+    ? `/api/community/posts/${postId}/comments${isKorean ? "" : "?lang=en"}`
+    : "";
 
   const { data: post, isLoading } = useQuery<CommunityPost>({
     queryKey: [postUrl],
@@ -279,9 +281,7 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
   }
 
   const admin = user?.role === "admin";
-  const seed = getCommunitySystemSeed(post.category, post.authorUserId);
-  const displayTitle = seed ? formatCommunitySeedTitle(seed, isKorean) : post.title;
-  const displayBody = seed ? formatCommunitySeedBody(seed, isKorean) : post.body;
+  const { title: displayTitle, body: displayBody } = resolveCommunityPostDisplay(post, Boolean(isKorean));
   const trackHref = post.attachedTrack
     ? post.attachedTrack.trackType === "video"
       ? `/mv/${post.attachedTrack.id}`

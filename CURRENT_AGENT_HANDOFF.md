@@ -46,12 +46,9 @@ NEX는 음악 플랫폼이다. 차트·트랙·커뮤니티·크리에이터 흐
 - **BTS/ARMY:** 내부만. 대외 카피 금지.
 - **프로그램:** Arena Wow Upgrade — W1–W7 Production `0d4dee0` (2026-09-19).
 - **스펙:** `docs/superpowers/specs/2026-09-18-nex-arena-wow-upgrade-design.md`
-- **Post-W7 로컬 (2026-09-19):** Music/New triad + **잔여 polish** — 플랜 `docs/superpowers/plans/2026-09-19-nex-arena-post-w7-polish.md`
-  - Home MusicRow · TrackPlay/Feed 모달: neon-green / electric cyan → Ember/Teal
-  - **Crest Share v2:** `CrestShareCard` (navy + Teal bar + Ember share) on profile Crest
-  - **Friday B+C tune:** win bonus **+25** · streak×2.25 · recent×2.0 · activityCap 1.0
+- **커뮤니티 EN (로컬, 2026-09-19):** `?lang=en` 시 서버가 한글 글·댓글을 영문으로 번역(캐시). 시스템 시드는 사전 EN. 피드/상세 클라이언트도 `lang=en` 전달. **커밋·배포 = 승인 후.**
 - **Suno 재생:** Private clip (`is_public:false`) → `SUNO_PRIVATE` — Suno에서 Public 필요
-- **다음:** 대표 로컬 스모크 · 커밋/배포는 승인 후. NEXI/Higgsfield 보류.
+- **다음:** 커뮤니티 EN 스모크 · 커밋/배포는 승인 후. NEXI/Higgsfield 보류.
 - 코드는 이 `nex-project`.
 
 ## 스모크 Post-W7 polish
