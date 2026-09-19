@@ -174,21 +174,22 @@ export async function translateTextKoToEnReliable(text: string): Promise<string>
       continue;
     }
     let translated: string | null = null;
-    try {
-      translated = await translateChunkGoogle(part);
-      if (translated && containsHangul(translated)) translated = null;
-    } catch {
-      translated = null;
+    // Prefer MyMemory first — Google free endpoint is frequently 429 from cloud IPs.
+    for (let attempt = 0; attempt < 3 && !translated; attempt += 1) {
+      try {
+        translated = await translateChunkMyMemory(part);
+        if (translated && containsHangul(translated)) translated = null;
+      } catch {
+        translated = null;
+      }
+      if (!translated) await sleep(300 * (attempt + 1));
     }
     if (!translated) {
-      for (let attempt = 0; attempt < 3 && !translated; attempt += 1) {
-        try {
-          translated = await translateChunkMyMemory(part);
-          if (translated && containsHangul(translated)) translated = null;
-        } catch {
-          translated = null;
-        }
-        if (!translated) await sleep(150 * (attempt + 1));
+      try {
+        translated = await translateChunkGoogle(part);
+        if (translated && containsHangul(translated)) translated = null;
+      } catch {
+        translated = null;
       }
     }
     if (!translated) {
@@ -265,15 +266,20 @@ export async function localizeCommunityPostFields<T extends PostLike>(post: T, l
 
   const storedTitle = post.titleEn?.trim();
   const storedBody = post.bodyEn?.trim();
-  if (storedTitle && storedBody && !containsHangul(storedTitle) && !containsHangul(storedBody)) {
-    return { ...post, title: storedTitle, body: storedBody };
-  }
-
-  const titleBase = pickLocalizedBilingualText(post.title, false);
-  const bodyBase = pickLocalizedBilingualText(post.body, false);
+  const titleBase =
+    storedTitle && !containsHangul(storedTitle)
+      ? storedTitle
+      : pickLocalizedBilingualText(post.title, false);
+  const bodyBase =
+    storedBody && !containsHangul(storedBody)
+      ? storedBody
+      : pickLocalizedBilingualText(post.body, false);
   const needTitle = containsHangul(titleBase);
   const needBody = containsHangul(bodyBase);
   if (!needTitle && !needBody) {
+    if (post.id && persistPostEn && (titleBase !== storedTitle || bodyBase !== storedBody)) {
+      void persistPostEn(post.id, titleBase, bodyBase).catch(() => undefined);
+    }
     return { ...post, title: titleBase, body: bodyBase };
   }
 
@@ -282,17 +288,20 @@ export async function localizeCommunityPostFields<T extends PostLike>(post: T, l
       needTitle ? translateTextKoToEnReliable(titleBase) : Promise.resolve(titleBase),
       needBody ? translateTextKoToEnReliable(bodyBase) : Promise.resolve(bodyBase),
     ]);
-    if (post.id && persistPostEn && (!containsHangul(title) || !containsHangul(body))) {
+    if (post.id && persistPostEn && !containsHangul(title) && !containsHangul(body)) {
       void persistPostEn(post.id, title, body).catch(() => undefined);
+    } else if (post.id && persistPostEn) {
+      // Persist partial clean sides so the next pass only retries the failed side.
+      const nextTitle = !containsHangul(title) ? title : storedTitle && !containsHangul(storedTitle) ? storedTitle : null;
+      const nextBody = !containsHangul(body) ? body : storedBody && !containsHangul(storedBody) ? storedBody : null;
+      if (nextTitle && nextBody) {
+        void persistPostEn(post.id, nextTitle, nextBody).catch(() => undefined);
+      }
     }
     return { ...post, title, body };
   } catch (err) {
     console.warn("[communityLocalize] post translate failed", post.id, err);
-    return {
-      ...post,
-      title: storedTitle && !containsHangul(storedTitle) ? storedTitle : titleBase,
-      body: storedBody && !containsHangul(storedBody) ? storedBody : bodyBase,
-    };
+    return { ...post, title: titleBase, body: bodyBase };
   }
 }
 
@@ -317,8 +326,37 @@ export async function localizeCommunityCommentFields<
 
 export async function localizeCommunityPosts<T extends PostLike>(posts: T[], lang: Lang): Promise<T[]> {
   if (lang === "ko" || posts.length === 0) return posts;
-  // Low concurrency — Google free endpoint rate-limits hard on 80-post feeds.
-  return mapPool(posts, 2, (post) => localizeCommunityPostFields(post, lang));
+  const out: T[] = [];
+  for (const post of posts) {
+    const storedReady =
+      Boolean(post.titleEn?.trim()) &&
+      Boolean(post.bodyEn?.trim()) &&
+      !containsHangul(post.titleEn || "") &&
+      !containsHangul(post.bodyEn || "");
+    if (storedReady) {
+      out.push({ ...post, title: post.titleEn!.trim(), body: post.bodyEn!.trim() });
+      continue;
+    }
+    const category = (post.category ?? "") as CommunityCategorySlug;
+    const seed =
+      getCommunitySystemSeed(category, post.authorUserId) ?? matchCommunitySystemSeedByTitle(post.title);
+    if (seed) {
+      const title = formatCommunitySeedTitle(seed, false);
+      const body = formatCommunitySeedBody(seed, false);
+      if (post.id && persistPostEn) {
+        void persistPostEn(post.id, title, body).catch(() => undefined);
+      }
+      out.push({ ...post, title, body });
+      continue;
+    }
+    // Do not live-translate the whole feed (rate-limits cause partial Korean).
+    // Boot backfill + create warm fill title_en/body_en; client refetches until clean.
+    if (post.id) {
+      warmCommunityPostTranslation(post.title, post.body, post.id);
+    }
+    out.push(post);
+  }
+  return out;
 }
 
 export async function localizeCommunityComments<T extends { id?: number; content: string; contentEn?: string | null }>(
@@ -333,7 +371,9 @@ export function warmCommunityPostTranslation(title: string, body: string, postId
   void (async () => {
     const titleEn = containsHangul(title) ? await translateTextKoToEnReliable(title) : title;
     const bodyEn = containsHangul(body) ? await translateTextKoToEnReliable(body) : body;
-    if (postId && persistPostEn) await persistPostEn(postId, titleEn, bodyEn);
+    if (postId && persistPostEn && !containsHangul(titleEn) && !containsHangul(bodyEn)) {
+      await persistPostEn(postId, titleEn, bodyEn);
+    }
   })().catch(() => undefined);
 }
 
@@ -341,7 +381,9 @@ export function warmCommunityCommentTranslation(content: string, commentId?: num
   if (!containsHangul(content)) return;
   void (async () => {
     const contentEn = await translateTextKoToEnReliable(content);
-    if (commentId && persistCommentEn) await persistCommentEn(commentId, contentEn);
+    if (commentId && persistCommentEn && !containsHangul(contentEn)) {
+      await persistCommentEn(commentId, contentEn);
+    }
   })().catch(() => undefined);
 }
 
@@ -350,11 +392,27 @@ export async function ensureCommunityEnColumns(): Promise<void> {
   const migPath = join(here, "..", "migrations", "2026-09-19_community_en_columns.sql");
   const mig = readFileSync(migPath, "utf8");
   await db.execute(sql.raw(mig));
+  // Clear polluted Hangul values from earlier failed persists.
+  await db.execute(sql`
+    UPDATE community_posts
+    SET title_en = NULL
+    WHERE title_en IS NOT NULL AND title_en ~ '[가-힣]'
+  `);
+  await db.execute(sql`
+    UPDATE community_posts
+    SET body_en = NULL
+    WHERE body_en IS NOT NULL AND body_en ~ '[가-힣]'
+  `);
+  await db.execute(sql`
+    UPDATE community_comments
+    SET content_en = NULL
+    WHERE content_en IS NOT NULL AND content_en ~ '[가-힣]'
+  `);
 }
 
 export async function backfillCommunityEnglishTranslations(opts?: {
   limit?: number;
-}): Promise<{ posts: number; comments: number }> {
+}): Promise<{ posts: number; comments: number; remainingPosts: number }> {
   const limit = Math.max(1, Math.min(500, opts?.limit ?? 200));
   const postsResult = await db.execute(sql`
     SELECT id, title, body, title_en AS "titleEn", body_en AS "bodyEn", author_user_id AS "authorUserId", category
@@ -371,11 +429,11 @@ export async function backfillCommunityEnglishTranslations(opts?: {
   let postDone = 0;
   for (const post of posts) {
     const localized = await localizeCommunityPostFields(post, "en");
-    if (post.id && persistPostEn) {
+    if (post.id && persistPostEn && !containsHangul(localized.title) && !containsHangul(localized.body)) {
       await persistPostEn(post.id, localized.title, localized.body);
       postDone += 1;
     }
-    await sleep(120);
+    await sleep(350);
   }
 
   const commentsResult = await db.execute(sql`
@@ -390,12 +448,23 @@ export async function backfillCommunityEnglishTranslations(opts?: {
   let commentDone = 0;
   for (const comment of comments) {
     const localized = await localizeCommunityCommentFields(comment, "en");
-    if (persistCommentEn) {
+    if (persistCommentEn && !containsHangul(localized.content)) {
       await persistCommentEn(comment.id, localized.content);
       commentDone += 1;
     }
-    await sleep(80);
+    await sleep(250);
   }
 
-  return { posts: postDone, comments: commentDone };
+  const remaining = await db.execute(sql`
+    SELECT COUNT(*)::int AS c
+    FROM community_posts
+    WHERE hidden_at IS NULL
+      AND (
+        title_en IS NULL OR body_en IS NULL
+        OR title_en ~ '[가-힣]' OR body_en ~ '[가-힣]'
+      )
+  `);
+  const remainingPosts = Number((remaining.rows?.[0] as { c?: number } | undefined)?.c ?? 0);
+
+  return { posts: postDone, comments: commentDone, remainingPosts };
 }

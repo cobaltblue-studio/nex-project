@@ -275,10 +275,10 @@ app.use((req, res, next) => {
 
   const { backfillCommunityEnglishTranslations } = await import("./communityLocalize");
   void (async () => {
-    for (let round = 0; round < 8; round += 1) {
-      const result = await backfillCommunityEnglishTranslations({ limit: 40 });
+    for (let round = 0; round < 30; round += 1) {
+      const result = await backfillCommunityEnglishTranslations({ limit: 25 });
       console.log(`[boot] community EN backfill round ${round + 1}`, result);
-      if (result.posts === 0 && result.comments === 0) break;
+      if (result.remainingPosts === 0) break;
     }
   })().catch((err) => console.error("[boot] community EN backfill failed:", err));
 
