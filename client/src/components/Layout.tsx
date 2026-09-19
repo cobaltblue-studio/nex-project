@@ -181,7 +181,7 @@ export function Layout({ children }: LayoutProps) {
             return (
               <Link key={item.path} href={item.path} className={clsx(
                 "text-[10px] xl:text-[11px] font-bold uppercase tracking-[0.1em] xl:tracking-[0.18em] transition-all relative py-2 whitespace-nowrap shrink-0",
-                isActive ? "text-primary" : "text-zinc-500 hover:text-white"
+                isActive ? "text-white" : "text-white/85 hover:text-white"
               )}>
                 {item.label}
                 {isActive && (
