@@ -6,22 +6,22 @@
 export const CLASH_NIGHT_TZ = "Asia/Seoul";
 
 /** C — flat rankingScore added to the winner on each clash-night vote win. */
-export const CLASH_NIGHT_WIN_RANKING_BONUS = 15;
+export const CLASH_NIGHT_WIN_RANKING_BONUS = 25;
 
 /** B — matchmaking weight multipliers (stacked × with fairness/boost). */
 export const CLASH_NIGHT_POOL = {
   /** winStreak ≥ this → streakMul */
   streakMin: 2,
-  streakMul: 2.0,
+  streakMul: 2.25,
   /** created within this many days → recentMul */
   recentDays: 7,
-  recentMul: 1.75,
+  recentMul: 2.0,
   /**
    * Activity: 1 + min(activityCap, log1p(playCount) / activityDiv).
    * Uses playCount (existing field); no separate volatility column.
    */
   activityDiv: 10,
-  activityCap: 0.75,
+  activityCap: 1.0,
 } as const;
 
 /** Process-lifetime accumulator so ranking recompute does not wipe Friday bonuses. */

@@ -38,18 +38,18 @@ When Clash Night is active, `createBattle` multiplies each candidate’s selecti
 
 ```
 excitementMul = 1
-if winStreak >= streakMin (2):  excitementMul *= streakMul (2.0)
-if createdAt within recentDays (7): excitementMul *= recentMul (1.75)
-excitementMul *= 1 + min(activityCap (0.75), log1p(playCount) / activityDiv (10))
+if winStreak >= streakMin (2):  excitementMul *= streakMul (2.25)
+if createdAt within recentDays (7): excitementMul *= recentMul (2.0)
+excitementMul *= 1 + min(activityCap (1.0), log1p(playCount) / activityDiv (10))
 ```
 
 Final pick weight ≈ `max(ε, rankingScore × fairnessMul × excitementMul)`.
 
 | Signal | Field | Default |
 |---|---|---|
-| Win streak | `tracks.winStreak` | ≥2 → **×2.0** |
-| Recent / new | `tracks.createdAt` | ≤7d → **×1.75** |
-| Activity | `tracks.playCount` | log scale, **cap +0.75** |
+| Win streak | `tracks.winStreak` | ≥2 → **×2.25** |
+| Recent / new | `tracks.createdAt` | ≤7d → **×2.0** |
+| Activity | `tracks.playCount` | log scale, **cap +1.0** |
 
 No separate ranking volatility column — playCount stands in for momentum/activity.
 
@@ -61,7 +61,7 @@ When Clash Night is active and the user’s voted track is the battle winner aft
 
 | Rule | Default | Notes |
 |---|---|---|
-| Flat `rankingScore` bonus | **+15** | Chosen over % of gain for clarity in UI |
+| Flat `rankingScore` bonus | **+25** | Tuned 2026-09-19 for mid-chart (~150–300) feel; was +15 |
 | Applied to | Winner track | Immediate SQL bump + process Map so debounce recompute does not wipe it |
 | Response fields | `clashNightWinBonus`, `rankingScoreAfterBonus` | Surfaced on vote JSON |
 | Constant | `CLASH_NIGHT_WIN_RANKING_BONUS` | Founder-adjustable |
@@ -77,8 +77,8 @@ When Clash Night is active and the user’s voted track is the battle winner aft
 When night ON (Violet chrome kept):
 
 - Sub: `급등·연승 가중 매치 · 금요 승 보너스`
-- Badges: `급등·연승 가중 매치` · `금요 승 보너스 +15`
-- Verdict: `금요 보너스 +15` when `clashNightWinBonus` present
+- Badges: `급등·연승 가중 매치` · `금요 승 보너스 +25`
+- Verdict: `금요 보너스 +{{bonus}}` when `clashNightWinBonus` present
 
 ---
 
@@ -106,7 +106,7 @@ CLASH_NIGHT_FORCE=1 npm run server
 1. Open `http://localhost:5001/battle` (Google OAuth — not `127.0.0.1`)
 2. Expect Violet frame + badges (server `active`)
 3. Start battle → match should lean exciting (streak/recent/active) — check network `POST /api/battles/new` → `clashNight.active: true`
-4. Vote winner → response includes `clashNightWinBonus: 15`; Verdict shows 금요 보너스
+4. Vote winner → response includes `clashNightWinBonus: 25`; Verdict shows 금요 보너스
 5. Blind→Intent→Verdict→Share · playback intact
 
 ### Path B — client preview + non-prod flag

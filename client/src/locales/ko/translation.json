@@ -55,6 +55,7 @@
     "embedFailed": "Suno 임베드 주소를 만들 수 없습니다",
     "requestFailed": "Suno 링크 확인 요청에 실패했습니다",
     "embedUnavailable": "이 곡은 Suno가 공개 MP3/MP4 스트림을 제공하지 않아 NEX 안에서 재생할 수 없습니다. 커버는 그대로 보이며, Suno에서 들을 수 있습니다.",
+    "privateOnSuno": "이 곡이 Suno에서 비공개(Private)라 NEX 안에서 재생할 수 없습니다. Suno에서 Public으로 바꾼 뒤 다시 눌러 주세요.",
     "openOnSuno": "Suno에서 듣기",
     "playingInNex": "NEX에서 재생 중"
   },
@@ -62,7 +63,7 @@
     "listenerSubmitNotice": "리스너 계정으로 제출하면 크리에이터 등록 요청과 함께 처리됩니다. 관리자 승인 전까지는 프로필에만 보이고, 승인 후에 뉴·차트·배틀에 노출됩니다.",
     "adminBlurb": "Admin 승인 후 24시간 이내에 정식 등록되며, 승인 시 크리에이터 권한이 부여됩니다",
     "linkPlaceholder": "YouTube · SoundCloud · Suno (공유 링크)",
-    "sunoHelp": "Suno: 곡 페이지에서 ⋯(더보기) → 링크 복사 — 주소에 /song/… 가 들어 있으면 그대로 OK. 짧은 suno.com/s/… 링크도 넥스가 서버에서 UUID로 바꿉니다.",
+    "sunoHelp": "Suno: 곡 페이지에서 ⋯(더보기) → 링크 복사 — 주소에 /song/… 가 들어 있으면 그대로 OK. 짧은 suno.com/s/… 링크도 넥스가 서버에서 UUID로 바꿉니다. NEX 재생을 위해 곡은 Public이어야 합니다.",
     "supportedPlatforms": "지원: YouTube · SoundCloud · Suno",
     "linkOk": "링크 재생 가능한 형식입니다 (Link format looks playable)",
     "validationIntent": "NEX의 퀄리티 유지를 위해 창작 의도는 최소 {{min}}자 이상이어야 합니다.",
@@ -462,6 +463,9 @@
     "stamp": "획득",
     "meta": "승 {{wins}} · 연승 {{streak}} · 최고 {{rank}}",
     "shareDefault": "내 NEX 크리에이터 크레스트: {{tier}} — nexmusic.ai",
+    "shareCardEyebrow": "크리에이터 증명",
+    "shareCardBy": "{{creator}}",
+    "shareCreatorFallback": "크리에이터",
     "tier": {
       "spark": "스파크",
       "contender": "도전자",
@@ -537,7 +541,7 @@
     "clashNightTitle": "금요일 클래시",
     "clashNightSub": "급등·연승 가중 매치 · 금요 승 보너스",
     "clashNightPoolBadge": "급등·연승 가중 매치",
-    "clashNightBonusBadge": "금요 승 보너스 +15",
+    "clashNightBonusBadge": "금요 승 보너스 +25",
     "clashNightWinBonus": "금요 보너스 +{{bonus}}",
     "clashNightEnter": "금요일 클래시 입장"
   },

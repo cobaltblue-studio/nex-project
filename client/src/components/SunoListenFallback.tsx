@@ -17,17 +17,20 @@ type Props = {
   title?: string;
   /** Tighter layout for battle / radio shells. */
   compact?: boolean;
+  /** Server resolve failure code — private songs get a clearer CTA. */
+  reason?: "SUNO_PRIVATE" | "NO_PUBLIC_STREAM" | null;
 };
 
 /**
  * Cover + outbound CTA when Suno has no browser-native public stream
- * (ciphertext-only m4a-opus / missing social MP4). Never mounts Clerk /embed.
+ * (private clip / ciphertext-only m4a-opus / missing social MP4). Never mounts Clerk /embed.
  */
 export function SunoListenFallback({
   shareUrl,
   coverImageUrl,
   title,
   compact = false,
+  reason = null,
 }: Props) {
   const { t } = useTranslation();
   const [coverBroken, setCoverBroken] = useState(false);
@@ -37,6 +40,8 @@ export function SunoListenFallback({
     (uuid && isSunoSongUuid(uuid) ? sunoCoverUrlFromSongUuid(uuid) : null);
   const openUrl = buildSunoSongPageUrl(shareUrl);
   const showCover = !!cover && !coverBroken;
+  const messageKey =
+    reason === "SUNO_PRIVATE" ? "suno.privateOnSuno" : "suno.embedUnavailable";
 
   return (
     <div
@@ -44,6 +49,7 @@ export function SunoListenFallback({
         compact ? "min-h-[120px]" : ""
       }`}
       data-testid="suno-listen-fallback"
+      data-reason={reason ?? "NO_PUBLIC_STREAM"}
     >
       {showCover ? (
         <img
@@ -57,7 +63,7 @@ export function SunoListenFallback({
       <div className="relative z-10 flex h-full min-h-[inherit] flex-col items-center justify-center gap-3 px-4 py-6 text-center">
         {!showCover ? <Music className="h-10 w-10 text-zinc-600" /> : null}
         <p className="max-w-sm text-[10px] leading-relaxed text-zinc-300 sm:text-[11px]">
-          {t("suno.embedUnavailable")}
+          {t(messageKey)}
         </p>
         {openUrl ? (
           <a

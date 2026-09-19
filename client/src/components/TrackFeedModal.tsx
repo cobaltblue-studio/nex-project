@@ -160,17 +160,17 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
       >
         <DialogHeader className="space-y-1 text-left pr-8">
           <DialogTitle
-            className="font-display font-bold text-white uppercase tracking-tight leading-snug neon-text-strong neon-text-green text-sm sm:text-base md:text-lg"
+            className="font-display font-bold text-white uppercase tracking-tight leading-snug nex-ember-lead-title text-sm sm:text-base md:text-lg"
             style={{ fontSize: "clamp(0.8rem, 3.5vw, 1.05rem)" }}
           >
             {title}
           </DialogTitle>
-          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-primary/80">
+          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-arena/80">
             {creatorName}
           </p>
           <Link
             href={`/track/${trackId}`}
-            className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-primary w-fit"
+            className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-arena w-fit"
           >
             Full track page →
           </Link>
@@ -205,7 +205,7 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
               />
             ) : streamLoading && !playableSrc ? (
               <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 text-zinc-500">
-                <Loader2 className="w-10 h-10 animate-spin text-primary/60" />
+                <Loader2 className="w-10 h-10 animate-spin text-arena/60" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-center px-4">
                   {t("suno.resolving")}
                 </p>
@@ -238,7 +238,7 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
               type="button"
               onClick={requestMediaFullscreen}
               data-testid="button-mv-fullscreen-feed"
-              className="flex items-center justify-center gap-2 w-full py-2.5 text-[10px] font-black uppercase tracking-[0.25em] border border-primary/35 text-primary bg-primary/10 hover:bg-primary/20 rounded-sm transition-premium"
+              className="flex items-center justify-center gap-2 w-full py-2.5 text-[10px] font-black uppercase tracking-[0.25em] border border-arena/40 text-arena bg-arena/10 hover:bg-arena/20 rounded-sm transition-premium"
             >
               <Maximize2 className="w-3.5 h-3.5" />
               View fullscreen
@@ -248,14 +248,14 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
 
         <div className="rounded-sm border border-white/10 bg-black/35 backdrop-blur-sm p-3 sm:p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/90">Prompt Recipe</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-arena/90">Prompt Recipe</p>
             {overlay.showQualityWarning ? (
               <span className="text-[9px] uppercase tracking-widest text-yellow-300">
                 Intent quality is weak
               </span>
             ) : null}
           </div>
-          <div className="rounded-sm border border-primary/30 bg-primary/10 px-2.5 py-2">
+          <div className="rounded-sm border border-arena/30 bg-arena/10 px-2.5 py-2">
             <p className="text-[11px] text-zinc-200 whitespace-pre-wrap max-h-24 overflow-y-auto">
               {overlay.promptRecipeText || "Prompt asset is not set."}
             </p>
@@ -273,7 +273,7 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
                   key={c.id}
                   className="text-[11px] border border-white/5 rounded-sm px-3 py-2 bg-black/30"
                 >
-                  <span className="font-bold text-primary/80">{c.authorName || "Creator"}</span>
+                  <span className="font-bold text-arena/80">{c.authorName || "Creator"}</span>
                   <p className="text-zinc-300 mt-1 whitespace-pre-wrap">{c.content}</p>
                 </div>
               ))
@@ -291,7 +291,7 @@ export function TrackFeedModal({ open, onOpenChange, track, focusCommentOnOpen }
             type="button"
             disabled={commentMutation.isPending || !commentText.trim()}
             onClick={onSubmitComment}
-            className="w-full text-[10px] font-bold uppercase tracking-widest bg-primary/15 border border-primary/40 text-primary py-2.5 rounded-sm hover:bg-primary/25 disabled:opacity-40"
+            className="w-full text-[10px] font-bold uppercase tracking-widest bg-arena/15 border border-arena/40 text-arena py-2.5 rounded-sm hover:bg-arena/25 disabled:opacity-40"
           >
             {commentMutation.isPending ? "Sending…" : "Post comment"}
           </button>

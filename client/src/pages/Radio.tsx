@@ -53,6 +53,8 @@ export default function NexRadio() {
   const [radioStarted, setRadioStarted] = useState(false);
   const [liked, setLiked] = useState<Set<number>>(new Set());
   const [showQueue, setShowQueue] = useState(false);
+  /** True once current YouTube track reaches PLAYING — clears stall skip. */
+  const [ytStarted, setYtStarted] = useState(false);
   const playerKey = useRef(0);
 
   const playlistRef = useRef<Track[]>([]);
@@ -115,6 +117,7 @@ export default function NexRadio() {
     const len = Math.max(playlistRef.current.length, 1);
     const next = (currentIndexRef.current + 1) % len;
     playerKey.current += 1;
+    setYtStarted(false);
     setCurrentIndex(next);
   }, []);
 
@@ -125,11 +128,23 @@ export default function NexRadio() {
 
   /** Iframe embeds (SoundCloud, …) do not fire onEnded — cap playback so radio keeps moving. */
   const RADIO_IFRAME_MAX_MS = 7 * 60 * 1000;
+  /** YouTube embed error UI: skip if PLAYING never starts (onError + stall). */
+  const RADIO_YT_STALL_MS = 10_000;
+
+  const skipBrokenTrack = useCallback(() => {
+    window.setTimeout(() => advanceTrackRef.current(), 400);
+  }, []);
 
   useEffect(() => {
     if (!radioStarted || !currentTrack) return;
-    if (ytVideoId) return;
     if (isSuno) return; // SunoInAppPlayer advances via onEnded / duration
+
+    if (ytVideoId) {
+      if (ytStarted) return;
+      const id = window.setTimeout(() => advanceTrackRef.current(), RADIO_YT_STALL_MS);
+      return () => window.clearTimeout(id);
+    }
+
     if (iframeLoading) return;
 
     if (iframeUrl) {
@@ -141,7 +156,17 @@ export default function NexRadio() {
     const delayMs = iframeError ? 2500 : 4000;
     const id = window.setTimeout(() => advanceTrackRef.current(), delayMs);
     return () => window.clearTimeout(id);
-  }, [radioStarted, currentTrack?.id, activeUrl, ytVideoId, iframeUrl, iframeLoading, iframeError, isSuno]);
+  }, [
+    radioStarted,
+    currentTrack?.id,
+    activeUrl,
+    ytVideoId,
+    ytStarted,
+    iframeUrl,
+    iframeLoading,
+    iframeError,
+    isSuno,
+  ]);
 
   const startRadio = () => {
     setRadioStarted(true);
@@ -150,6 +175,7 @@ export default function NexRadio() {
 
   const handleNext = () => {
     playerKey.current += 1;
+    setYtStarted(false);
     const len = Math.max(playlist.length, 1);
     setCurrentIndex((i) => (i + 1) % len);
   };
@@ -271,6 +297,8 @@ export default function NexRadio() {
                   videoId={ytVideoId}
                   autoplay={true}
                   onEnded={advanceTrack}
+                  onPlaying={() => setYtStarted(true)}
+                  onError={skipBrokenTrack}
                 />
               ) : isSuno ? (
                 <div className="relative min-h-[280px] h-[320px]">

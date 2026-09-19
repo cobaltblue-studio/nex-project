@@ -78,8 +78,34 @@ type SunoClipPayload = {
   video_url?: string | null;
   audio_url?: string | null;
   media_urls?: ClipMediaUrl[] | null;
+  /** When false, CDN social MP3/MP4 are typically 403 — only encrypted progressive m4a remains. */
+  is_public?: boolean | null;
   metadata?: { duration?: number | null } | null;
 };
+
+export type SunoResolveFailureCode = "NO_PUBLIC_STREAM" | "SUNO_PRIVATE";
+
+/** Why resolveSunoPlayableMediaVerified returned null (best-effort; for API messages). */
+export async function diagnoseSunoResolveFailure(
+  inputUrlOrUuid: string,
+): Promise<SunoResolveFailureCode> {
+  const raw = inputUrlOrUuid.trim();
+  if (!raw) return "NO_PUBLIC_STREAM";
+
+  let uuid: string | null = null;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+    uuid = raw.toLowerCase();
+  } else {
+    uuid =
+      extractSunoSongUuidFromUrlString(raw) ||
+      (await resolveSunoShareToSongUuid(raw));
+  }
+  if (!uuid) return "NO_PUBLIC_STREAM";
+
+  const clip = await fetchSunoClipJson(uuid);
+  if (clip && clip.is_public === false) return "SUNO_PRIVATE";
+  return "NO_PUBLIC_STREAM";
+}
 
 const CLIP_CACHE_MAX = 400;
 const clipCache = new Map<string, { at: number; clip: SunoClipPayload }>();

@@ -78,16 +78,16 @@ function HeroVisualizer() {
     >
       <defs>
         <linearGradient id="waveGrad0" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.08" />
-          <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
+          <stop offset="0%" stopColor="#FE9135" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="#FE9135" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="waveGrad1" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.05" />
-          <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
+          <stop offset="0%" stopColor="#FE9135" stopOpacity="0.05" />
+          <stop offset="100%" stopColor="#FE9135" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="waveGrad2" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00FF80" stopOpacity="0.03" />
-          <stop offset="100%" stopColor="#00FF80" stopOpacity="0" />
+          <stop offset="0%" stopColor="#FE9135" stopOpacity="0.03" />
+          <stop offset="100%" stopColor="#FE9135" stopOpacity="0" />
         </linearGradient>
       </defs>
       {[0, 1, 2].map((i) => (
@@ -246,23 +246,23 @@ export function Home() {
         </div>
 
         <motion.div {...fadeUp} className="relative z-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-primary/70 mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-arena/70 mb-3">
             {t("home.heroEyebrow")}
           </p>
           <h1
-            className="text-[9rem] md:text-[5.625rem] font-display font-black leading-none neon-text-strong neon-text-green"
+            className="text-[9rem] md:text-[5.625rem] font-display font-black leading-none"
             style={{
               background: "linear-gradient(180deg, #ffffff 0%, #c0c0c0 40%, #ffffff 60%, #a0a0a0 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
-              filter: "drop-shadow(0 0 20px rgba(0, 255, 128, 0.8)) drop-shadow(0 0 50px rgba(0, 255, 128, 0.4))",
+              filter: "drop-shadow(0 0 20px rgba(254, 145, 53, 0.75)) drop-shadow(0 0 50px rgba(254, 145, 53, 0.35))",
               display: "inline-block",
             }}
           >
             NEX
           </h1>
-          <p className="text-primary font-bold tracking-[0.4em] text-sm uppercase mt-2 md:mt-6">
+          <p className="text-arena font-bold tracking-[0.4em] text-sm uppercase mt-2 md:mt-6">
             {t("home.heroSubtitle")}
           </p>
           <p className="hidden md:block text-zinc-400 text-base md:text-lg max-w-2xl mx-auto mt-8 leading-relaxed normal-case font-light">
@@ -278,7 +278,7 @@ export function Home() {
               className={
                 clashNight
                   ? "px-5 py-2.5 bg-arena text-[hsl(var(--nex-on-wow))] cta-arena-glow font-bold text-xs uppercase tracking-widest transition-premium rounded-full border border-[hsl(var(--nex-wow-ember)/0.45)]"
-                  : "px-5 py-2.5 glass-button text-primary font-bold text-xs uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+                  : "px-5 py-2.5 glass-button text-arena font-bold text-xs uppercase tracking-widest transition-premium rounded-xl hover:shadow-[0_0_25px_hsla(28,99%,60%,0.35)]"
               }
               style={clashNight ? undefined : { animation: "cta-breathe 4s ease-in-out infinite" }}
             >
@@ -287,14 +287,14 @@ export function Home() {
             <button
               onClick={goSubmitTrack}
               data-testid="button-submit-track"
-              className="px-5 py-2.5 glass-button-outline text-white text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              className="px-5 py-2.5 glass-button-outline text-white text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-arena hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(28,99%,60%,0.35)]"
             >
               {t("home.submitTrack")}
             </button>
             <button
               onClick={() => setLocation("/radio")}
               data-testid="button-radio"
-              className="px-5 py-2.5 glass-button-outline text-white flex items-center gap-1.5 text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-primary hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(189,100%,50%,0.3)]"
+              className="px-5 py-2.5 glass-button-outline text-white flex items-center gap-1.5 text-xs uppercase tracking-widest transition-premium rounded-xl hover:text-arena hover:scale-[1.02] hover:shadow-[0_0_25px_hsla(28,99%,60%,0.35)]"
             >
               <Radio size={13} />
               {t("home.radio")}
@@ -325,12 +325,12 @@ export function Home() {
             className="flex items-center justify-center gap-2"
           >
             <span
-              className="text-[10px] font-black uppercase tracking-[0.45em] text-primary/70"
+              className="text-[10px] font-black uppercase tracking-[0.45em] text-arena/70"
               style={{ textShadow: "0 0 10px hsla(189,100%,50%,0.25)" }}
             >
               {t("home.discoverMore")}
             </span>
-            <ChevronDown className="w-5 h-5 text-primary/80" />
+            <ChevronDown className="w-5 h-5 text-arena/80" />
           </motion.div>
         </motion.div>
       </section>
@@ -340,8 +340,8 @@ export function Home() {
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-platform-concept" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.whatIsNexEyebrow")}</p>
-          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-arena/70">{t("home.whatIsNexEyebrow")}</p>
+          <h2 className="nex-ember-lead-title text-xl md:text-5xl">
             {t("home.billboardTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -351,21 +351,21 @@ export function Home() {
 
         <div className="grid md:grid-cols-3 gap-8">
           <div className="premium-card p-8 space-y-4 transition-premium" data-testid="card-concept-credibility">
-            <Shield className="w-7 h-7 text-primary" />
+            <Shield className="w-7 h-7 text-verdict" />
             <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.credibilityTitle")}</h3>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
               {t("home.credibilityBody")}
             </p>
           </div>
           <div className="premium-card p-8 space-y-4 transition-premium" data-testid="card-concept-discovery">
-            <Target className="w-7 h-7 text-primary" />
+            <Target className="w-7 h-7 text-verdict" />
             <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.discoveryTitle")}</h3>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
               {t("home.discoveryBody")}
             </p>
           </div>
           <div className="premium-card p-8 space-y-4 transition-premium" data-testid="card-concept-transparency">
-            <BarChart3 className="w-7 h-7 text-primary" />
+            <BarChart3 className="w-7 h-7 text-verdict" />
             <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.transparencyTitle")}</h3>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
               {t("home.transparencyBody")}
@@ -376,8 +376,8 @@ export function Home() {
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-battle-system" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.engineEyebrow")}</p>
-          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-arena/70">{t("home.engineEyebrow")}</p>
+          <h2 className="nex-ember-lead-title text-xl md:text-5xl">
             {t("home.battleRankingsTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -387,28 +387,28 @@ export function Home() {
 
         <div className="grid md:grid-cols-4 gap-8 text-center">
           <div className="premium-card p-7 space-y-4 transition-premium">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">1</div>
+            <div className="w-12 h-12 rounded-xl bg-verdict/10 border border-verdict/30 flex items-center justify-center text-verdict text-lg font-display font-bold mx-auto">1</div>
             <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepSubmitTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
               {t("home.stepSubmitBody")}
             </p>
           </div>
           <div className="premium-card p-7 space-y-4 transition-premium">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">2</div>
+            <div className="w-12 h-12 rounded-xl bg-verdict/10 border border-verdict/30 flex items-center justify-center text-verdict text-lg font-display font-bold mx-auto">2</div>
             <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepBattleTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
               {t("home.stepBattleBody")}
             </p>
           </div>
           <div className="premium-card p-7 space-y-4 transition-premium">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">3</div>
+            <div className="w-12 h-12 rounded-xl bg-verdict/10 border border-verdict/30 flex items-center justify-center text-verdict text-lg font-display font-bold mx-auto">3</div>
             <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepRiseTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
               {t("home.stepRiseBody")}
             </p>
           </div>
           <div className="premium-card p-7 space-y-4 transition-premium">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-lg font-display font-bold mx-auto">4</div>
+            <div className="w-12 h-12 rounded-xl bg-verdict/10 border border-verdict/30 flex items-center justify-center text-verdict text-lg font-display font-bold mx-auto">4</div>
             <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t("home.stepChartTitle")}</p>
             <p className="text-[9px] text-zinc-600 normal-case leading-relaxed">
               {t("home.stepChartBody")}
@@ -418,7 +418,7 @@ export function Home() {
 
         {recentBattle ? (
           <div className="premium-card p-10 mt-12" data-testid="section-live-battle-arena">
-            <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/60 text-center mb-8">
+            <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-arena/70 text-center mb-8">
               {t("home.liveBattleEyebrow")}
             </p>
             <div className="flex md:flex-row flex-col items-center justify-center gap-4 md:gap-8">
@@ -431,7 +431,7 @@ export function Home() {
                 </p>
               </div>
               <div className="shrink-0 self-center">
-                <span className="text-3xl font-display font-black italic text-primary neon-text" data-testid="text-battle-vs">VS</span>
+                <span className="text-3xl font-display font-black italic text-verdict neon-text" data-testid="text-battle-vs">VS</span>
               </div>
               <div className="flex-1 md:text-left text-center">
                 <p className="text-[0.7rem] font-bold text-white uppercase tracking-wider break-words whitespace-normal leading-tight" data-testid="text-battle-arena-track-b">
@@ -446,7 +446,7 @@ export function Home() {
               <button
                 onClick={() => setLocation("/battle")}
                 data-testid="button-vote-now"
-                className="px-10 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
+                className="px-10 py-4 glass-button text-arena font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
               >
                 <Zap className="w-4 h-4 inline mr-2" />
                 {t("home.voteNow")}
@@ -459,7 +459,7 @@ export function Home() {
             <button
               onClick={() => setLocation("/battle")}
               data-testid="button-start-first-battle"
-              className="px-8 py-4 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
+              className="px-8 py-4 glass-button text-arena font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
             >
               {t("home.startABattle")}
             </button>
@@ -469,8 +469,8 @@ export function Home() {
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-creator-ecosystem" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.forCreatorsEyebrow")}</p>
-          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-arena/70">{t("home.forCreatorsEyebrow")}</p>
+          <h2 className="nex-ember-lead-title text-xl md:text-5xl">
             {t("home.ecosystemTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto normal-case font-light">
@@ -481,7 +481,7 @@ export function Home() {
         <div className="grid md:grid-cols-2 gap-8">
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
-              <TrendingUp className="w-6 h-6 text-primary" />
+              <TrendingUp className="w-6 h-6 text-verdict" />
               <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.meritTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
@@ -490,7 +490,7 @@ export function Home() {
           </div>
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
-              <Users className="w-6 h-6 text-primary" />
+              <Users className="w-6 h-6 text-verdict" />
               <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.audienceTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
@@ -499,7 +499,7 @@ export function Home() {
           </div>
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
-              <Music2 className="w-6 h-6 text-primary" />
+              <Music2 className="w-6 h-6 text-verdict" />
               <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.profilesTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
@@ -508,7 +508,7 @@ export function Home() {
           </div>
           <div className="premium-card p-8 space-y-5 transition-premium">
             <div className="flex items-center gap-3">
-              <Swords className="w-6 h-6 text-primary" />
+              <Swords className="w-6 h-6 text-verdict" />
               <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t("home.streaksTitle")}</h3>
             </div>
             <p className="text-[11px] text-zinc-500 leading-relaxed normal-case">
@@ -520,8 +520,8 @@ export function Home() {
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-trending-today" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.trendingEyebrow")}</p>
-          <h2 className="text-base md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-arena/70">{t("home.trendingEyebrow")}</p>
+          <h2 className="nex-ember-lead-title text-base md:text-5xl">
             {t("home.trendingTitle")}
           </h2>
           <p className="text-zinc-500 text-xs uppercase tracking-[0.3em]">
@@ -541,7 +541,7 @@ export function Home() {
             <button
               onClick={() => setLocation("/music")}
               data-testid="button-view-full-chart"
-              className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-primary transition-premium glass-button-outline px-8 py-3 rounded-xl"
+              className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-arena transition-premium glass-button-outline px-8 py-3 rounded-xl"
             >
               {t("home.viewFullChart")} <ArrowRight className="w-3 h-3 inline ml-1" />
             </button>
@@ -551,8 +551,8 @@ export function Home() {
 
       <motion.section className="text-center space-y-10 pt-12 px-6" data-testid="section-cta" {...fadeUp}>
         <div className="space-y-5">
-          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-primary/60">{t("home.joinEyebrow")}</p>
-          <h2 className="text-xl md:text-5xl font-display text-white uppercase tracking-tight font-bold neon-text-strong neon-text-green">
+          <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-arena/70">{t("home.joinEyebrow")}</p>
+          <h2 className="nex-ember-lead-title text-xl md:text-5xl">
             {t("home.ctaTitle")}
           </h2>
           <p className="text-zinc-400 text-sm md:text-base max-w-xl mx-auto leading-relaxed normal-case font-light">
@@ -564,14 +564,14 @@ export function Home() {
           <button
             onClick={goSubmitTrack}
             data-testid="button-submit-your-track"
-            className="px-10 py-5 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
+            className="px-10 py-5 glass-button text-arena font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
           >
             {t("home.submitYourTrack")}
           </button>
           <button
             onClick={() => setLocation("/battle")}
             data-testid="button-cta-battle"
-            className="px-10 py-5 glass-button text-primary font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
+            className="px-10 py-5 glass-button text-arena font-bold text-sm uppercase tracking-widest transition-premium rounded-xl"
             style={{ borderColor: "hsla(282, 100%, 50%, 0.3)", background: "hsla(282, 100%, 50%, 0.08)" }}
           >
             {t("home.enterBattleArena")}
@@ -579,7 +579,7 @@ export function Home() {
           <button
             onClick={() => setLocation("/about")}
             data-testid="button-learn-how-nex-works"
-            className="px-10 py-5 glass-button-outline text-white font-bold text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-primary"
+            className="px-10 py-5 glass-button-outline text-white font-bold text-sm uppercase tracking-widest transition-premium rounded-xl hover:text-arena"
           >
             {t("home.learnMore")}
           </button>

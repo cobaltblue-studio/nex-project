@@ -51,6 +51,7 @@ import {
 import {
   assertAllowedSunoUpstream,
   contentTypeFromMediaMagic,
+  diagnoseSunoResolveFailure,
   looksLikeBrowserMediaBytes,
   resolveSunoPlayableMediaVerified,
   sunoUpstreamFetchHeaders,
@@ -984,6 +985,17 @@ export async function registerRoutes(
     try {
       const media = await resolveSunoPlayableMediaVerified(input);
       if (!media) {
+        const failCode = await diagnoseSunoResolveFailure(input);
+        if (failCode === "SUNO_PRIVATE") {
+          return res.status(422).json({
+            streamUrl: null,
+            code: "SUNO_PRIVATE",
+            message: apiMsg(
+              "이 Suno 곡이 비공개(Private)라 NEX에서 재생할 수 없습니다. Suno에서 Public으로 바꾼 뒤 다시 재생해 주세요",
+              "This Suno song is Private, so it cannot play inside NEX. Make it Public on Suno, then try again",
+            ),
+          });
+        }
         return res.status(422).json({
           streamUrl: null,
           code: "NO_PUBLIC_STREAM",

@@ -6,8 +6,6 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { hasPublicCount } from "@/lib/displayStats";
-import { useTranslation } from "react-i18next";
 import { TrackNewBadge } from "@/components/TrackNewBadge";
 
 interface MusicRowProps {
@@ -80,13 +78,13 @@ export function MusicRow({ track, rank }: MusicRowProps) {
 
       <div className="flex-1 min-w-0">
         <Link href={`/track/${track.id}`}>
-          <h3 className="text-[0.6rem] font-bold text-white uppercase tracking-wider truncate leading-tight cursor-pointer hover:text-primary transition-colors">
+          <h3 className="text-[0.6rem] font-bold text-white uppercase tracking-wider truncate leading-tight cursor-pointer hover:text-verdict transition-colors">
             <TrackNewBadge createdAt={track.createdAt} testId={`badge-new-${track.id}`} className="mr-1.5 align-middle" />
             {track.title}
           </h3>
         </Link>
         <div className="hidden md:flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500 mt-1">
-          <span className="text-primary/70">
+          <span className="text-verdict/80">
             {track.creatorName || "unknown"}
           </span>
           <span className="px-1.5 py-0.5 bg-white/5 rounded-xs text-[8px] border border-white/10">
@@ -99,7 +97,7 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           )}
         </div>
         <div className="flex md:hidden flex-wrap items-center gap-1 mt-1 min-w-0">
-          <span className="text-[8px] font-bold text-primary/70 uppercase tracking-widest truncate max-w-[80px]">
+          <span className="text-[8px] font-bold text-verdict/80 uppercase tracking-widest truncate max-w-[80px]">
             {track.creatorName || "unknown"}
           </span>
           <span className="px-1 py-0.5 bg-white/5 rounded-xs text-[7px] border border-white/10 shrink-0">
@@ -121,16 +119,16 @@ export function MusicRow({ track, rank }: MusicRowProps) {
           data-testid={`button-vote-${track.id}`}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm border text-[10px] font-bold uppercase tracking-widest transition-all ${
             hasVoted
-              ? "border-primary/40 bg-primary/10 text-primary cursor-default"
-              : "border-white/10 bg-white/5 text-zinc-400 hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+              ? "border-verdict/40 bg-verdict/10 text-verdict cursor-default"
+              : "border-white/10 bg-white/5 text-zinc-400 hover:border-verdict/40 hover:bg-verdict/10 hover:text-verdict"
           }`}
         >
-          <ChevronUp className={`w-3 h-3 ${hasVoted ? "fill-primary text-primary" : ""}`} />
+          <ChevronUp className={`w-3 h-3 ${hasVoted ? "fill-verdict text-verdict" : ""}`} />
           <span data-testid={`text-votes-${track.id}`}>{displayVotes}</span>
         </button>
 
         <Link href={`/track/${track.id}`}>
-          <button className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-sm hover:bg-primary hover:text-black hover:border-primary transition-all">
+          <button className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-sm hover:bg-arena hover:text-[hsl(var(--nex-on-wow))] hover:border-[hsl(var(--nex-wow-ember)/0.45)] transition-all">
             <Play className="w-3.5 h-3.5 fill-current" />
           </button>
         </Link>

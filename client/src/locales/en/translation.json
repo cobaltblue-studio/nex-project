@@ -55,6 +55,7 @@
     "embedFailed": "Could not build Suno embed URL.",
     "requestFailed": "Suno resolve request failed.",
     "embedUnavailable": "Suno has no public MP3/MP4 stream for this track, so it can’t play inside NEX. The cover stays visible — listen on Suno.",
+    "privateOnSuno": "This song is Private on Suno, so it can’t play inside NEX. Make it Public on Suno, then try again.",
     "openOnSuno": "Open on Suno",
     "playingInNex": "Playing in NEX"
   },
@@ -62,7 +63,7 @@
     "listenerSubmitNotice": "Listener accounts: submitting a track also requests creator registration. The song stays on your profile only until an admin approves it — then it appears on NEW, Music chart lanes, and battles.",
     "adminBlurb": "Official registration within 24 hours after admin approval; creator access is granted on approval.",
     "linkPlaceholder": "YouTube · SoundCloud · Suno (share link)",
-    "sunoHelp": "Suno: on the song page, ⋯ (more) → Copy link. URLs with /song/… work as-is. Short suno.com/s/… links are converted to UUID on our server.",
+    "sunoHelp": "Suno: on the song page, ⋯ (more) → Copy link. URLs with /song/… work as-is. Short suno.com/s/… links are converted to UUID on our server. The song must be Public for in-NEX playback.",
     "supportedPlatforms": "Supported: YouTube · SoundCloud · Suno",
     "linkOk": "Link format looks playable.",
     "validationIntent": "To maintain NEX quality, artistic intent must be at least {{min}} characters.",
@@ -462,6 +463,9 @@
     "stamp": "Earned",
     "meta": "Wins {{wins}} · Streak {{streak}} · Best {{rank}}",
     "shareDefault": "My NEX Creator Crest: {{tier}} — nexmusic.ai",
+    "shareCardEyebrow": "Creator proof",
+    "shareCardBy": "{{creator}}",
+    "shareCreatorFallback": "Creator",
     "tier": {
       "spark": "Spark",
       "contender": "Contender",
@@ -537,7 +541,7 @@
     "clashNightTitle": "Friday Clash",
     "clashNightSub": "Hot streak · win-streak weighted match · Friday win bonus",
     "clashNightPoolBadge": "Hot streak · win-streak weighted",
-    "clashNightBonusBadge": "Friday win bonus +15",
+    "clashNightBonusBadge": "Friday win bonus +25",
     "clashNightWinBonus": "Friday bonus +{{bonus}}",
     "clashNightEnter": "Enter Friday Clash"
   },

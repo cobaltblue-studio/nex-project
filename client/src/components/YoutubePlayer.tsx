@@ -46,6 +46,10 @@ interface Props {
   /** When true, parent supplies aspect-ratio box (track detail); avoids extra black letterbox. */
   fillParent?: boolean;
   onEnded?: () => void;
+  /** Fired when playback actually starts (YT state PLAYING). */
+  onPlaying?: () => void;
+  /** YouTube IFrame API error (unavailable / embed blocked / HTML5). */
+  onError?: (code: number) => void;
   className?: string;
 }
 
@@ -67,16 +71,28 @@ export function YoutubePlayer({
   autoplay = false,
   battleMode = false,
   onEnded,
+  onPlaying,
+  onError,
   className,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
+  const onPlayingRef = useRef(onPlaying);
+  const onErrorRef = useRef(onError);
   const battleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     onEndedRef.current = onEnded;
   }, [onEnded]);
+
+  useEffect(() => {
+    onPlayingRef.current = onPlaying;
+  }, [onPlaying]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     installYoutubePlaybackGuard();
@@ -172,7 +188,14 @@ export function YoutubePlayer({
         },
         events: {
           onStateChange: (e: { data: number }) => {
+            // 0 ENDED · 1 PLAYING
+            if (e.data === 1) onPlayingRef.current?.();
             if (e.data === 0) emitEnded();
+          },
+          onError: (e: { data: number }) => {
+            if (destroyed) return;
+            const code = typeof e?.data === "number" ? e.data : -1;
+            onErrorRef.current?.(code);
           },
           onReady: (ev: { target: any }) => {
             if (destroyed) {

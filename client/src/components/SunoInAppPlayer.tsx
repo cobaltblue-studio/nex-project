@@ -52,6 +52,7 @@ export function SunoInAppPlayer({
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [failReason, setFailReason] = useState<"SUNO_PRIVATE" | "NO_PUBLIC_STREAM" | null>(null);
   const [meta, setMeta] = useState<AudioApiOk | null>(null);
   const [playing, setPlaying] = useState(false);
   const [coverBroken, setCoverBroken] = useState(false);
@@ -72,13 +73,23 @@ export function SunoInAppPlayer({
     let cancelled = false;
     setLoading(true);
     setError(false);
+    setFailReason(null);
     setMeta(null);
     setPlaying(false);
 
     void fetch(`/api/suno/audio?url=${encodeURIComponent(shareUrl.trim())}`)
       .then(async (res) => {
-        if (!res.ok) throw new Error("resolve_failed");
-        return (await res.json()) as AudioApiOk;
+        const body = (await res.json().catch(() => null)) as
+          | (AudioApiOk & { code?: string })
+          | { streamUrl?: null; code?: string }
+          | null;
+        if (!res.ok) {
+          const code = body && "code" in body ? body.code : undefined;
+          const err = new Error("resolve_failed") as Error & { code?: string };
+          err.code = typeof code === "string" ? code : undefined;
+          throw err;
+        }
+        return body as AudioApiOk;
       })
       .then((data) => {
         if (cancelled) return;
@@ -94,8 +105,13 @@ export function SunoInAppPlayer({
         });
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!cancelled) {
+          const code =
+            err && typeof err === "object" && "code" in err && typeof (err as { code?: unknown }).code === "string"
+              ? (err as { code: string }).code
+              : null;
+          setFailReason(code === "SUNO_PRIVATE" ? "SUNO_PRIVATE" : "NO_PUBLIC_STREAM");
           setError(true);
           setLoading(false);
           setMeta(null);
@@ -229,6 +245,7 @@ export function SunoInAppPlayer({
         coverImageUrl={coverImageUrl}
         title={title}
         compact={compact}
+        reason={failReason}
       />
     );
   }

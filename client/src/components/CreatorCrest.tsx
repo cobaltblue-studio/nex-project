@@ -1,4 +1,4 @@
-import { ShareButtons } from "@/components/ShareButtons";
+import { CrestShareCard } from "@/components/CrestShareCard";
 import {
   resolveCreatorCrest,
   type CrestInputs,
@@ -11,6 +11,8 @@ type Mode = "full" | "compact";
 type Props = {
   inputs: CrestInputs;
   mode?: Mode;
+  /** Display name on Crest Share v2 card */
+  creatorName?: string;
   /** Profile share URL — enables Ember Share crest CTA when earned */
   shareUrl?: string;
   shareText?: string;
@@ -29,6 +31,7 @@ function tierLabelKey(tier: CrestTierId): string {
 export function CreatorCrest({
   inputs,
   mode = "full",
+  creatorName,
   shareUrl,
   shareText,
   className = "",
@@ -125,14 +128,21 @@ export function CreatorCrest({
             rank: crest.bestChartRank != null ? `#${crest.bestChartRank}` : "—",
           })}
         </p>
-        {earned && shareUrl ? (
+        {earned && shareUrl && crest.tier ? (
           <div className="nex-creator-crest-share" data-testid={`${testId}-share`}>
-            <ShareButtons
-              url={shareUrl}
-              text={shareText || t("crest.shareDefault", { tier: t(tierLabelKey(crest.tier!)) })}
-              variant="arena"
-              compact
-              testIdPrefix="crest-share"
+            <CrestShareCard
+              creatorName={creatorName || t("crest.shareCreatorFallback")}
+              tier={crest.tier}
+              shareUrl={shareUrl}
+              shareText={
+                shareText ||
+                t("crest.shareDefault", { tier: t(tierLabelKey(crest.tier)) })
+              }
+              metaLine={t("crest.meta", {
+                wins: crest.battleWins,
+                streak: crest.maxWinStreak,
+                rank: crest.bestChartRank != null ? `#${crest.bestChartRank}` : "—",
+              })}
             />
           </div>
         ) : null}

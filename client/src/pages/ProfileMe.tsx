@@ -343,6 +343,7 @@ export function ProfileMe() {
       <CreatorCrest
         inputs={crestInputs}
         mode="full"
+        creatorName={displayName}
         shareUrl={profileShareUrl || undefined}
         testId="profile-creator-crest"
       />

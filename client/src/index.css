@@ -1080,6 +1080,48 @@
   margin-top: 0.85rem;
 }
 
+/* Crest Share v2 — Teal medal + stamp on share canvas */
+.nex-crest-share-card {
+  margin-top: 0.85rem;
+}
+
+.nex-crest-share-medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0.65rem auto 0;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--nex-wow-teal) / 0.55);
+  background: hsl(var(--nex-wow-teal) / 0.12);
+  color: hsl(var(--nex-wow-teal));
+  font-size: 1.15rem;
+  box-shadow: 0 0 18px hsl(var(--nex-wow-teal) / 0.35);
+}
+
+.nex-crest-share-meta {
+  margin-top: 0.45rem;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(215 16% 55%);
+}
+
+.nex-crest-share-stamp {
+  display: inline-block;
+  margin-top: 0.55rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--nex-wow-teal) / 0.45);
+  background: hsl(var(--nex-wow-teal) / 0.12);
+  color: hsl(var(--nex-wow-teal));
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.65rem;
+}
+
 .battle-vote-button-b {
   background: hsla(220, 100%, 60%, 0.08);
   border: 1px solid hsla(220, 100%, 60%, 0.25);
