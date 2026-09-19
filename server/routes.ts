@@ -79,10 +79,12 @@ import { isCommunityCategorySlug } from "@shared/community";
 import { rejectArtisticIntent } from "./artisticIntent";
 import { describePlaybackIssue, inspectTrackPlaybackAvailability } from "./media-availability";
 import {
+  ensureCommunityEnColumns,
   localizeCommunityComments,
   localizeCommunityPostFields,
   localizeCommunityPosts,
   parseCommunityLang,
+  setCommunityEnPersisters,
   warmCommunityCommentTranslation,
   warmCommunityPostTranslation,
 } from "./communityLocalize";
@@ -296,6 +298,16 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   app.use(createApiAccessControl(isAdmin));
 
+  setCommunityEnPersisters({
+    savePostEn: (postId, titleEn, bodyEn) => storage.saveCommunityPostEnglish(postId, titleEn, bodyEn),
+    saveCommentEn: (commentId, contentEn) => storage.saveCommunityCommentEnglish(commentId, contentEn),
+  });
+  try {
+    await ensureCommunityEnColumns();
+  } catch (err) {
+    console.warn("[community] ensure EN columns failed", err);
+  }
+
   // Get current user's profile — auto-creates a minimal profile on first access
   app.get(api.profiles.me.path, isAuthenticated, async (req: any, res) => {
     const userId = getUserId(req);
@@ -442,7 +454,7 @@ export async function registerRoutes(
         attachedTrackId: req.body?.attachedTrackId ?? null,
         externalUrl: req.body?.externalUrl ?? null,
       });
-      warmCommunityPostTranslation(title, body);
+      warmCommunityPostTranslation(title, body, postId);
       res.status(201).json({ message: apiMsg("커뮤니티 글이 등록되었습니다", "Community post created"), postId });
     } catch (err: any) {
       const msg = err?.message;
@@ -545,8 +557,8 @@ export async function registerRoutes(
       return res.status(400).json({ message: apiMsg("댓글 내용이 필요합니다", "Comment content is required") });
     }
     try {
-      await storage.addCommunityComment(userId, postId, content);
-      warmCommunityCommentTranslation(content);
+      const commentId = await storage.addCommunityComment(userId, postId, content);
+      warmCommunityCommentTranslation(content, commentId);
       res.status(201).json({ message: apiMsg("댓글이 등록되었습니다", "Comment posted") });
     } catch (err: any) {
       const msg = err?.message;

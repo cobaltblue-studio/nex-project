@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, PenLine } from "lucide-react";
@@ -17,10 +17,13 @@ import {
 import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_IVORY,
+  resolveCommunityPostDisplay,
   type CommunityCategorySlug,
 } from "@shared/community";
 
 type MeProfile = { id: number; username: string; role?: string } | null;
+
+const HANGUL_RE = /[\uAC00-\uD7A3]/;
 
 export default function Community() {
   const { i18n } = useTranslation();
@@ -50,6 +53,20 @@ export default function Community() {
     queryKey: [listUrl],
     staleTime: 20_000,
   });
+
+  // EN mode: if any Hangul remains (translate/backfill in progress), refetch until clean.
+  useEffect(() => {
+    if (isKorean || !posts?.length) return;
+    const stillKo = posts.some((post) => {
+      const d = resolveCommunityPostDisplay(post, false);
+      return HANGUL_RE.test(d.title) || HANGUL_RE.test(d.body);
+    });
+    if (!stillKo) return;
+    const timer = window.setInterval(() => {
+      void queryClient.invalidateQueries({ queryKey: [listUrl] });
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [isKorean, posts, listUrl]);
 
   const likeMutation = useMutation({
     mutationFn: async (postId: number) => {

@@ -2685,6 +2685,8 @@ export class DatabaseStorage implements IStorage {
         COALESCE(p.post_kind, 'talk') AS "kind",
         p.title,
         p.body,
+        p.title_en AS "titleEn",
+        p.body_en AS "bodyEn",
         p.external_url AS "externalUrl",
         p.created_at AS "createdAt",
         p.pinned_at AS "pinnedAt",
@@ -2731,6 +2733,8 @@ export class DatabaseStorage implements IStorage {
       kind: String(row.kind ?? "talk"),
       title: String(row.title),
       body: String(row.body),
+      titleEn: row.titleEn != null ? String(row.titleEn) : null,
+      bodyEn: row.bodyEn != null ? String(row.bodyEn) : null,
       externalUrl: row.externalUrl ?? null,
       createdAt: new Date(row.createdAt),
       pinnedAt: row.pinnedAt ? new Date(row.pinnedAt) : null,
@@ -2797,6 +2801,8 @@ export class DatabaseStorage implements IStorage {
         COALESCE(p.post_kind, 'talk') AS "kind",
         p.title,
         p.body,
+        p.title_en AS "titleEn",
+        p.body_en AS "bodyEn",
         p.external_url AS "externalUrl",
         p.created_at AS "createdAt",
         p.updated_at AS "updatedAt",
@@ -2844,6 +2850,8 @@ export class DatabaseStorage implements IStorage {
       kind: String(row.kind ?? "talk"),
       title: String(row.title),
       body: String(row.body),
+      titleEn: row.titleEn != null ? String(row.titleEn) : null,
+      bodyEn: row.bodyEn != null ? String(row.bodyEn) : null,
       externalUrl: row.externalUrl ?? null,
       createdAt: new Date(row.createdAt),
       updatedAt: new Date(row.updatedAt),
@@ -2908,7 +2916,7 @@ export class DatabaseStorage implements IStorage {
     return { liked: !existing, likeCount: Number(countRow?.c ?? 0) };
   }
 
-  async addCommunityComment(userId: string, postId: number, content: string): Promise<void> {
+  async addCommunityComment(userId: string, postId: number, content: string): Promise<number> {
     const body = content.trim();
     if (!body) throw new Error("EMPTY_COMMENT");
     if (body.length > 2000) throw new Error("COMMENT_TOO_LONG");
@@ -2923,7 +2931,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(communityPosts.id, postId))
       .limit(1);
     if (!post || post.hiddenAt) throw new Error("POST_NOT_FOUND");
-    await db.insert(communityComments).values({ authorUserId: userId, postId, content: body });
+    const [row] = await db
+      .insert(communityComments)
+      .values({ authorUserId: userId, postId, content: body })
+      .returning({ id: communityComments.id });
     if (post.authorUserId && post.authorUserId !== userId) {
       void this.createNotification({
         recipientUserId: post.authorUserId,
@@ -2933,6 +2944,7 @@ export class DatabaseStorage implements IStorage {
         href: `/community/${postId}`,
       });
     }
+    return Number(row.id);
   }
 
   async listCommunityComments(
@@ -2958,6 +2970,7 @@ export class DatabaseStorage implements IStorage {
       SELECT
         c.id,
         c.content,
+        c.content_en AS "contentEn",
         c.created_at AS "createdAt",
         c.hidden_at AS "hiddenAt",
         c.hidden_reason AS "hiddenReason",
@@ -2974,6 +2987,7 @@ export class DatabaseStorage implements IStorage {
     return (rows.rows as any[]).map((row) => ({
       id: Number(row.id),
       content: String(row.content),
+      contentEn: row.contentEn != null ? String(row.contentEn) : null,
       createdAt: new Date(row.createdAt),
       hiddenAt: row.hiddenAt ? new Date(row.hiddenAt) : null,
       hiddenReason: row.hiddenReason ?? null,
@@ -2982,6 +2996,24 @@ export class DatabaseStorage implements IStorage {
       authorProfileId: row.authorProfileId != null ? Number(row.authorProfileId) : null,
       authorIsVerified: Boolean(row.authorIsVerified),
     }));
+  }
+
+  async saveCommunityPostEnglish(postId: number, titleEn: string, bodyEn: string): Promise<void> {
+    await db.execute(sql`
+      UPDATE community_posts
+      SET title_en = ${titleEn},
+          body_en = ${bodyEn},
+          updated_at = NOW()
+      WHERE id = ${postId}
+    `);
+  }
+
+  async saveCommunityCommentEnglish(commentId: number, contentEn: string): Promise<void> {
+    await db.execute(sql`
+      UPDATE community_comments
+      SET content_en = ${contentEn}
+      WHERE id = ${commentId}
+    `);
   }
 
   async moderateCommunityPost(

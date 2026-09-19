@@ -273,6 +273,15 @@ app.use((req, res, next) => {
     .then(() => console.log("[boot] ranking scores recalculated"))
     .catch((err) => console.error("[boot] recalculateAllRankingScores failed:", err));
 
+  const { backfillCommunityEnglishTranslations } = await import("./communityLocalize");
+  void (async () => {
+    for (let round = 0; round < 8; round += 1) {
+      const result = await backfillCommunityEnglishTranslations({ limit: 40 });
+      console.log(`[boot] community EN backfill round ${round + 1}`, result);
+      if (result.posts === 0 && result.comments === 0) break;
+    }
+  })().catch((err) => console.error("[boot] community EN backfill failed:", err));
+
   const { startDailySnapshotScheduler } = await import("./dailySnapshot");
   startDailySnapshotScheduler(storage);
   if (isEmailEnabled()) {

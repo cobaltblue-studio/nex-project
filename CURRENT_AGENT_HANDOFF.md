@@ -46,9 +46,9 @@ NEX는 음악 플랫폼이다. 차트·트랙·커뮤니티·크리에이터 흐
 - **BTS/ARMY:** 내부만. 대외 카피 금지.
 - **프로그램:** Arena Wow Upgrade — W1–W7 Production `0d4dee0` (2026-09-19).
 - **스펙:** `docs/superpowers/specs/2026-09-18-nex-arena-wow-upgrade-design.md`
-- **커뮤니티 EN (로컬, 2026-09-19):** `?lang=en` 시 서버가 한글 글·댓글을 영문으로 번역(캐시). 시스템 시드는 사전 EN. 피드/상세 클라이언트도 `lang=en` 전달. **커밋·배포 = 승인 후.**
+- **커뮤니티 EN (Production `4879020`, 2026-09-19):** `?lang=en` 시 서버 번역 + 시드/이중제목 EN 표시. 라이브 반영됨.
 - **Suno 재생:** Private clip (`is_public:false`) → `SUNO_PRIVATE` — Suno에서 Public 필요
-- **다음:** 커뮤니티 EN 스모크 · 커밋/배포는 승인 후. NEXI/Higgsfield 보류.
+- **다음:** EN 커뮤니티 스모크 확인. NEXI/Higgsfield 보류.
 - 코드는 이 `nex-project`.
 
 ## 스모크 Post-W7 polish
