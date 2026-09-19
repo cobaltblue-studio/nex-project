@@ -10,6 +10,7 @@ import { BattleGuide } from "@/components/BattleGuide";
 import { useTranslation } from "react-i18next";
 import { hasPublicCount } from "@/lib/displayStats";
 import { useClashNight } from "@/hooks/use-clash-night";
+import { HomeWeekBackgroundLayer } from "@/components/HomeWeekBackgroundLayer";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -209,22 +210,22 @@ export function Home() {
     .slice(0, 5);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-24 md:space-y-32 pb-24 md:pb-32">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="relative space-y-24 md:space-y-32 pb-24 md:pb-32"
+      data-testid="home-page"
+    >
+      <HomeWeekBackgroundLayer />
 
-      <div>
+      <div className="relative z-10 px-6 md:px-12 max-w-7xl mx-auto">
       <section
         className="relative text-center overflow-hidden flex flex-col hero-section-responsive"
         style={{ minHeight: "auto", height: "auto", paddingTop: "2rem", paddingBottom: "1.25rem", gap: "0.5rem" }}
         data-testid="section-hero"
       >
         <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: "linear-gradient(180deg, #050505 0%, #0A0A0A 50%, #050505 100%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 pointer-events-none opacity-40"
+          className="absolute inset-0 pointer-events-none opacity-20"
           style={{ backgroundImage: grainySvg, backgroundRepeat: "repeat", backgroundSize: "256px 256px" }}
         />
         {/* W4 — one ink Arena glow layer (not site-wide neon) */}
@@ -237,7 +238,7 @@ export function Home() {
         <div
           ref={heroVisualizerRef}
           style={{ transform: `translateY(${scrollY * 0.08}px)` }}
-          className="absolute inset-0 pointer-events-none opacity-50"
+          className="absolute inset-0 pointer-events-none opacity-20"
           aria-hidden
         >
           <div className="absolute inset-0" style={{ clipPath: "inset(52% 0 0 0)" }}>
@@ -249,17 +250,7 @@ export function Home() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-arena/70 mb-3">
             {t("home.heroEyebrow")}
           </p>
-          <h1
-            className="text-[9rem] md:text-[5.625rem] font-display font-black leading-none"
-            style={{
-              background: "linear-gradient(180deg, #ffffff 0%, #c0c0c0 40%, #ffffff 60%, #a0a0a0 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-              filter: "drop-shadow(0 0 20px rgba(254, 145, 53, 0.75)) drop-shadow(0 0 50px rgba(254, 145, 53, 0.35))",
-              display: "inline-block",
-            }}
-          >
+          <h1 className="nex-hero-wordmark" data-testid="home-hero-wordmark">
             NEX
           </h1>
           <p className="text-arena font-bold tracking-[0.4em] text-sm uppercase mt-2 md:mt-6">
@@ -301,11 +292,15 @@ export function Home() {
             </button>
           </div>
           {clashNight ? (
-            <div className="flex justify-center" data-testid="home-clash-night-chip">
-              <span className="nex-home-clash-night-chip">
+            <div className="flex justify-center mt-3" data-testid="home-clash-night-chip">
+              <button
+                type="button"
+                onClick={() => setLocation("/battle")}
+                className="nex-home-clash-night-chip"
+              >
                 <span className="nex-home-clash-night-chip-dot" aria-hidden />
                 {t("home.clashNightChip")}
-              </span>
+              </button>
             </div>
           ) : null}
         </motion.div>
@@ -316,27 +311,32 @@ export function Home() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55, duration: 0.6 }}
-          className="relative z-10 flex flex-col items-center justify-center w-full hero-bottom-row mt-3 pb-1"
+          className="relative z-10 flex flex-col items-center justify-center w-full hero-bottom-row mt-5 pb-2"
           data-testid="scroll-guide"
         >
-          <motion.div
-            animate={{ y: [0, 5, 0] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            className="flex items-center justify-center gap-2"
+          <button
+            type="button"
+            onClick={() => {
+              document
+                .querySelector('[data-testid="section-platform-concept"]')
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="nex-home-discover-more"
+            aria-label={t("home.discoverMore")}
           >
-            <span
-              className="text-[10px] font-black uppercase tracking-[0.45em] text-arena/70"
-              style={{ textShadow: "0 0 10px hsla(189,100%,50%,0.25)" }}
+            <motion.span
+              animate={{ y: [0, 5, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              className="inline-flex items-center justify-center gap-2"
             >
-              {t("home.discoverMore")}
-            </span>
-            <ChevronDown className="w-5 h-5 text-arena/80" />
-          </motion.div>
+              <span>{t("home.discoverMore")}</span>
+              <ChevronDown className="w-5 h-5 shrink-0" aria-hidden />
+            </motion.span>
+          </button>
         </motion.div>
       </section>
 
       <BattleGuide />
-      </div>
 
       <motion.section className="max-w-4xl mx-auto px-6" data-testid="section-platform-concept" {...fadeUp}>
         <div className="text-center space-y-5 mb-16">
@@ -586,6 +586,7 @@ export function Home() {
         </div>
       </motion.section>
 
+      </div>
     </motion.div>
   );
 }

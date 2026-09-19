@@ -139,13 +139,28 @@ export function Layout({ children }: LayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col relative overflow-x-hidden font-sans">
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
-        <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-blue-500/5 rounded-full blur-[100px]" />
-      </div>
+    <div
+      className={clsx(
+        "min-h-screen text-white flex flex-col relative overflow-x-hidden font-sans",
+        location === "/" ? "bg-transparent" : "bg-[#050505]",
+      )}
+      data-home-atmosphere={location === "/" ? "on" : "off"}
+    >
+      {location !== "/" ? (
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+          <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-blue-500/5 rounded-full blur-[100px]" />
+        </div>
+      ) : null}
 
-      <header className="fixed top-0 left-0 right-0 h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl z-50 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-12">
+      <header
+        className={clsx(
+          "fixed top-0 left-0 right-0 h-20 border-b z-50 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-12",
+          location === "/"
+            ? "border-white/10 bg-black/20 backdrop-blur-md"
+            : "border-white/5 bg-black/40 backdrop-blur-xl",
+        )}
+      >
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2 justify-self-start text-primary font-display font-bold tracking-tighter group border-none shadow-none outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
@@ -323,8 +338,18 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="flex-1 w-full min-w-0 relative z-10 pt-28 px-6 md:px-12">
-        <div className="max-w-7xl mx-auto min-w-0">
+      <main
+        className={clsx(
+          "flex-1 w-full min-w-0 relative z-10 pt-28",
+          location === "/" ? "px-0 md:px-0" : "px-6 md:px-12",
+        )}
+      >
+        <div
+          className={clsx(
+            "min-w-0",
+            location === "/" ? "max-w-none w-full" : "max-w-7xl mx-auto",
+          )}
+        >
           {children}
         </div>
       </main>
