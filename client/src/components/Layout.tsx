@@ -138,15 +138,18 @@ export function Layout({ children }: LayoutProps) {
     [navItems],
   );
 
+  const isHome = location === "/";
+  const isCommunity = location === "/community" || location.startsWith("/community/");
+
   return (
     <div
       className={clsx(
-        "min-h-screen text-white flex flex-col relative overflow-x-hidden font-sans",
-        location === "/" ? "bg-transparent" : "bg-[#050505]",
+        "min-h-screen flex flex-col relative overflow-x-hidden font-sans",
+        isHome ? "bg-transparent text-white" : isCommunity ? "bg-[#DAE0E6] text-neutral-900" : "bg-[#050505] text-white",
       )}
-      data-home-atmosphere={location === "/" ? "on" : "off"}
+      data-home-atmosphere={isHome ? "on" : "off"}
     >
-      {location !== "/" ? (
+      {!isHome && !isCommunity ? (
         <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
           <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-blue-500/5 rounded-full blur-[100px]" />
@@ -156,7 +159,7 @@ export function Layout({ children }: LayoutProps) {
       <header
         className={clsx(
           "fixed top-0 left-0 right-0 h-20 border-b z-50 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-12",
-          location === "/"
+          isHome
             ? "border-white/10 bg-black/20 backdrop-blur-md"
             : "border-white/5 bg-black/40 backdrop-blur-xl",
         )}
@@ -177,7 +180,10 @@ export function Layout({ children }: LayoutProps) {
 
         <nav className="hidden md:flex items-center justify-center gap-x-2 lg:gap-x-3 xl:gap-x-4 max-w-full overflow-x-auto [scrollbar-width:thin] px-1">
           {desktopNavItems.map((item) => {
-            const isActive = location === item.path;
+            const isActive =
+              item.path === "/"
+                ? location === "/"
+                : location === item.path || location.startsWith(`${item.path}/`);
             return (
               <Link key={item.path} href={item.path} className={clsx(
                 "text-[10px] xl:text-[11px] font-bold uppercase tracking-[0.1em] xl:tracking-[0.18em] transition-all relative py-2 whitespace-nowrap shrink-0",
@@ -341,13 +347,13 @@ export function Layout({ children }: LayoutProps) {
       <main
         className={clsx(
           "flex-1 w-full min-w-0 relative z-10 pt-28",
-          location === "/" ? "px-0 md:px-0" : "px-6 md:px-12",
+          isHome || isCommunity ? "px-0 md:px-0" : "px-6 md:px-12",
         )}
       >
         <div
           className={clsx(
             "min-w-0",
-            location === "/" ? "max-w-none w-full" : "max-w-7xl mx-auto",
+            isHome || isCommunity ? "max-w-none w-full" : "max-w-7xl mx-auto",
           )}
         >
           {children}
@@ -355,11 +361,17 @@ export function Layout({ children }: LayoutProps) {
       </main>
 
       {/* Footer */}
-      <footer className={`relative z-10 mt-20 mb-20 md:mb-0 border-t border-white/5 bg-black/30 backdrop-blur-sm px-8 md:px-12 py-8${location === "/battle" ? " battle-page-footer" : ""}`}>
+      <footer className={clsx(
+        "relative z-10 mt-20 mb-20 md:mb-0 border-t px-8 md:px-12 py-8",
+        location === "/battle" && "battle-page-footer",
+        isCommunity
+          ? "border-black/10 bg-[#DAE0E6] text-neutral-700"
+          : "border-white/5 bg-black/30 backdrop-blur-sm",
+      )}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white">© 2026 NEX</p>
-            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-600 mt-0.5">{t("layout.footerTagline")}</p>
+            <p className={clsx("text-[11px] font-black uppercase tracking-[0.2em]", isCommunity ? "text-neutral-800" : "text-white")}>© 2026 NEX</p>
+            <p className={clsx("text-[9px] font-bold uppercase tracking-[0.3em] mt-0.5", isCommunity ? "text-neutral-500" : "text-zinc-600")}>{t("layout.footerTagline")}</p>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             {[
@@ -373,7 +385,10 @@ export function Layout({ children }: LayoutProps) {
                 <a
                   key={label}
                   href={href}
-                  className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
+                  className={clsx(
+                    "text-[9px] font-bold uppercase tracking-widest transition-colors",
+                    isCommunity ? "text-neutral-500 hover:text-neutral-900" : "text-zinc-600 hover:text-primary",
+                  )}
                 >
                   {label}
                 </a>
@@ -381,7 +396,10 @@ export function Layout({ children }: LayoutProps) {
                 <Link
                   key={label}
                   href={href}
-                  className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
+                  className={clsx(
+                    "text-[9px] font-bold uppercase tracking-widest transition-colors",
+                    isCommunity ? "text-neutral-500 hover:text-neutral-900" : "text-zinc-600 hover:text-primary",
+                  )}
                 >
                   {label}
                 </Link>

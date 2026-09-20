@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  ArrowBigUp,
   ExternalLink,
-  Heart,
   Loader2,
   MessageSquare,
   Music2,
@@ -13,8 +13,12 @@ import {
 import { useTranslation } from "react-i18next";
 import {
   COMMUNITY_CATEGORIES,
-  COMMUNITY_IVORY,
-  COMMUNITY_IVORY_INK,
+  COMMUNITY_REDDIT_BORDER,
+  COMMUNITY_REDDIT_CARD,
+  COMMUNITY_REDDIT_HOVER,
+  COMMUNITY_REDDIT_INK,
+  COMMUNITY_REDDIT_MUTED,
+  COMMUNITY_REDDIT_UPVOTE,
   resolveCommunityPostDisplay,
   type CommunityCategorySlug,
 } from "@shared/community";
@@ -291,35 +295,39 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
   return (
     <div
       className={layout === "page" ? "space-y-6 pb-12" : ""}
-      style={{ color: COMMUNITY_IVORY_INK }}
+      style={{ color: COMMUNITY_REDDIT_INK }}
     >
       <article
-        className={layout === "modal" ? "px-5 pt-5 md:px-6 md:pt-6" : "rounded-3xl border border-stone-300/70 p-6 md:p-8"}
-        style={{ backgroundColor: COMMUNITY_IVORY }}
+        className={layout === "modal" ? "px-5 pt-5 md:px-6 md:pt-6" : "rounded-xl border p-6 md:p-8"}
+        style={{
+          backgroundColor: COMMUNITY_REDDIT_CARD,
+          borderColor: layout === "page" ? COMMUNITY_REDDIT_BORDER : undefined,
+        }}
       >
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600">
-            <span className="font-semibold text-stone-800">{categoryMap.get(post.category)}</span>
+          <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: COMMUNITY_REDDIT_MUTED }}>
+            <span className="font-semibold" style={{ color: COMMUNITY_REDDIT_INK }}>{categoryMap.get(post.category)}</span>
             <span>·</span>
             <span>@{post.authorName ?? "unknown"}</span>
             <span>·</span>
             <span>{formatTime(post.createdAt, locale)}</span>
             {post.pinnedAt ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
+              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-amber-800" style={{ backgroundColor: "#FFF7E6" }}>
                 <Pin className="h-3 w-3" />
                 {copy.pinned}
               </span>
             ) : null}
           </div>
 
-          <h1 className={`mt-2 font-black tracking-tight text-stone-900 ${layout === "modal" ? "text-xl md:text-2xl" : "text-3xl"}`}>
+          <h1 className={`mt-2 font-bold tracking-tight ${layout === "modal" ? "text-xl md:text-2xl" : "text-3xl"}`} style={{ color: COMMUNITY_REDDIT_INK }}>
             {displayTitle}
           </h1>
 
           {trackHref && post.attachedTrack && (
             <Link
               href={trackHref}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-stone-400/60 bg-white/60 px-3 py-1.5 text-xs font-semibold text-stone-800 transition hover:bg-white"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:bg-black/[0.02]"
+              style={{ borderColor: COMMUNITY_REDDIT_BORDER, color: COMMUNITY_REDDIT_INK, backgroundColor: COMMUNITY_REDDIT_HOVER }}
             >
               <Music2 className="h-3.5 w-3.5" />
               {copy.openTrack}: {post.attachedTrack.title}
@@ -333,42 +341,41 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
             </div>
           )}
 
-          <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-stone-800">{displayBody}</div>
+          <div className="mt-4 whitespace-pre-wrap text-sm leading-7" style={{ color: "#3C3C3C" }}>{displayBody}</div>
 
           {post.externalUrl && (
             <a
               href={post.externalUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-1 rounded-full border border-stone-300 bg-white/50 px-3 py-1.5 text-xs text-stone-700"
+              className="mt-4 inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs"
+              style={{ borderColor: COMMUNITY_REDDIT_BORDER, color: COMMUNITY_REDDIT_MUTED, backgroundColor: COMMUNITY_REDDIT_HOVER }}
             >
               <ExternalLink className="h-3 w-3" />
               {copy.openExternal}
             </a>
           )}
 
-          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-stone-300/70 pt-4">
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4" style={{ borderColor: COMMUNITY_REDDIT_BORDER }}>
             <button
               type="button"
               disabled={!isAuthenticated}
               onClick={() => likeMutation.mutate()}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                post.viewerHasLiked
-                  ? "bg-rose-100 text-rose-700"
-                  : "text-stone-600 hover:bg-stone-200/70"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ color: post.viewerHasLiked ? COMMUNITY_REDDIT_UPVOTE : COMMUNITY_REDDIT_MUTED }}
             >
-              <Heart className={`h-4 w-4 ${post.viewerHasLiked ? "fill-current" : ""}`} />
+              <ArrowBigUp className={`h-4 w-4 ${post.viewerHasLiked ? "fill-current" : ""}`} />
               {copy.like} {post.likeCount}
             </button>
-            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ color: COMMUNITY_REDDIT_MUTED }}>
               <MessageSquare className="h-4 w-4" />
               {post.commentCount} {copy.comments}
             </span>
             <button
               type="button"
               onClick={() => void sharePost()}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-600 transition hover:bg-stone-200/70"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition hover:bg-black/[0.04]"
+              style={{ color: COMMUNITY_REDDIT_MUTED }}
             >
               <Share2 className="h-4 w-4" />
               {copy.share}
@@ -396,12 +403,17 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
       </article>
 
       <section
-        className={layout === "modal" ? "border-t border-stone-300/70 px-5 py-5 md:px-6 md:py-6" : "rounded-3xl border border-stone-300/70 p-6 md:p-8"}
-        style={{ backgroundColor: COMMUNITY_IVORY }}
+        className={layout === "modal" ? "border-t px-5 py-5 md:px-6 md:py-6" : "rounded-xl border p-6 md:p-8"}
+        style={{ backgroundColor: COMMUNITY_REDDIT_CARD, borderColor: COMMUNITY_REDDIT_BORDER }}
       >
-        <h2 className="text-sm font-bold text-stone-900">{copy.comments}</h2>
+        <h2 className="text-sm font-bold" style={{ color: COMMUNITY_REDDIT_INK }}>{copy.comments}</h2>
         {!isAuthenticated ? (
-          <div className="mt-4 rounded-xl border border-stone-300 bg-white/50 p-4 text-sm text-stone-700">{copy.loginNeeded}</div>
+          <div
+            className="mt-4 rounded-xl border p-4 text-sm"
+            style={{ borderColor: COMMUNITY_REDDIT_BORDER, backgroundColor: COMMUNITY_REDDIT_HOVER, color: COMMUNITY_REDDIT_MUTED }}
+          >
+            {copy.loginNeeded}
+          </div>
         ) : (
           <div className="mt-4 space-y-2">
             <textarea
@@ -409,7 +421,8 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
               onChange={(e) => setComment(e.target.value)}
               rows={3}
               placeholder={copy.commentPlaceholder}
-              className="w-full rounded-xl border border-stone-300 bg-white/70 px-4 py-3 text-sm leading-6 text-stone-900 outline-none focus:border-stone-500"
+              className="w-full rounded-xl border px-4 py-3 text-sm leading-6 outline-none focus:border-neutral-400"
+              style={{ borderColor: COMMUNITY_REDDIT_BORDER, backgroundColor: COMMUNITY_REDDIT_HOVER, color: COMMUNITY_REDDIT_INK }}
             />
             <button
               type="button"
@@ -418,7 +431,7 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
                 const text = comment.trim();
                 if (text) commentMutation.mutate(text);
               }}
-              className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-2 text-sm font-bold text-[#F7F1E3] disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
             >
               {commentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {copy.submitComment}
@@ -428,10 +441,14 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
 
         <div className="mt-6 space-y-3">
           {(comments ?? []).map((item) => (
-            <div key={item.id} className="rounded-xl border border-stone-300/70 bg-white/40 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-stone-600">
+            <div
+              key={item.id}
+              className="rounded-xl border p-4"
+              style={{ borderColor: COMMUNITY_REDDIT_BORDER, backgroundColor: COMMUNITY_REDDIT_HOVER }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs" style={{ color: COMMUNITY_REDDIT_MUTED }}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-stone-800">@{item.authorName ?? "unknown"}</span>
+                  <span className="font-semibold" style={{ color: COMMUNITY_REDDIT_INK }}>@{item.authorName ?? "unknown"}</span>
                   <span>·</span>
                   <span>{formatTime(item.createdAt, locale)}</span>
                 </div>
@@ -456,11 +473,11 @@ export function CommunityPostPanel({ postId, layout = "modal", onClose }: Commun
                   {item.hiddenReason ? ` · ${item.hiddenReason}` : ""}
                 </p>
               ) : (
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-800">{item.content}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6" style={{ color: COMMUNITY_REDDIT_INK }}>{item.content}</p>
               )}
             </div>
           ))}
-          {!comments?.length && <div className="text-sm text-stone-600">{copy.noComments}</div>}
+          {!comments?.length && <div className="text-sm" style={{ color: COMMUNITY_REDDIT_MUTED }}>{copy.noComments}</div>}
         </div>
       </section>
     </div>

@@ -86,6 +86,15 @@ export type CommunityPostKind = (typeof COMMUNITY_POST_KINDS)[number];
 export const COMMUNITY_IVORY = "#F7F1E3";
 export const COMMUNITY_IVORY_INK = "#1C1917";
 
+/** Reddit-style community shell (Founder: option A). */
+export const COMMUNITY_REDDIT_BG = "#DAE0E6";
+export const COMMUNITY_REDDIT_CARD = "#FFFFFF";
+export const COMMUNITY_REDDIT_INK = "#1A1A1B";
+export const COMMUNITY_REDDIT_MUTED = "#787C7E";
+export const COMMUNITY_REDDIT_BORDER = "#EDEFF1";
+export const COMMUNITY_REDDIT_HOVER = "#F6F7F8";
+export const COMMUNITY_REDDIT_UPVOTE = "#D93A00";
+
 export function isCommunityCategorySlug(value: unknown): value is CommunityCategorySlug {
   return typeof value === "string" && COMMUNITY_CATEGORY_SLUGS.includes(value as CommunityCategorySlug);
 }

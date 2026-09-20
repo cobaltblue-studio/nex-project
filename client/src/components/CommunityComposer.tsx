@@ -3,8 +3,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, PenLine } from "lucide-react";
 import {
   COMMUNITY_CATEGORIES,
-  COMMUNITY_IVORY,
-  COMMUNITY_IVORY_INK,
+  COMMUNITY_REDDIT_BORDER,
+  COMMUNITY_REDDIT_CARD,
+  COMMUNITY_REDDIT_INK,
   type CommunityCategorySlug,
   type CommunityPostKind,
 } from "@shared/community";
@@ -132,11 +133,11 @@ export function CommunityComposer({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[90vh] overflow-y-auto border-stone-300 sm:max-w-lg"
-        style={{ backgroundColor: COMMUNITY_IVORY, color: COMMUNITY_IVORY_INK }}
+        className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+        style={{ backgroundColor: COMMUNITY_REDDIT_CARD, color: COMMUNITY_REDDIT_INK, borderColor: COMMUNITY_REDDIT_BORDER }}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-stone-900">
+          <DialogTitle className="flex items-center gap-2" style={{ color: COMMUNITY_REDDIT_INK }}>
             <PenLine className="h-4 w-4" />
             {isKorean ? "글쓰기" : "Write a post"}
           </DialogTitle>
