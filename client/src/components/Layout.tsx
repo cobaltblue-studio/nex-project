@@ -145,7 +145,7 @@ export function Layout({ children }: LayoutProps) {
     <div
       className={clsx(
         "min-h-screen flex flex-col relative overflow-x-hidden font-sans",
-        isHome ? "bg-transparent text-white" : isCommunity ? "bg-[#DAE0E6] text-neutral-900" : "bg-[#050505] text-white",
+        isHome ? "bg-transparent text-white" : isCommunity ? "bg-[#DAE0E6] text-neutral-900 h-dvh overflow-hidden" : "bg-[#050505] text-white",
       )}
       data-home-atmosphere={isHome ? "on" : "off"}
     >
@@ -346,7 +346,8 @@ export function Layout({ children }: LayoutProps) {
 
       <main
         className={clsx(
-          "flex-1 w-full min-w-0 relative z-10 pt-28",
+          "flex-1 w-full min-w-0 relative z-10",
+          isCommunity ? "flex min-h-0 flex-col overflow-hidden pt-20" : "pt-28",
           isHome || isCommunity ? "px-0 md:px-0" : "px-6 md:px-12",
         )}
       >
@@ -354,24 +355,24 @@ export function Layout({ children }: LayoutProps) {
           className={clsx(
             "min-w-0",
             isHome || isCommunity ? "max-w-none w-full" : "max-w-7xl mx-auto",
+            isCommunity && "flex min-h-0 flex-1 flex-col overflow-hidden",
           )}
         >
           {children}
         </div>
       </main>
 
-      {/* Footer */}
+      {/* Footer — hidden on community so sidebars can stay fixed while the feed scrolls */}
+      {!isCommunity ? (
       <footer className={clsx(
         "relative z-10 mt-20 mb-20 md:mb-0 border-t px-8 md:px-12 py-8",
         location === "/battle" && "battle-page-footer",
-        isCommunity
-          ? "border-black/10 bg-[#DAE0E6] text-neutral-700"
-          : "border-white/5 bg-black/30 backdrop-blur-sm",
+        "border-white/5 bg-black/30 backdrop-blur-sm",
       )}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
-            <p className={clsx("text-[11px] font-black uppercase tracking-[0.2em]", isCommunity ? "text-neutral-800" : "text-white")}>© 2026 NEX</p>
-            <p className={clsx("text-[9px] font-bold uppercase tracking-[0.3em] mt-0.5", isCommunity ? "text-neutral-500" : "text-zinc-600")}>{t("layout.footerTagline")}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white">© 2026 NEX</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-600 mt-0.5">{t("layout.footerTagline")}</p>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             {[
@@ -385,10 +386,7 @@ export function Layout({ children }: LayoutProps) {
                 <a
                   key={label}
                   href={href}
-                  className={clsx(
-                    "text-[9px] font-bold uppercase tracking-widest transition-colors",
-                    isCommunity ? "text-neutral-500 hover:text-neutral-900" : "text-zinc-600 hover:text-primary",
-                  )}
+                  className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
                 >
                   {label}
                 </a>
@@ -396,10 +394,7 @@ export function Layout({ children }: LayoutProps) {
                 <Link
                   key={label}
                   href={href}
-                  className={clsx(
-                    "text-[9px] font-bold uppercase tracking-widest transition-colors",
-                    isCommunity ? "text-neutral-500 hover:text-neutral-900" : "text-zinc-600 hover:text-primary",
-                  )}
+                  className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
                 >
                   {label}
                 </Link>
@@ -408,6 +403,7 @@ export function Layout({ children }: LayoutProps) {
           </nav>
         </div>
       </footer>
+      ) : null}
 
       <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-around px-4">
         {navItems.map((item) => {

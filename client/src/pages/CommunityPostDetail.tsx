@@ -20,7 +20,10 @@ export function CommunityPostDetail() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-7rem)] px-4 pb-12 pt-2" style={{ backgroundColor: COMMUNITY_REDDIT_BG }}>
+    <div
+      className="min-h-0 flex-1 overflow-y-auto px-4 pb-12 pt-2"
+      style={{ backgroundColor: COMMUNITY_REDDIT_BG }}
+    >
       <div className="mx-auto max-w-3xl">
         <Link
           href="/community"

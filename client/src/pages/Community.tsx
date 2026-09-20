@@ -168,15 +168,18 @@ export default function Community() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-7rem)] pb-24" style={{ backgroundColor: shell.bg, color: shell.ink }}>
-      <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-4 px-3 py-4 md:px-4 lg:grid-cols-[240px_minmax(0,1fr)_312px] lg:gap-5 lg:px-6 lg:py-5">
-        {/* Left nav */}
-        <aside className="hidden lg:block">
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden max-lg:overflow-y-auto max-lg:pb-24"
+      style={{ backgroundColor: shell.bg, color: shell.ink }}
+    >
+      <div className="mx-auto grid min-h-0 w-full max-w-[1280px] flex-1 grid-cols-1 gap-4 overflow-hidden px-3 py-4 md:px-4 lg:grid-cols-[240px_minmax(0,1fr)_312px] lg:gap-5 lg:px-6 lg:py-5">
+        {/* Left nav — fixed in viewport; does not scroll with the feed */}
+        <aside className="hidden min-h-0 lg:block">
           <div
-            className="sticky top-28 overflow-hidden rounded-xl border"
+            className="flex h-full max-h-full flex-col overflow-hidden rounded-xl border"
             style={{ backgroundColor: shell.card, borderColor: shell.border }}
           >
-            <nav className="p-2">
+            <nav className="min-h-0 flex-1 overflow-y-auto p-2">
               {navItems.map((item) => {
                 const active = filter === item.id;
                 const Icon = item.Icon;
@@ -197,7 +200,7 @@ export default function Community() {
                 );
               })}
             </nav>
-            <div className="border-t px-3 py-3" style={{ borderColor: shell.border }}>
+            <div className="shrink-0 border-t px-3 py-3" style={{ borderColor: shell.border }}>
               <button
                 type="button"
                 onClick={() => setComposeOpen(true)}
@@ -210,8 +213,9 @@ export default function Community() {
           </div>
         </aside>
 
-        {/* Center feed */}
-        <section className="min-w-0 space-y-3">
+        {/* Center feed — only this column scrolls */}
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-4 [scrollbar-gutter:stable]">
           <div
             className="rounded-xl border px-4 py-3 md:px-5"
             style={{ backgroundColor: shell.card, borderColor: shell.border }}
@@ -319,13 +323,12 @@ export default function Community() {
               ))}
             </div>
           )}
+          </div>
         </section>
 
-        {/* Right sidebar */}
-        <aside className="hidden space-y-3 lg:block">
-          <div
-            className="sticky top-28 space-y-3"
-          >
+        {/* Right sidebar — fixed in viewport */}
+        <aside className="hidden min-h-0 lg:block">
+          <div className="flex h-full max-h-full flex-col gap-3 overflow-y-auto overscroll-contain pr-0.5">
             <div
               className="overflow-hidden rounded-xl border"
               style={{ backgroundColor: shell.card, borderColor: shell.border }}
