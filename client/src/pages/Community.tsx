@@ -156,7 +156,7 @@ export default function Community() {
       ? activeCategory?.descriptionKo
       : activeCategory?.description;
 
-  const recentPosts = useMemo(() => (posts ?? []).slice(0, 6), [posts]);
+  const recentPosts = useMemo(() => (posts ?? []).slice(0, 20), [posts]);
 
   const shell = {
     bg: COMMUNITY_REDDIT_BG,
@@ -326,11 +326,11 @@ export default function Community() {
           </div>
         </section>
 
-        {/* Right sidebar — fixed in viewport */}
+        {/* Right sidebar — fixed; Recent posts scrolls inside its own panel */}
         <aside className="hidden min-h-0 lg:block">
-          <div className="flex h-full max-h-full flex-col gap-3 overflow-y-auto overscroll-contain pr-0.5">
+          <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div
-              className="overflow-hidden rounded-xl border"
+              className="shrink-0 overflow-hidden rounded-xl border"
               style={{ backgroundColor: shell.card, borderColor: shell.border }}
             >
               <div className="bg-neutral-800 px-4 py-3 text-sm font-bold text-white">
@@ -364,16 +364,16 @@ export default function Community() {
             </div>
 
             <div
-              className="overflow-hidden rounded-xl border"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border"
               style={{ backgroundColor: shell.card, borderColor: shell.border }}
             >
               <div
-                className="flex items-center justify-between border-b px-4 py-3"
+                className="flex shrink-0 items-center justify-between border-b px-4 py-3"
                 style={{ borderColor: shell.border }}
               >
                 <p className="text-sm font-bold">{isKorean ? "최근 게시물" : "Recent posts"}</p>
               </div>
-              <ul>
+              <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
                 {recentPosts.length === 0 ? (
                   <li className="px-4 py-6 text-sm" style={{ color: shell.muted }}>
                     {isKorean ? "아직 없습니다." : "Nothing yet."}
