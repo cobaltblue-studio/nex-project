@@ -132,8 +132,10 @@ async function fetchOembed(
 
 /**
  * Decide whether a YouTube URL is usable as a NEX track source.
- * Prefer structured signals (oEmbed / playabilityStatus) over loose HTML phrase matching —
- * YouTube pages embed i18n/UI strings that caused false "private/removed" rejects.
+ *
+ * oEmbed title proves the video is publicly known — it does NOT prove embed
+ * playback (owners can disable "Playback on other websites" while oEmbed still
+ * returns 200). Always prefer watch/embed playability + playableInEmbed.
  */
 export async function inspectYoutubeVideoAvailability(
   inputUrl: string | null | undefined,
@@ -144,12 +146,8 @@ export async function inspectYoutubeVideoAvailability(
   const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const embedUrl = `https://www.youtube.com/embed/${videoId}`;
 
-  // oEmbed 200 + title is the strongest "publicly known video" signal.
-  // (Some environments still get 401 on oEmbed for public videos — treat that as inconclusive.)
+  // oEmbed 403/404 → deleted/private. Never treat oEmbed 200 as embed-OK alone.
   const oembed = await fetchOembed(watchUrl);
-  if (oembed?.okJson) {
-    return { status: "ok" };
-  }
   if (oembed && (oembed.status === 403 || oembed.status === 404)) {
     return { status: "blocked", reason: "private_or_removed" };
   }
@@ -161,8 +159,10 @@ export async function inspectYoutubeVideoAvailability(
   }
 
   const playability = parsePlayability(watch.html);
-  if (playability.status === "OK" || playability.playableInEmbed === true) {
-    return { status: "ok" };
+
+  // Embed disable must win over playabilityStatus=OK (common false-OK pattern).
+  if (playability.playableInEmbed === false || textSuggestsEmbedBlocked(watch.html)) {
+    return { status: "blocked", reason: "embed_blocked" };
   }
   if (playability.status === "LOGIN_REQUIRED") {
     return { status: "blocked", reason: "embed_blocked" };
@@ -171,10 +171,10 @@ export async function inspectYoutubeVideoAvailability(
     if (textSuggestsPrivateOrRemoved(watch.html)) {
       return { status: "blocked", reason: "private_or_removed" };
     }
-    if (playability.playableInEmbed === false || textSuggestsEmbedBlocked(watch.html)) {
-      return { status: "blocked", reason: "embed_blocked" };
-    }
     return { status: "blocked", reason: "private_or_removed" };
+  }
+  if (playability.status === "OK" || playability.playableInEmbed === true) {
+    return { status: "ok" };
   }
 
   if (textSuggestsPrivateOrRemoved(watch.html)) {
@@ -183,7 +183,6 @@ export async function inspectYoutubeVideoAvailability(
 
   const embed = await fetchHtml(embedUrl);
   if (!embed) {
-    // Watch page didn't give a clear verdict; don't reject on network flake.
     return { status: "unknown" };
   }
   if (!embed.ok && [403, 404, 410, 451].includes(embed.status)) {
@@ -191,17 +190,17 @@ export async function inspectYoutubeVideoAvailability(
   }
 
   const embedPlayability = parsePlayability(embed.html);
+  if (embedPlayability.playableInEmbed === false || textSuggestsEmbedBlocked(embed.html)) {
+    return { status: "blocked", reason: "embed_blocked" };
+  }
   if (embedPlayability.status === "OK" || embedPlayability.playableInEmbed === true) {
     return { status: "ok" };
   }
   if (textSuggestsPrivateOrRemoved(embed.html)) {
     return { status: "blocked", reason: "private_or_removed" };
   }
-  if (embedPlayability.playableInEmbed === false || textSuggestsEmbedBlocked(embed.html)) {
-    return { status: "blocked", reason: "embed_blocked" };
-  }
 
   // Inconclusive (consent wall, bot interstitial, etc.) — allow submit rather than false reject.
-  // Battle playback will still surface real embed failures to the listener.
+  // Do not promote oEmbed title alone to "ok"; battle/detail will surface real embed failures.
   return { status: "unknown" };
 }

@@ -1,4 +1,8 @@
 import { resolveSoundCloudShareToPermalink } from "./soundcloud-resolve";
+import {
+  diagnoseSunoResolveFailure,
+  resolveSunoPlayableMediaVerified,
+} from "./suno-audio";
 import { resolveSunoShareToSongUuid } from "./suno-resolve";
 import { inspectYoutubeVideoAvailability } from "./youtube-availability";
 
@@ -99,7 +103,15 @@ export async function inspectTrackPlaybackAvailability(
 
   if (source === "suno") {
     const uuid = await resolveSunoShareToSongUuid(raw);
-    return uuid ? { status: "ok", source } : { status: "unknown", source };
+    if (!uuid) return { status: "unknown", source };
+    // UUID alone is not enough — Private clips still resolve a UUID but have no public stream.
+    const media = await resolveSunoPlayableMediaVerified(raw);
+    if (media) return { status: "ok", source };
+    const fail = await diagnoseSunoResolveFailure(raw);
+    if (fail === "SUNO_PRIVATE") {
+      return { status: "blocked", source, reason: "private_or_removed" };
+    }
+    return { status: "blocked", source, reason: "unresolvable_link" };
   }
 
   return { status: "unknown", source };
