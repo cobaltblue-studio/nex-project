@@ -57,6 +57,7 @@ export default function Community() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | CommunityCategorySlug>("all");
   const [sort, setSort] = useState<SortMode>("latest");
+  const [newOnly, setNewOnly] = useState(false);
 
   const { data: myProfile } = useQuery<MeProfile>({
     queryKey: ["/api/profiles/me"],
@@ -158,7 +159,13 @@ export default function Community() {
       ? activeCategory?.descriptionKo
       : activeCategory?.description;
 
-  const recentPosts = useMemo(() => (posts ?? []).slice(0, 20), [posts]);
+  const visiblePosts = useMemo(() => {
+    const list = posts ?? [];
+    if (!newOnly) return list;
+    return list.filter((post) => isCommunityPostNew(post.createdAt));
+  }, [posts, newOnly]);
+
+  const recentVisiblePosts = useMemo(() => visiblePosts.slice(0, 20), [visiblePosts]);
 
   const shell = {
     bg: COMMUNITY_REDDIT_BG,
@@ -264,7 +271,7 @@ export default function Community() {
           </div>
 
           <div
-            className="flex items-center gap-2 rounded-xl border px-3 py-2"
+            className="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2"
             style={{ backgroundColor: shell.card, borderColor: shell.border }}
           >
             <span className="text-xs font-bold uppercase tracking-wide" style={{ color: shell.muted }}>
@@ -279,12 +286,34 @@ export default function Community() {
               {sort === "latest"
                 ? isKorean
                   ? "최신순"
-                  : "New"
+                  : "Latest"
                 : isKorean
                   ? "인기순"
                   : "Top"}
               <ChevronDown className="h-4 w-4" style={{ color: shell.muted }} />
             </button>
+            <button
+              type="button"
+              onClick={() => setNewOnly((v) => !v)}
+              aria-pressed={newOnly}
+              className="rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-wide transition"
+              style={
+                newOnly
+                  ? { backgroundColor: COMMUNITY_NEW_BADGE, color: "#fff" }
+                  : {
+                      backgroundColor: shell.hover,
+                      color: shell.muted,
+                      border: `1px solid ${shell.border}`,
+                    }
+              }
+            >
+              NEW
+            </button>
+            {newOnly ? (
+              <span className="text-xs" style={{ color: shell.muted }}>
+                {isKorean ? "24시간 이내" : "Last 24 hours"}
+              </span>
+            ) : null}
           </div>
 
           {isLoading ? (
@@ -311,9 +340,28 @@ export default function Community() {
                 {isKorean ? "만들기" : "Create"}
               </button>
             </div>
+          ) : !visiblePosts.length ? (
+            <div
+              className="rounded-xl border px-5 py-12 text-center"
+              style={{ backgroundColor: shell.card, borderColor: shell.border }}
+            >
+              <p className="font-semibold">
+                {isKorean
+                  ? "이 파트에 새 글이 아직 없습니다."
+                  : "No new posts in this section yet."}
+              </p>
+              <button
+                type="button"
+                onClick={() => setNewOnly(false)}
+                className="mt-4 rounded-full px-4 py-2 text-xs font-bold"
+                style={{ backgroundColor: shell.hover, color: shell.ink, border: `1px solid ${shell.border}` }}
+              >
+                {isKorean ? "전체 보기" : "Show all"}
+              </button>
+            </div>
           ) : (
             <div className="space-y-3">
-              {posts.map((post) => (
+              {visiblePosts.map((post) => (
                 <CommunityFeedCard
                   key={post.id}
                   post={post}
@@ -376,12 +424,18 @@ export default function Community() {
                 <p className="text-sm font-bold">{isKorean ? "최근 게시물" : "Recent posts"}</p>
               </div>
               <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-                {recentPosts.length === 0 ? (
+                {recentVisiblePosts.length === 0 ? (
                   <li className="px-4 py-6 text-sm" style={{ color: shell.muted }}>
-                    {isKorean ? "아직 없습니다." : "Nothing yet."}
+                    {newOnly
+                      ? isKorean
+                        ? "새 글이 없습니다."
+                        : "No new posts."
+                      : isKorean
+                        ? "아직 없습니다."
+                        : "Nothing yet."}
                   </li>
                 ) : (
-                  recentPosts.map((post, idx) => {
+                  recentVisiblePosts.map((post, idx) => {
                     const { title } = resolveCommunityPostDisplay(post, isKorean);
                     return (
                       <li key={post.id}>
