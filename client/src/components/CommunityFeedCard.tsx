@@ -2,12 +2,14 @@ import { ArrowBigUp, MessageSquare, Pin, Share2 } from "lucide-react";
 import { Link } from "wouter";
 import {
   COMMUNITY_CATEGORIES,
+  COMMUNITY_NEW_BADGE,
   COMMUNITY_REDDIT_BORDER,
   COMMUNITY_REDDIT_CARD,
   COMMUNITY_REDDIT_HOVER,
   COMMUNITY_REDDIT_INK,
   COMMUNITY_REDDIT_MUTED,
   COMMUNITY_REDDIT_UPVOTE,
+  isCommunityPostNew,
   resolveCommunityPostDisplay,
   type CommunityCategorySlug,
   type CommunityPostKind,
@@ -101,6 +103,14 @@ export function CommunityFeedCard({
             </span>
             <span>·</span>
             <span>{formatTime(post.createdAt, isKorean)}</span>
+            {isCommunityPostNew(post.createdAt) ? (
+              <span
+                className="rounded px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white"
+                style={{ backgroundColor: COMMUNITY_NEW_BADGE }}
+              >
+                NEW
+              </span>
+            ) : null}
             {post.pinnedAt ? (
               <span
                 className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold"

@@ -572,6 +572,8 @@
     "trackRejectedBody": "\"{{title}}\" was not approved this time. You can submit an updated version.",
     "battleWinTitle": "Battle win!",
     "battleWinBody": "Your track \"{{title}}\" won a battle on NEX.",
+    "communityPostTitle": "New community post",
+    "communityPostBody": "u/{{author}} posted \"{{title}}\" in the community.",
     "destMv": "Music Video chart",
     "destChart": "Music chart",
     "destBattle": "Battle pool",

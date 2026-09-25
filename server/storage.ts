@@ -2624,7 +2624,66 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    void this.notifyStaffOfNewCommunityPost({
+      postId: row.id,
+      authorUserId: input.authorUserId,
+      title,
+    }).catch(() => {});
+
     return row.id;
+  }
+
+  /** Staff inboxes (admin/founder + env founder IDs/email) — in-app only, no email. */
+  async listStaffAdminUserIds(): Promise<string[]> {
+    const ids = new Set<string>();
+    for (const raw of String(process.env.NEX_FOUNDER_ADMIN_USER_IDS || "").split(",")) {
+      const id = raw.trim();
+      if (id) ids.add(id);
+    }
+    const founderEmail = String(process.env.NEX_FOUNDER_ADMIN_EMAIL || "")
+      .trim()
+      .toLowerCase();
+    if (founderEmail) {
+      const [u] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(sql`lower(trim(coalesce(${users.email}, ''))) = ${founderEmail}`)
+        .limit(1);
+      if (u?.id) ids.add(u.id);
+    }
+    const roleRows = await db
+      .select({ userId: profiles.userId })
+      .from(profiles)
+      .where(inArray(profiles.role, ["admin", "founder"]));
+    for (const r of roleRows) {
+      if (r.userId) ids.add(r.userId);
+    }
+    return Array.from(ids);
+  }
+
+  async notifyStaffOfNewCommunityPost(input: {
+    postId: number;
+    authorUserId: string;
+    title: string;
+  }): Promise<void> {
+    const [author] = await db
+      .select({ username: profiles.username })
+      .from(profiles)
+      .where(eq(profiles.userId, input.authorUserId))
+      .limit(1);
+    const authorName = author?.username?.trim() || "someone";
+    const title = String(input.title || "").trim() || "Untitled";
+    const recipients = await this.listStaffAdminUserIds();
+    for (const recipientUserId of recipients) {
+      if (!recipientUserId || recipientUserId === input.authorUserId) continue;
+      await this.createNotification({
+        recipientUserId,
+        type: "community_post",
+        title: "New community post",
+        body: `u/${authorName} posted "${title}" in the community.`,
+        href: `/community/${input.postId}`,
+      });
+    }
   }
 
   async listCommunityPosts(opts?: {

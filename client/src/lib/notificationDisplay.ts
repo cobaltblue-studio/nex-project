@@ -54,6 +54,14 @@ export function localizedNotificationCopy(
         title: n.title,
         body: n.body,
       };
+    case "community_post": {
+      const authorMatch = n.body.match(/^u\/([^\s]+)\s/);
+      const author = authorMatch?.[1]?.trim() || "…";
+      return {
+        title: t("notifications.communityPostTitle"),
+        body: t("notifications.communityPostBody", { author, title }),
+      };
+    }
     default:
       return { title: n.title, body: n.body };
   }

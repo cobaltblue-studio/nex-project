@@ -22,12 +22,14 @@ import { CommunityComposer } from "@/components/CommunityComposer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   COMMUNITY_CATEGORIES,
+  COMMUNITY_NEW_BADGE,
   COMMUNITY_REDDIT_BG,
   COMMUNITY_REDDIT_BORDER,
   COMMUNITY_REDDIT_CARD,
   COMMUNITY_REDDIT_HOVER,
   COMMUNITY_REDDIT_INK,
   COMMUNITY_REDDIT_MUTED,
+  isCommunityPostNew,
   resolveCommunityPostDisplay,
   type CommunityCategorySlug,
 } from "@shared/community";
@@ -391,7 +393,17 @@ export default function Community() {
                             borderTop: idx === 0 ? undefined : `1px solid ${shell.border}`,
                           }}
                         >
-                          <p className="line-clamp-2 text-sm font-semibold leading-snug">{title}</p>
+                          <p className="line-clamp-2 text-sm font-semibold leading-snug">
+                            {isCommunityPostNew(post.createdAt) ? (
+                              <span
+                                className="mr-1.5 inline-block rounded px-1 py-0.5 align-middle text-[9px] font-black uppercase tracking-wide text-white"
+                                style={{ backgroundColor: COMMUNITY_NEW_BADGE }}
+                              >
+                                NEW
+                              </span>
+                            ) : null}
+                            {title}
+                          </p>
                           <p className="mt-1 text-xs" style={{ color: shell.muted }}>
                             {post.likeCount} {isKorean ? "좋아요" : "likes"} · {post.commentCount}{" "}
                             {isKorean ? "댓글" : "comments"}

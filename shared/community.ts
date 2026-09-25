@@ -94,6 +94,20 @@ export const COMMUNITY_REDDIT_MUTED = "#787C7E";
 export const COMMUNITY_REDDIT_BORDER = "#EDEFF1";
 export const COMMUNITY_REDDIT_HOVER = "#F6F7F8";
 export const COMMUNITY_REDDIT_UPVOTE = "#D93A00";
+/** Ember — NEW badge on Reddit-light community cards. */
+export const COMMUNITY_NEW_BADGE = "#FE9135";
+/** Posts newer than this window show a NEW badge. */
+export const COMMUNITY_NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export function isCommunityPostNew(
+  createdAt: string | Date | null | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  if (createdAt == null) return false;
+  const t = createdAt instanceof Date ? createdAt.getTime() : new Date(createdAt).getTime();
+  if (!Number.isFinite(t)) return false;
+  return nowMs - t >= 0 && nowMs - t < COMMUNITY_NEW_WINDOW_MS;
+}
 
 export function isCommunityCategorySlug(value: unknown): value is CommunityCategorySlug {
   return typeof value === "string" && COMMUNITY_CATEGORY_SLUGS.includes(value as CommunityCategorySlug);
