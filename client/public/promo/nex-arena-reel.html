@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NEX Arena — 30s Interactive Reel (16:9)</title>
+  <meta name="description" content="Enter. Battle. Climb. The community billboard for AI music — nexmusic.ai" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --teal: #1BC4CC;
+      --violet: #8A5AF2;
+      --ember: #FE9135;
+      --ink: #070A12;
+      --fog: rgba(255,255,255,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: #03050a;
+      color: #fff;
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100dvh;
+      padding: 12px;
+    }
+    .stage-wrap {
+      width: min(100vw - 24px, 1280px);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08),
+        0 30px 80px rgba(0,0,0,0.65),
+        0 0 60px rgba(138,90,242,0.18);
+    }
+    .stage {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 110%, rgba(27,196,204,0.18), transparent 55%),
+        radial-gradient(ellipse 60% 50% at 20% 30%, rgba(138,90,242,0.22), transparent 50%),
+        radial-gradient(ellipse 50% 40% at 85% 20%, rgba(254,145,53,0.14), transparent 45%),
+        #070A12;
+    }
+    .hero {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(7,10,18,0.35) 0%, rgba(7,10,18,0.55) 45%, rgba(7,10,18,0.92) 100%),
+        url("./nex-arena-reel-hero.jpg") center / cover no-repeat;
+      opacity: 0.95;
+      transform: scale(1.04);
+      transition: transform 30s linear, opacity 0.6s ease;
+    }
+    .stage.is-playing .hero { transform: scale(1.12); }
+    .grain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.12;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .chrome {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(14px, 2.4vw, 28px);
+      pointer-events: none;
+    }
+    .chrome * { pointer-events: auto; }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand img.icon { width: clamp(28px, 3.2vw, 42px); height: auto; }
+    .brand img.word {
+      height: clamp(18px, 2.2vw, 28px);
+      width: auto;
+      filter: drop-shadow(0 0 12px rgba(27,196,204,0.35));
+    }
+    .timer {
+      font-family: Oxanium, sans-serif;
+      font-weight: 700;
+      font-size: clamp(11px, 1.2vw, 14px);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.72);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .bar {
+      width: clamp(90px, 16vw, 180px);
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      overflow: hidden;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--teal), var(--violet), var(--ember));
+      transition: width 0.08s linear;
+    }
+    .center {
+      display: grid;
+      place-items: center;
+      text-align: center;
+      position: relative;
+    }
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 4% 6%;
+      opacity: 0;
+      transform: translateY(18px) scale(0.98);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+      pointer-events: none;
+    }
+    .scene.active {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+    .eyebrow {
+      font-family: Oxanium, sans-serif;
+      font-size: clamp(11px, 1.35vw, 15px);
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 0.6em;
+      text-shadow: 0 0 24px rgba(27,196,204,0.45);
+    }
+    h1 {
+      font-family: Oxanium, sans-serif;
+      font-weight: 800;
+      font-size: clamp(28px, 5.2vw, 72px);
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      max-width: 16ch;
+      text-wrap: balance;
+    }
+    h1 .ember { color: var(--ember); }
+    h1 .violet { color: var(--violet); }
+    h1 .teal { color: var(--teal); }
+    .sub {
+      margin-top: 0.85em;
+      font-size: clamp(14px, 1.7vw, 22px);
+      color: rgba(255,255,255,0.78);
+      max-width: 34ch;
+      line-height: 1.35;
+    }
+    .pill-row {
+      margin-top: 1.2em;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .pill {
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      padding: 0.45em 0.9em;
+      font-size: clamp(11px, 1.2vw, 14px);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .pill.teal { border-color: rgba(27,196,204,0.45); color: var(--teal); }
+    .pill.violet { border-color: rgba(138,90,242,0.45); color: #c4a8ff; }
+    .pill.ember { border-color: rgba(254,145,53,0.5); color: var(--ember); }
+
+    /* Interactive battle */
+    .battle {
+      width: min(920px, 100%);
+      display: grid;
+      gap: 14px;
+    }
+    .battle-title {
+      font-family: Oxanium, sans-serif;
+      font-weight: 800;
+      font-size: clamp(22px, 3.4vw, 40px);
+    }
+    .vs-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: clamp(8px, 1.5vw, 18px);
+      align-items: stretch;
+    }
+    .track-card {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(0,0,0,0.35));
+      padding: clamp(12px, 1.8vw, 20px);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s;
+      text-align: left;
+      min-height: 120px;
+    }
+    .track-card:hover { transform: translateY(-3px); }
+    .track-card.a { box-shadow: 0 0 0 0 rgba(27,196,204,0.0); }
+    .track-card.b { box-shadow: 0 0 0 0 rgba(138,90,242,0.0); }
+    .track-card.a:hover, .track-card.a.picked {
+      border-color: rgba(27,196,204,0.7);
+      box-shadow: 0 0 28px rgba(27,196,204,0.28);
+    }
+    .track-card.b:hover, .track-card.b.picked {
+      border-color: rgba(138,90,242,0.75);
+      box-shadow: 0 0 28px rgba(138,90,242,0.3);
+    }
+    .track-card.dim { opacity: 0.45; transform: scale(0.98); }
+    .track-card .label {
+      font-family: Oxanium, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 6px;
+    }
+    .track-card .name {
+      font-weight: 700;
+      font-size: clamp(15px, 1.8vw, 22px);
+      line-height: 1.15;
+    }
+    .track-card .meta {
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+    }
+    .vs {
+      align-self: center;
+      font-family: Oxanium, sans-serif;
+      font-weight: 800;
+      font-size: clamp(16px, 2vw, 22px);
+      color: var(--ember);
+      text-shadow: 0 0 20px rgba(254,145,53,0.5);
+    }
+    .hint {
+      font-size: clamp(12px, 1.3vw, 15px);
+      color: rgba(255,255,255,0.65);
+    }
+    .hint strong { color: var(--ember); }
+
+    .bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .beats {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 22px;
+      opacity: 0.85;
+    }
+    .beats span {
+      width: 4px;
+      border-radius: 2px;
+      background: var(--teal);
+      animation: pulse 0.9s ease-in-out infinite;
+      height: 30%;
+    }
+    .beats span:nth-child(2) { animation-delay: 0.1s; background: var(--violet); height: 55%; }
+    .beats span:nth-child(3) { animation-delay: 0.2s; background: var(--ember); height: 80%; }
+    .beats span:nth-child(4) { animation-delay: 0.15s; background: var(--violet); height: 45%; }
+    .beats span:nth-child(5) { animation-delay: 0.25s; background: var(--teal); height: 65%; }
+    @keyframes pulse {
+      0%, 100% { transform: scaleY(0.55); opacity: 0.55; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: none;
+      border-radius: 999px;
+      padding: 0.7em 1.25em;
+      font-family: Oxanium, sans-serif;
+      font-weight: 800;
+      font-size: clamp(13px, 1.4vw, 16px);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #071018;
+      background: linear-gradient(105deg, var(--teal), #7cf0f5 35%, var(--ember));
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 10px 30px rgba(254,145,53,0.25);
+      transition: transform 0.15s ease, filter 0.15s;
+    }
+    .cta:hover { transform: translateY(-2px) scale(1.02); filter: brightness(1.05); }
+    .cta.ghost {
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.28);
+      box-shadow: none;
+    }
+
+    /* Gate */
+    .gate {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(138,90,242,0.25), transparent 50%),
+        rgba(3,5,10,0.72);
+      backdrop-filter: blur(6px);
+      transition: opacity 0.4s ease, visibility 0.4s;
+    }
+    .gate.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .gate-card {
+      text-align: center;
+      padding: 28px;
+      max-width: 520px;
+    }
+    .gate-card h2 {
+      font-family: Oxanium, sans-serif;
+      font-size: clamp(26px, 4vw, 44px);
+      font-weight: 800;
+      margin: 12px 0 8px;
+    }
+    .gate-card p {
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 18px;
+      font-size: clamp(14px, 1.5vw, 17px);
+    }
+    .tap {
+      animation: breathe 1.6s ease-in-out infinite;
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(27,196,204,0.35); }
+      50% { transform: scale(1.04); box-shadow: 0 0 40px 4px rgba(27,196,204,0.25); }
+    }
+
+    .end-glow {
+      position: absolute;
+      inset: auto 10% 18% 10%;
+      height: 40%;
+      background: radial-gradient(ellipse at center, rgba(254,145,53,0.22), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.5s;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .stage.end .end-glow { opacity: 1; }
+
+    .flash {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 15;
+    }
+    .flash.on { animation: flash 0.35s ease-out; }
+    @keyframes flash {
+      0% { opacity: 0.35; }
+      100% { opacity: 0; }
+    }
+
+    @media (max-width: 700px) {
+      .vs-grid { grid-template-columns: 1fr; }
+      .vs { order: -1; justify-self: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage-wrap" id="wrap">
+    <div class="stage" id="stage">
+      <div class="hero" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="end-glow" aria-hidden="true"></div>
+      <div class="flash" id="flash" aria-hidden="true"></div>
+
+      <div class="chrome">
+        <div class="top">
+          <div class="brand">
+            <img class="icon" src="./nex-icon.png" alt="" />
+            <img class="word" src="./nex-wordmark.png" alt="NEX" />
+          </div>
+          <div class="timer">
+            <span id="clock">0:00</span>
+            <div class="bar"><i id="progress"></i></div>
+            <span>/ 0:30</span>
+          </div>
+        </div>
+
+        <div class="center">
+          <section class="scene active" data-scene="hook">
+            <div>
+              <p class="eyebrow">AI Music · Real Ranking</p>
+              <h1>Talent shouldn’t pay<br />to be <span class="ember">heard</span>.</h1>
+              <p class="sub">NEX is the community billboard where AI tracks climb by battles, plays, and votes — not ad spend.</p>
+            </div>
+          </section>
+
+          <section class="scene" data-scene="problem">
+            <div>
+              <p class="eyebrow">The gap</p>
+              <h1>Hidden algorithms.<br /><span class="violet">Invisible charts.</span></h1>
+              <p class="sub">Creators ship fire. Listeners never see it. Rankings feel bought, not earned.</p>
+              <div class="pill-row">
+                <span class="pill ember">Pay-to-play</span>
+                <span class="pill violet">Opaque feeds</span>
+                <span class="pill teal">No fair arena</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="scene" data-scene="battle">
+            <div class="battle">
+              <p class="eyebrow">Your move</p>
+              <p class="battle-title">Two tracks enter. <span style="color:var(--ember)">One climbs.</span></p>
+              <p class="hint" id="battleHint">Tap a side to cast your vote — <strong>you shape the chart</strong>.</p>
+              <div class="vs-grid">
+                <button type="button" class="track-card a" id="pickA" aria-label="Vote track A">
+                  <div class="label">Track A · Teal</div>
+                  <div class="name">Neon Afterglow</div>
+                  <div class="meta">Live battle · community votes</div>
+                </button>
+                <div class="vs">VS</div>
+                <button type="button" class="track-card b" id="pickB" aria-label="Vote track B">
+                  <div class="label">Track B · Violet</div>
+                  <div class="name">Ember Protocol</div>
+                  <div class="meta">Live battle · real engagement</div>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="scene" data-scene="glory">
+            <div>
+              <p class="eyebrow">Entry → Battle → Glory</p>
+              <h1>Climb a chart you can<br /><span class="teal">actually trust</span>.</h1>
+              <div class="pill-row">
+                <span class="pill teal">Submit</span>
+                <span class="pill violet">Battle</span>
+                <span class="pill ember">Rank</span>
+              </div>
+              <p class="sub">Same rules for new creators and veterans. Merit over marketing.</p>
+            </div>
+          </section>
+
+          <section class="scene" data-scene="cta">
+            <div>
+              <p class="eyebrow">nexmusic.ai</p>
+              <h1>Enter the <span class="ember">Arena</span>.</h1>
+              <p class="sub">Bring your track. Vote. Post. Build a portfolio the chart can prove.</p>
+              <div class="pill-row" style="margin-top:1.4em">
+                <a class="cta" href="https://nexmusic.ai/" target="_blank" rel="noopener">Open NEX</a>
+                <button type="button" class="cta ghost" id="replay">Replay 30s</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="bottom">
+          <div class="beats" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.45);letter-spacing:0.08em;text-transform:uppercase;font-family:Oxanium,sans-serif;">
+            Interactive reel · 16:9 · 30s
+          </div>
+        </div>
+      </div>
+
+      <div class="gate" id="gate">
+        <div class="gate-card">
+          <img src="./nex-icon.png" alt="" width="56" height="56" style="filter:drop-shadow(0 0 18px rgba(138,90,242,0.55))" />
+          <h2>NEX Arena Reel</h2>
+          <p>30 seconds. Interactive. Tap to enter — then vote in a live-style battle.</p>
+          <button type="button" class="cta tap" id="start">Tap to start</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DURATION = 30000;
+    const SCENES = [
+      { id: "hook", at: 0 },
+      { id: "problem", at: 5500 },
+      { id: "battle", at: 11500 },
+      { id: "glory", at: 21000 },
+      { id: "cta", at: 25500 },
+    ];
+
+    const stage = document.getElementById("stage");
+    const gate = document.getElementById("gate");
+    const progress = document.getElementById("progress");
+    const clock = document.getElementById("clock");
+    const flash = document.getElementById("flash");
+    const battleHint = document.getElementById("battleHint");
+    const scenes = [...document.querySelectorAll(".scene")];
+
+    let startTs = 0;
+    let raf = 0;
+    let playing = false;
+    let voted = false;
+
+    function fmt(ms) {
+      const s = Math.min(30, Math.floor(ms / 1000));
+      return `0:${String(s).padStart(2, "0")}`;
+    }
+
+    function showScene(id) {
+      scenes.forEach((el) => el.classList.toggle("active", el.dataset.scene === id));
+      stage.classList.toggle("end", id === "cta");
+    }
+
+    function tick(now) {
+      if (!playing) return;
+      const elapsed = now - startTs;
+      const t = Math.min(elapsed, DURATION);
+      progress.style.width = `${(t / DURATION) * 100}%`;
+      clock.textContent = fmt(t);
+
+      let current = SCENES[0].id;
+      for (const s of SCENES) {
+        if (t >= s.at) current = s.id;
+      }
+      showScene(current);
+
+      if (t >= DURATION) {
+        playing = false;
+        showScene("cta");
+        progress.style.width = "100%";
+        clock.textContent = "0:30";
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    }
+
+    function start() {
+      voted = false;
+      document.getElementById("pickA").classList.remove("picked", "dim");
+      document.getElementById("pickB").classList.remove("picked", "dim");
+      battleHint.innerHTML = 'Tap a side to cast your vote — <strong>you shape the chart</strong>.';
+      gate.classList.add("hidden");
+      stage.classList.add("is-playing");
+      stage.classList.remove("end");
+      playing = true;
+      startTs = performance.now();
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(tick);
+      flash.classList.remove("on");
+      void flash.offsetWidth;
+      flash.classList.add("on");
+    }
+
+    function vote(side) {
+      if (voted) return;
+      voted = true;
+      const a = document.getElementById("pickA");
+      const b = document.getElementById("pickB");
+      if (side === "a") {
+        a.classList.add("picked");
+        b.classList.add("dim");
+        battleHint.innerHTML = '<strong>Vote locked.</strong> Neon Afterglow climbs — real engagement, not ad spend.';
+      } else {
+        b.classList.add("picked");
+        a.classList.add("dim");
+        battleHint.innerHTML = '<strong>Vote locked.</strong> Ember Protocol climbs — merit over marketing.';
+      }
+      flash.classList.remove("on");
+      void flash.offsetWidth;
+      flash.classList.add("on");
+    }
+
+    document.getElementById("start").addEventListener("click", start);
+    document.getElementById("replay").addEventListener("click", () => {
+      gate.classList.remove("hidden");
+      stage.classList.remove("is-playing", "end");
+      progress.style.width = "0%";
+      clock.textContent = "0:00";
+      showScene("hook");
+      setTimeout(start, 180);
+    });
+    document.getElementById("pickA").addEventListener("click", () => vote("a"));
+    document.getElementById("pickB").addEventListener("click", () => vote("b"));
+
+    // Keyboard: space to start / replay
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (!gate.classList.contains("hidden") || !playing) start();
+      }
+    });
+  </script>
+</body>
+</html>
