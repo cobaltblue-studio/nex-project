@@ -526,7 +526,7 @@
             <div class="battle">
               <p class="eyebrow">Your move</p>
               <p class="battle-title">Two tracks enter. <span style="color:var(--ember)">One climbs.</span></p>
-              <p class="hint" id="battleHint">Tap a side — <strong>샤악</strong> then <strong>쿵</strong>. You shape the chart.</p>
+              <p class="hint" id="battleHint">Tap a side to vote. <strong>You shape the chart.</strong></p>
               <div class="vs-grid">
                 <button type="button" class="track-card a" id="pickA" aria-label="Vote track A">
                   <div class="label">Track A · Teal</div>
@@ -943,7 +943,7 @@
       lastScene = "";
       document.getElementById("pickA").classList.remove("picked", "dim");
       document.getElementById("pickB").classList.remove("picked", "dim");
-      battleHint.innerHTML = 'Tap a side — <strong>샤악</strong> then <strong>쿵</strong>. You shape the chart.';
+      battleHint.innerHTML = 'Tap a side to vote. <strong>You shape the chart.</strong>';
       gate.classList.add("hidden");
       stage.classList.add("is-playing");
       stage.classList.remove("end");
