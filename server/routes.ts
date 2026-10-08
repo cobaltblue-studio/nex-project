@@ -1016,6 +1016,21 @@ export async function registerRoutes(
       const media = await resolveSunoPlayableMediaVerified(input);
       if (!media) {
         const failCode = await diagnoseSunoResolveFailure(input);
+        const issueEn =
+          failCode === "SUNO_PRIVATE"
+            ? "This Suno song is Private. Make it Public on Suno so it can play on NEX."
+            : "Suno has no public MP3/MP4 for this track — cannot play inside NEX.";
+        // Fire-and-forget: email + in-app alert to the track owner(s).
+        void (async () => {
+          try {
+            const ids = await storage.findPublicTrackIdsByPlaybackUrl(input);
+            for (const id of ids) {
+              await storage.notifyTrackPlaybackIssue(id, issueEn);
+            }
+          } catch (err) {
+            console.error("[suno/audio] notifyTrackPlaybackIssue failed", err);
+          }
+        })();
         if (failCode === "SUNO_PRIVATE") {
           return res.status(422).json({
             streamUrl: null,

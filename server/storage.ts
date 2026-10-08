@@ -761,6 +761,8 @@ export interface IStorage {
     notified: boolean;
     email: { sent: boolean; skipReason?: string; detail?: string };
   }>;
+  /** Public catalog tracks whose audio/mv URL contains this Suno UUID or exact media URL. */
+  findPublicTrackIdsByPlaybackUrl(urlOrUuid: string): Promise<number[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3569,6 +3571,29 @@ export class DatabaseStorage implements IStorage {
     return !!existing;
   }
 
+  async findPublicTrackIdsByPlaybackUrl(urlOrUuid: string): Promise<number[]> {
+    const raw = String(urlOrUuid ?? "").trim();
+    if (!raw) return [];
+    const publicStatuses = ["MV", "BATTLE_POOL", "PUBLISHED", "APPROVED", "CHART"] as const;
+    const uuidMatch = raw.match(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
+    const needle = (uuidMatch?.[0] ?? raw).toLowerCase();
+    const like = `%${needle}%`;
+    const rows = await db
+      .select({ id: tracks.id })
+      .from(tracks)
+      .where(
+        and(
+          eq(tracks.isDeleted, false),
+          inArray(tracks.status, [...publicStatuses]),
+          or(sql`lower(${tracks.audioUrl}) like ${like}`, sql`lower(coalesce(${tracks.mvUrl}, '')) like ${like}`),
+        ),
+      )
+      .limit(20);
+    return rows.map((r) => r.id);
+  }
+
   async submitTrack(data: { title: string; artistName: string; genre: string; trackLink: string; trackType: string; aiPrompt?: string | null; coverImageUrl?: string | null; portfolioLink?: string | null; creatorId: number }): Promise<Track> {
     const isVideo = data.trackType === "video";
     const [t] = await db.insert(tracks).values({
@@ -4959,8 +4984,13 @@ export class DatabaseStorage implements IStorage {
         issueSummary,
       }),
     );
+    // Keep reservation even if email fails — avoids daily in-app spam; ops can clear dedupe to retry.
     if (!email.sent) {
-      await this.clearEngagementEmailReservation("track_playback_issue", dedupeKey, recipientUserId);
+      console.warn("[notify] playback issue email not sent (in-app kept)", {
+        trackId,
+        skipReason: email.skipReason,
+        detail: email.detail,
+      });
     }
     return { notified: true, email };
   }

@@ -25,6 +25,12 @@ export function describePlaybackIssue(result: {
     };
   }
   if (result.reason === "private_or_removed") {
+    if (result.source === "suno") {
+      return {
+        ko: "Suno에서 이 곡이 Private(비공개)입니다. Suno에서 Public으로 바꾸면 NEX에서 바로 재생됩니다.",
+        en: "This Suno song is Private. Make it Public on Suno so it can play on NEX.",
+      };
+    }
     return {
       ko: "원본 링크가 비공개, 삭제, 또는 접근 불가 상태입니다.",
       en: "The source link is private, removed, or otherwise inaccessible.",

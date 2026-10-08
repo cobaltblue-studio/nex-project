@@ -284,11 +284,12 @@ app.use((req, res, next) => {
 
   const { startDailySnapshotScheduler } = await import("./dailySnapshot");
   startDailySnapshotScheduler(storage);
+  // Always audit public tracks for dead links (in-app + email when Resend works).
+  const { startPublicTrackPlaybackAudit } = await import("./playbackAudit");
+  startPublicTrackPlaybackAudit(storage);
   if (isEmailEnabled()) {
     const { startAnnouncementCampaignWorker } = await import("./announcementCampaigns");
     startAnnouncementCampaignWorker();
-    const { startPublicTrackPlaybackAudit } = await import("./playbackAudit");
-    startPublicTrackPlaybackAudit(storage);
   }
 })().catch((err) => {
   console.error("[boot] fatal:", err);

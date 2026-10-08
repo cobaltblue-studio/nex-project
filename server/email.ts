@@ -424,29 +424,42 @@ export async function sendTrackPlaybackIssueEmail(opts: {
   const title = escapeHtml(opts.trackTitle);
   const issue = escapeHtml(opts.issueSummary);
   const href = `${siteOrigin()}/my-tracks`;
+  const sunoPrivate = /suno/i.test(opts.issueSummary) && /private/i.test(opts.issueSummary);
+  const howEn = sunoPrivate
+    ? "Open the song on Suno → set visibility to <strong style=\"color:#fff;\">Public</strong> → refresh NEX. Admins cannot flip this for you."
+    : "NEX admins cannot fix this for you. Please make the source link public/playable on the original platform, or resubmit with a correct link.";
+  const howKo = sunoPrivate
+    ? "Suno에서 해당 곡을 연 뒤 공개 설정을 <strong style=\"color:#fff;\">Public</strong>으로 바꾸시면 NEX에서 바로 재생됩니다. 관리자가 대신 바꿀 수 없습니다."
+    : "이 문제는 NEX 관리자가 대신 수정할 수 없습니다. 원본 플랫폼에서 공개/재생 가능 상태를 확인한 뒤 링크를 수정하거나 다시 제출해 주세요.";
+  const howTextEn = sunoPrivate
+    ? "Open the song on Suno → set visibility to Public → refresh NEX. Admins cannot flip this for you."
+    : "NEX admins cannot fix this for you. Please make the source link public/playable on the original platform, or resubmit with a correct link.";
+  const howTextKo = sunoPrivate
+    ? "Suno에서 해당 곡을 Public으로 바꾸시면 NEX에서 바로 재생됩니다. 관리자가 대신 바꿀 수 없습니다."
+    : "이 문제는 NEX 관리자가 대신 수정할 수 없습니다. 원본 플랫폼에서 공개/재생 가능 상태를 확인한 뒤 링크를 수정하거나 다시 제출해 주세요.";
   const msg = composeBilingualEmail({
-    subjectEn: `Fix required for playback link — ${opts.trackTitle}`,
-    subjectKo: `재생 불가 링크 수정 필요 — ${opts.trackTitle}`,
+    subjectEn: `Action needed: "${opts.trackTitle}" is not playing on NEX`,
+    subjectKo: `조치 필요: 「${opts.trackTitle}」 NEX에서 재생되지 않습니다`,
     headlineEn: "Please fix your uploaded link",
     headlineKo: "업로드한 링크를 수정해 주세요",
     englishHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong> is not playing on NEX right now.</p>
       <p style="margin:0 0 12px;">Reason: <strong style="color:#fff;">${issue}</strong></p>
-      <p style="margin:0;">NEX admins cannot fix this for you. Please make the source link public/playable on the original platform, or resubmit with a correct link.</p>`,
+      <p style="margin:0;">${howEn}</p>`,
     koreanHtml: `<p style="margin:0 0 12px;"><strong style="color:#fff;">${title}</strong>은(는) 현재 NEX에서 정상 재생되지 않습니다.</p>
       <p style="margin:0 0 12px;">사유: <strong style="color:#fff;">${issue}</strong></p>
-      <p style="margin:0;">이 문제는 NEX 관리자가 대신 수정할 수 없습니다. 원본 플랫폼에서 공개/재생 가능 상태를 확인한 뒤 링크를 수정하거나 다시 제출해 주세요.</p>`,
+      <p style="margin:0;">${howKo}</p>`,
     ctaLabelEn: "Open my tracks",
     ctaLabelKo: "내 트랙 열기",
     ctaHref: href,
     textEn:
       `"${opts.trackTitle}" is not playing on NEX right now.\n` +
       `Reason: ${opts.issueSummary}\n` +
-      `NEX admins cannot fix this for you. Please make the source link public/playable on the original platform, or resubmit with a correct link.\n` +
+      `${howTextEn}\n` +
       `My tracks: ${href}`,
     textKo:
       `"${opts.trackTitle}"은(는) 현재 NEX에서 정상 재생되지 않습니다.\n` +
       `사유: ${opts.issueSummary}\n` +
-      `이 문제는 NEX 관리자가 대신 수정할 수 없습니다. 원본 플랫폼에서 공개/재생 가능 상태를 확인한 뒤 링크를 수정하거나 다시 제출해 주세요.\n` +
+      `${howTextKo}\n` +
       `내 트랙: ${href}`,
   });
   return sendEmail({ to: opts.to, ...msg });
