@@ -284,9 +284,7 @@ app.use((req, res, next) => {
 
   const { startDailySnapshotScheduler } = await import("./dailySnapshot");
   startDailySnapshotScheduler(storage);
-  // Always audit public tracks for dead links (in-app + email when Resend works).
-  const { startPublicTrackPlaybackAudit } = await import("./playbackAudit");
-  startPublicTrackPlaybackAudit(storage);
+  // Playback-issue email/in-app: on-demand only (e.g. /api/suno/audio fail). No daily full-catalog crawl.
   if (isEmailEnabled()) {
     const { startAnnouncementCampaignWorker } = await import("./announcementCampaigns");
     startAnnouncementCampaignWorker();
