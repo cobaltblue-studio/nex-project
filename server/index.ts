@@ -254,6 +254,9 @@ app.use((req, res, next) => {
 
   // API routes must be registered before the SPA catch-all (serveStatic / Vite).
   if (process.env.NODE_ENV === "production") {
+    // Dynamic per-track / per-creator SEO — must run before the SPA catch-all.
+    const { registerDynamicSeo } = await import("./seoTrack");
+    registerDynamicSeo(app, storage);
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
