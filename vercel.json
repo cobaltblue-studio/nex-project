@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "client/dist",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://nex-project-production.up.railway.app/api/:path*" },
+    { "source": "/music", "destination": "/music.html" },
+    { "source": "/rising", "destination": "/rising.html" },
+    { "source": "/battle", "destination": "/battle.html" },
+    { "source": "/creators", "destination": "/creators.html" },
+    { "source": "/radio", "destination": "/radio.html" },
+    { "source": "/new", "destination": "/new.html" },
+    { "source": "/music-video", "destination": "/music-video.html" },
+    { "source": "/community", "destination": "/community.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/chart-methodology", "destination": "/chart-methodology.html" },
+    { "source": "/data-policy", "destination": "/data-policy.html" },
+    { "source": "/join", "destination": "/join.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
