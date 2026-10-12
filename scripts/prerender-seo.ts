@@ -35,8 +35,6 @@ const TODAY = new Date().toISOString().slice(0, 10);
 interface Route {
   /** URL path, e.g. "/music". Home is "/". */
   path: string;
-  /** Output file written into dist. Home writes back to index.html. */
-  file: string;
   title: string; // <= 60 chars ideally
   description: string; // <= 160 chars ideally
   /** Longer human-readable summary injected into <noscript> for crawlers. */
@@ -47,7 +45,6 @@ interface Route {
 const ROUTES: Route[] = [
   {
     path: "/",
-    file: "index.html",
     title: "NEX — AI Music Chart & Ranking Platform",
     description:
       "The transparent chart for AI-generated music. Submit your track, battle head-to-head, and climb the NEX Top 100 — ranked by wins, plays and votes, not ad spend.",
@@ -57,7 +54,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/music",
-    file: "music.html",
     title: "AI Music Top 100 Chart | NEX",
     description:
       "The NEX Top 100 — the live ranking of the best AI-generated music, updated daily from battle wins, plays and votes. Discover trending AI songs by real performance.",
@@ -67,7 +63,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/rising",
-    file: "rising.html",
     title: "Rising AI Music — Fastest-Climbing Tracks | NEX",
     description:
       "See the AI tracks climbing fastest on NEX. The Rising board surfaces the steepest upward trends — new AI songs gaining momentum through battle wins and votes.",
@@ -77,7 +72,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/battle",
-    file: "battle.html",
     title: "AI Music Battles — Vote Head-to-Head | NEX",
     description:
       "Two AI tracks enter, one wins. Vote in live head-to-head AI music battles and decide which tracks rise up the NEX chart. Real-time, unmanipulable rankings.",
@@ -87,7 +81,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/creators",
-    file: "creators.html",
     title: "AI Music Creators & Artists | NEX",
     description:
       "Discover AI music creators on NEX. Browse artist profiles, battle records, chart history and verified track portfolios — a meritocratic stage for AI musicians.",
@@ -97,7 +90,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/radio",
-    file: "radio.html",
     title: "NEX Radio — Non-Stop AI Music",
     description:
       "Press play and listen to continuous AI-generated music on NEX Radio — an always-on stream of chart-eligible AI tracks, powered by the community.",
@@ -107,7 +99,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/new",
-    file: "new.html",
     title: "New AI Music — Latest Submissions | NEX",
     description:
       "The newest AI-generated tracks submitted to NEX. Hear fresh AI music entering the battle pool and help vote on what deserves a spot on the chart.",
@@ -117,7 +108,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/music-video",
-    file: "music-video.html",
     title: "AI Music Videos | NEX",
     description:
       "Watch AI music videos on NEX — visual AI-generated music entries competing for plays, votes and a place on the chart.",
@@ -127,7 +117,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/community",
-    file: "community.html",
     title: "NEX Community — AI Music Creators Forum",
     description:
       "Join the NEX community of AI music creators and listeners. Share prompts, discuss tracks, trade feedback and follow the artists climbing the chart.",
@@ -137,7 +126,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/about",
-    file: "about.html",
     title: "About NEX — The Billboard for AI Music",
     description:
       "NEX is the credibility and discovery layer for AI music — a transparent, community-driven ranking that gives AI creators a verifiable track record. Learn how it works.",
@@ -147,7 +135,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/chart-methodology",
-    file: "chart-methodology.html",
     title: "How the NEX Chart Works — Ranking Methodology",
     description:
       "How NEX ranks AI music: battle wins (50%), likes (20%), plays (20%) and fans (10%), log-normalized and recalculated continuously. A transparent, auditable method.",
@@ -157,7 +144,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/data-policy",
-    file: "data-policy.html",
     title: "Data & Ranking Integrity Policy | NEX",
     description:
       "How NEX keeps rankings fair and data trustworthy — entropy checks on submissions, quality signals and anti-manipulation safeguards behind the AI music chart.",
@@ -167,7 +153,6 @@ const ROUTES: Route[] = [
   },
   {
     path: "/join",
-    file: "join.html",
     title: "Submit Your AI Music to NEX",
     description:
       "Submit your AI-generated track to NEX and enter the battle arena. Compete for chart positions, grow an audience through NEX Radio, and build a verified track record.",
@@ -322,7 +307,14 @@ function main() {
   let count = 0;
   for (const route of ROUTES) {
     const html = injectSeo(base, route);
-    fs.writeFileSync(path.join(DIST, route.file), html, "utf8");
+    // Emit "<route>/index.html" (directory index) rather than "<route>.html":
+    // Vercel resolves "/about" -> "/about/index.html" during its filesystem
+    // phase, before any rewrite, so clean URLs work without depending on
+    // vercel.json rewrites being honored over the project's own config.
+    const rel = route.path === "/" ? "index.html" : `${route.path.slice(1)}/index.html`;
+    const outPath = path.join(DIST, rel);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, html, "utf8");
     count++;
   }
 
