@@ -78,7 +78,70 @@ function inject(html: string, seo: Seo): string {
   return out;
 }
 
+/** Public fixed routes, mirrored from scripts/prerender-seo.ts. */
+const STATIC_ROUTES: Array<[path: string, priority: string, freq: string]> = [
+  ["/", "1.0", "daily"],
+  ["/music", "0.9", "daily"],
+  ["/rising", "0.8", "daily"],
+  ["/battle", "0.8", "daily"],
+  ["/creators", "0.8", "daily"],
+  ["/radio", "0.7", "weekly"],
+  ["/new", "0.7", "daily"],
+  ["/music-video", "0.7", "weekly"],
+  ["/community", "0.7", "weekly"],
+  ["/about", "0.6", "weekly"],
+  ["/chart-methodology", "0.6", "weekly"],
+  ["/data-policy", "0.5", "weekly"],
+  ["/join", "0.7", "weekly"],
+];
+
+function xmlLoc(loc: string, lastmod: string, freq: string, priority: string): string {
+  return (
+    `  <url>\n    <loc>${esc(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n` +
+    `    <changefreq>${freq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`
+  );
+}
+
 export function registerDynamicSeo(app: Express, storage: any): void {
+  // Dynamic sitemap: fixed routes + every public track + every creator, built
+  // from the DB so new tracks are included automatically. On any DB error, fall
+  // through to the static sitemap.xml written at build time (13 fixed routes).
+  app.get("/sitemap.xml", async (_req, res, next) => {
+    let tracks: any[];
+    try {
+      tracks = await storage.getTracks({});
+    } catch {
+      return next();
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const lastmodOf = (d: any) => {
+      const t = d ? new Date(d) : null;
+      return t && !isNaN(t.getTime()) ? t.toISOString().slice(0, 10) : today;
+    };
+    const urls: string[] = STATIC_ROUTES.map(([p, prio, freq]) =>
+      xmlLoc(`${ORIGIN}${p === "/" ? "/" : p}`, today, freq, prio),
+    );
+    const creators = new Map<string, any>();
+    for (const t of tracks) {
+      urls.push(xmlLoc(`${ORIGIN}/track/${t.id}`, lastmodOf(t.createdAt), "daily", "0.6"));
+      const uname = t.creator?.username;
+      if (uname && !creators.has(uname)) creators.set(uname, t.creator);
+    }
+    for (const uname of creators.keys()) {
+      urls.push(
+        xmlLoc(`${ORIGIN}/profile/${encodeURIComponent(uname)}`, today, "weekly", "0.5"),
+      );
+    }
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      urls.join("\n") +
+      `\n</urlset>\n`;
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.send(xml);
+  });
+
   app.get("/track/:id", async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return next();
