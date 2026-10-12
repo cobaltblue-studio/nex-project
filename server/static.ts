@@ -36,6 +36,9 @@ export function serveStatic(app: Express) {
   app.use(
     express.static(CLIENT_DIST, {
       index: false,
+      // Don't 301 "/about" -> "/about/": let the catch-all serve the
+      // prerendered client/dist/about/index.html at the clean URL directly.
+      redirect: false,
       dotfiles: "deny",
       setHeaders(res, filePath) {
         // Hashed Vite assets can be cached; index.html must revalidate after each deploy.
@@ -49,10 +52,22 @@ export function serveStatic(app: Express) {
   );
 
   app.use("/{*path}", (req, res, next) => {
-    if (requestPathname(req).startsWith("/api")) {
+    const pathname = requestPathname(req);
+    if (pathname.startsWith("/api")) {
       return next();
     }
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    // Serve the prerendered per-route shell (client/dist/<route>/index.html,
+    // written by scripts/prerender-seo.ts) when one exists, so crawlers and
+    // JS-less AI crawlers get unique title/description/JSON-LD per clean URL.
+    // Everything else (e.g. /track/:id) falls back to the SPA shell.
+    const clean = pathname.replace(/\/+$/, "");
+    if (clean && clean !== "/index.html") {
+      const candidate = path.resolve(CLIENT_DIST, `.${clean}`, "index.html");
+      if (candidate.startsWith(CLIENT_DIST + path.sep) && fs.existsSync(candidate)) {
+        return res.sendFile(candidate);
+      }
+    }
     res.sendFile(path.resolve(CLIENT_DIST, "index.html"));
   });
 }
